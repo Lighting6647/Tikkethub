@@ -1,0 +1,13 @@
+{
+  "name": "thaiticket-concert-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "build": "node --check server.js && node --check backend/db.js && node --check backend/line.js && node --check js/app.js && node --check js/checkout.js && node --check js/admin.js && node --check js/ticket-renderer.js && node --check js/ticket-viewer.js",
+    "test": "node --test tests/promptpay.test.js && node tests/e2e.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1"
+  }
+}

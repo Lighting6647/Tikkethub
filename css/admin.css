@@ -1,0 +1,303 @@
+/* Admin Dashboard Styles — built on tokens.css & checkout.css */
+
+.admin-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+  padding: var(--space-20) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.admin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-actions .btn-primary,
+.admin-actions .btn-outline,
+.admin-actions .btn-default {
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-16);
+  margin: var(--space-20) 0;
+}
+
+.kpi-card {
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--space-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.kpi-label {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-value.is-accent { color: var(--color-accent); }
+.kpi-value.is-pending { color: #F5A623; }
+.kpi-value.is-danger { color: #FF6B6B; }
+
+.zone-summary-box {
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--space-20);
+  margin-bottom: var(--space-20);
+}
+
+.zone-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-12);
+  margin-top: var(--space-12);
+}
+
+.zone-chip {
+  background: #2c2c2c;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-btn);
+  padding: var(--space-12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
+}
+
+.filter-tabs {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.filter-tab {
+  background: #262626;
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-muted);
+  border-radius: var(--radius-pill);
+  padding: 6px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-tab:hover { color: var(--color-text); }
+.filter-tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #FFFFFF;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.order-card {
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--space-20);
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: var(--space-20);
+  align-items: center;
+}
+
+.order-slip-thumb {
+  width: 120px;
+  height: 150px;
+  border-radius: var(--radius-btn);
+  overflow: hidden;
+  background: #222;
+  border: 1px solid var(--color-border-subtle);
+  cursor: zoom-in;
+  position: relative;
+}
+
+.order-slip-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.order-slip-zoom-tag {
+  position: absolute;
+  bottom: 0;
+  inset-inline: 0;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 11px;
+  text-align: center;
+  padding: 3px 4px;
+}
+
+.order-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.order-top-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.order-ref {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-accent);
+}
+
+.order-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.order-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-8);
+  background: #2d2d2d;
+  padding: var(--space-12);
+  border-radius: var(--radius-btn);
+}
+
+.order-meta-item small {
+  display: block;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.order-meta-item strong {
+  font-size: 13px;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: block;
+}
+
+.order-hash {
+  font-size: 11px;
+  color: var(--color-muted);
+  font-family: monospace;
+}
+
+.order-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 190px;
+}
+
+.slip-zoom-img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #141414;
+  border-radius: var(--radius-btn);
+}
+
+.quick-scan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}
+
+.quick-scan-chip {
+  background: #2b2b2b;
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text);
+  border-radius: var(--radius-btn);
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.quick-scan-chip:hover {
+  border-color: var(--color-accent);
+  background: #333333;
+}
+
+.scan-result-box {
+  border-radius: var(--radius-card);
+  padding: var(--space-16);
+  border: 1px solid var(--color-border-subtle);
+  background: #242424;
+}
+
+.scan-result-box.is-pass {
+  border-color: rgba(34, 155, 255, 0.65);
+  background: rgba(34, 155, 255, 0.12);
+}
+
+.scan-result-box.is-duplicate {
+  border-color: rgba(180, 0, 0, 0.85);
+  background: rgba(180, 0, 0, 0.18);
+}
+
+.badge-checkedin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(34, 155, 255, 0.18);
+  border: 1px solid rgba(34, 155, 255, 0.55);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-btn);
+}
+
+@media (max-width: 768px) {
+  .order-card {
+    grid-template-columns: 1fr;
+  }
+  .order-slip-thumb {
+    width: 100%;
+    height: 200px;
+  }
+  .order-actions {
+    width: 100%;
+  }
+}

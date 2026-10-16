@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>บัตรคอนเสิร์ต | Thai Ticket Hub</title>
+  <!-- Google Fonts: Noto Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23B40000'/%3E%3Ctext x='16' y='22' font-size='16' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="css/checkout.css">
+  <style>
+    /* Layout & Page Structure */
+    .header {
+      background-color: #242424;
+      border-bottom: 1px solid var(--color-border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-20);
+    }
+
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      gap: var(--space-16);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-8);
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-badge {
+      background-color: var(--color-primary);
+      color: #FFFFFF;
+      padding: 2px 8px;
+      border-radius: var(--radius-btn);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .search-container {
+      flex: 1;
+      max-width: 480px;
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-muted);
+      pointer-events: none;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-12);
+    }
+
+    .cart-btn {
+      position: relative;
+    }
+
+    .cart-count {
+      position: absolute;
+      top: -4px;
+      right: -6px;
+      background-color: var(--color-primary);
+      color: #FFFFFF;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 10px;
+      min-width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+    }
+
+    /* Sub Navigation */
+    .subnav {
+      background-color: #1e1e1e;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .subnav-list {
+      display: flex;
+      list-style: none;
+      gap: var(--space-8);
+      padding: var(--space-8) 0;
+    }
+
+    .subnav-item button {
+      background: none;
+      border: none;
+      color: var(--color-muted);
+      font-family: inherit;
+      font-size: var(--font-body-size);
+      font-weight: 500;
+      padding: var(--space-4) var(--space-12);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .subnav-item button.active,
+    .subnav-item button:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: var(--color-text);
+    }
+
+    .subnav-item button.active {
+      background-color: var(--color-primary);
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+
+    /* Hero Section with Gradients #333333,#000000 */
+    .hero {
+      background: linear-gradient(135deg, var(--color-gradient-start) 0%, var(--color-gradient-end) 100%);
+      padding: var(--space-32) 0;
+      border-bottom: 1px solid var(--color-border-subtle);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-wrapper {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: var(--space-32);
+      align-items: center;
+    }
+
+    .hero-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-12);
+      flex-wrap: wrap;
+    }
+
+    .hero-meta-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      color: var(--color-muted);
+      font-size: 13px;
+    }
+
+    .hero-meta-item svg {
+      width: 14px;
+      height: 14px;
+      color: var(--color-accent);
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: var(--space-12);
+      margin-top: var(--space-8);
+    }
+
+    .hero-poster {
+      position: relative;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--color-border-subtle);
+      background-color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-poster img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .poster-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.85) 100%);
+      display: flex;
+      align-items: flex-end;
+      padding: var(--space-16);
+    }
+
+    /* Main Section */
+    .main-content {
+      padding: var(--space-32) 0;
+      flex: 1;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: var(--space-20);
+    }
+
+    .section-subtitle {
+      color: var(--color-muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    /* Event Grid & Cards */
+    .events-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: var(--space-20);
+    }
+
+    .event-card {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .event-card-image {
+      position: relative;
+      width: 100%;
+      height: 160px;
+      background-color: #222;
+      overflow: hidden;
+    }
+
+    .event-card-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    .event-card:hover .event-card-image img {
+      transform: scale(1.05);
+    }
+
+    .event-badge-tag {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+    }
+
+    .event-card-body {
+      padding: var(--space-20);
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: var(--space-12);
+    }
+
+    .event-title {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--color-text);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      min-height: 42px;
+    }
+
+    .event-details {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .event-detail-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-8);
+      font-size: 12px;
+      color: var(--color-muted);
+    }
+
+    .event-detail-item svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+      color: var(--color-muted);
+    }
+
+    .event-price-box {
+      margin-top: auto;
+      padding-top: var(--space-12);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .price-label {
+      font-size: 11px;
+      color: var(--color-muted);
+    }
+
+    .price-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    /* Modal Styling */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+      padding: var(--space-16);
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background-color: var(--color-elevated);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-card);
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+      animation: modalFadeIn 0.2s ease-out;
+      overflow: hidden;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-header {
+      padding: var(--space-16) var(--space-20);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--color-muted);
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      padding: var(--space-4);
+    }
+
+    .modal-close:hover {
+      color: #FFFFFF;
+    }
+
+    .modal-content {
+      padding: var(--space-20);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+    }
+
+    .zone-selection-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-8);
+    }
+
+    .zone-btn {
+      background-color: #2e2e2e;
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-btn);
+      padding: var(--space-12);
+      text-align: left;
+      cursor: pointer;
+      color: var(--color-text);
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+
+    .zone-btn:hover {
+      border-color: var(--color-accent);
+      background-color: #383838;
+    }
+
+    .zone-btn.selected {
+      border-color: var(--color-primary);
+      background-color: rgba(180, 0, 0, 0.15);
+    }
+
+    .zone-btn-name {
+      font-weight: 700;
+      font-size: 13px;
+      display: block;
+    }
+
+    .zone-btn-price {
+      font-size: 12px;
+      color: var(--color-muted);
+      margin-top: 2px;
+    }
+
+    .quantity-control {
+      display: flex;
+      align-items: center;
+      gap: var(--space-12);
+      justify-content: space-between;
+      background-color: #2b2b2b;
+      padding: var(--space-12) var(--space-16);
+      border-radius: var(--radius-input);
+      border: 1px solid var(--color-border-subtle);
+    }
+
+    .qty-btn {
+      background-color: #444;
+      color: #fff;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-btn);
+      font-size: 16px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qty-btn:hover {
+      background-color: #555;
+    }
+
+    .summary-card {
+      background-color: #292929;
+      padding: var(--space-12) var(--space-16);
+      border-radius: var(--radius-btn);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background-color: #1a1a1a;
+      border-left: 4px solid var(--color-accent);
+      color: #fff;
+      padding: var(--space-12) var(--space-20);
+      border-radius: var(--radius-btn);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      gap: var(--space-12);
+    }
+
+    .toast.show {
+      display: flex;
+      animation: toastSlide 0.25s ease;
+    }
+
+    @keyframes toastSlide {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Footer */
+    .footer {
+      background-color: #1e1e1e;
+      border-top: 1px solid var(--color-border-subtle);
+      padding: var(--space-32) 0;
+      margin-top: auto;
+      color: var(--color-muted);
+      font-size: 12px;
+    }
+
+    .footer-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--space-16);
+    }
+
+    @media (max-width: 768px) {
+      .hero-wrapper {
+        grid-template-columns: 1fr;
+      }
+      .nav-bar {
+        flex-wrap: wrap;
+        height: auto;
+        padding: var(--space-12) 0;
+      }
+      .search-container {
+        order: 3;
+        max-width: 100%;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="header">
+    <div class="container">
+      <div class="nav-bar">
+        <a href="#" class="brand">
+          <span class="brand-badge">THAI</span> TICKET
+        </a>
+
+        <!-- Search Bar with token specs: 5px radius, 10px 50px 10px 20px padding -->
+        <div class="search-container">
+          <input type="text" id="searchInput" class="input-field" placeholder="ค้นหาคอนเสิร์ต ศิลปิน หรือสถานที่จัดแสดง...">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </div>
+
+        <div class="nav-actions">
+          <button class="sound-toggle-btn" id="soundToggleBtn" title="เปิด/ปิดเสียงเอฟเฟกต์" aria-label="เปิด/ปิดเสียงเอฟเฟกต์">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+          </button>
+          <a href="admin.html" class="btn-outline" id="adminNavLink">ระบบแอดมิน</a>
+          <button class="btn-primary cart-btn" id="cartButton">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            <span>บัตรของฉัน</span>
+            <span class="cart-count" id="cartCount">0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Sub Navigation -->
+    <nav class="subnav">
+      <div class="container">
+        <ul class="subnav-list">
+          <li class="subnav-item"><button class="active" onclick="filterCategory('all', this)">ทั้งหมด</button></li>
+          <li class="subnav-item"><button onclick="filterCategory('kpop', this)">K-POP</button></li>
+          <li class="subnav-item"><button onclick="filterCategory('thai', this)">คอนเสิร์ตไทย</button></li>
+          <li class="subnav-item"><button onclick="filterCategory('world', this)">World Tour</button></li>
+          <li class="subnav-item"><button onclick="filterCategory('fest', this)">มิวสิคเฟสติวัล</button></li>
+          <li class="subnav-item"><button onclick="filterCategory('fanmeeting', this)">แฟนมีตติ้ง</button></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Hero Highlight Section: Uses #333333 -> #000000 Gradient -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-wrapper">
+        <div class="hero-content">
+          <div class="hero-meta">
+            <span class="badge-accent">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+              เปิดจำหน่ายแล้ว (Selling Fast)
+            </span>
+            <span class="hero-meta-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              14 - 15 พฤศจิกายน 2026
+            </span>
+            <span class="hero-meta-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              อิมแพ็ค อารีน่า เมืองทองธานี
+            </span>
+          </div>
+
+          <h1>ECHOES OF ASIA WORLD TOUR 2026 LIVE IN BANGKOK</h1>
+          <p class="text-muted">สัมผัสปรากฏการณ์คอนเสิร์ตระดับโลก แสง สี เสียงเต็มรูปแบบ อิ่มเอมกับเพลงฮิตกว่า 3 ชั่วโมงเต็ม พร้อมแขกรับเชิญสุดพิเศษ</p>
+
+          <div class="hero-actions">
+            <!-- Primary Action with #B40000 -->
+            <button class="btn-primary btn-pill" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า', 2500)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+              </svg>
+              จองบัตรเลย
+            </button>
+            <!-- Secondary Action #EEEEEE bg, #000000 text -->
+            <button class="btn-default btn-pill" onclick="scrollToEvents()">
+              ดูคอนเสิร์ตทั้งหมด
+            </button>
+          </div>
+        </div>
+
+        <div class="hero-poster">
+          <svg width="100%" height="100%" viewBox="0 0 600 340" style="background:#111;">
+            <defs>
+              <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#B40000" stop-opacity="0.8"/>
+                <stop offset="50%" stop-color="#111111" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="#229BFF" stop-opacity="0.6"/>
+              </linearGradient>
+            </defs>
+            <rect width="600" height="340" fill="url(#g1)" />
+            <circle cx="450" cy="170" r="120" fill="none" stroke="#229BFF" stroke-width="2" opacity="0.3"/>
+            <circle cx="450" cy="170" r="80" fill="none" stroke="#FFFFFF" stroke-width="1" opacity="0.2"/>
+            <text x="40" y="160" fill="#FFFFFF" font-size="28" font-family="'Noto Sans Thai', sans-serif" font-weight="700">ECHOES OF ASIA</text>
+            <text x="40" y="200" fill="#229BFF" font-size="16" font-family="'Noto Sans Thai', sans-serif" font-weight="600">LIVE IN BANGKOK 2026</text>
+            <text x="40" y="235" fill="#CCCCCC" font-size="13" font-family="'Noto Sans Thai', sans-serif">IMPACT ARENA · 14-15 NOV</text>
+          </svg>
+          <div class="poster-overlay">
+            <span class="badge-primary">HOT TICKET</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Event Listing Section -->
+  <main class="main-content" id="eventsSection">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2>คอนเสิร์ตและการแสดงที่น่าสนใจ</h2>
+          <p class="section-subtitle">เลือกชมรอบการแสดงและสั่งซื้อบัตรเข้าชมอย่างเป็นทางการ</p>
+        </div>
+      </div>
+
+      <!-- Events Grid -->
+      <div class="events-grid" id="eventsContainer">
+        <!-- Rendered dynamically by script -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Interactive Booking Modal -->
+  <div class="modal-backdrop" id="bookingModal" data-dismissable="true" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalEventTitle" style="font-weight:700;">เลือกรอบและโซนที่นั่ง</h3>
+        <button class="modal-close" onclick="closeBookingModal()">&times;</button>
+      </div>
+
+      <div class="modal-content">
+        <div>
+          <span class="text-muted" style="font-size:12px;">สถานที่ & เวลา</span>
+          <p id="modalEventVenue" style="font-weight:600; margin-top:2px;"></p>
+        </div>
+
+        <!-- Mode Switch Tabs -->
+        <div class="seat-mode-tabs">
+          <button type="button" class="seat-mode-tab active" id="tabSeatMap" onclick="setBookingMode('map')">
+            🗺️ ผังที่นั่งจริง (Interactive Map)
+          </button>
+          <button type="button" class="seat-mode-tab" id="tabQuickZone" onclick="setBookingMode('zone')">
+            ⚡ เลือกโซนด่วน (Quick Zone)
+          </button>
+        </div>
+
+        <!-- Interactive Seat Map View -->
+        <div id="seatMapView">
+          <div id="seatMapContainer"></div>
+        </div>
+
+        <!-- Quick Zone Selection View -->
+        <div id="quickZoneView" hidden>
+          <div>
+            <label style="font-weight:600; margin-bottom:8px; display:block;">เลือกโซนที่นั่ง / ยืน</label>
+            <div class="zone-selection-grid">
+              <button class="zone-btn selected" onclick="selectZone('VIP Standing', 6500, this)">
+                <span class="zone-btn-name">VIP Standing (ยืน)</span>
+                <span class="zone-btn-price">6,500 THB</span>
+              </button>
+              <button class="zone-btn" onclick="selectZone('Zone A (บัตรนั่ง)', 4500, this)">
+                <span class="zone-btn-name">Zone A (นั่ง)</span>
+                <span class="zone-btn-price">4,500 THB</span>
+              </button>
+              <button class="zone-btn" onclick="selectZone('Zone B (บัตรนั่ง)', 3200, this)">
+                <span class="zone-btn-name">Zone B (นั่ง)</span>
+                <span class="zone-btn-price">3,200 THB</span>
+              </button>
+              <button class="zone-btn" onclick="selectZone('Zone C (ชั้นบน)', 1800, this)">
+                <span class="zone-btn-name">Zone C (ชั้นบน)</span>
+                <span class="zone-btn-price">1,800 THB</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="quantity-control" style="margin-top:8px;">
+            <span>จำนวนบัตรที่เลือก</span>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <button class="qty-btn" onclick="changeQty(-1)">-</button>
+              <span id="ticketQty" style="font-weight:700; min-width:20px; text-align:center;">1</span>
+              <button class="qty-btn" onclick="changeQty(1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="holder-form">
+          <label style="font-weight:600; margin-bottom:8px; display:block;">ข้อมูลผู้ถือบัตร (แสดงบนบัตร & ส่งทาง LINE)</label>
+          <div class="holder-grid">
+            <div>
+              <label class="holder-sub-label" for="holderName">ชื่อ - นามสกุล *</label>
+              <input type="text" id="holderName" class="input-field holder-input" placeholder="เช่น ธนภัทร วงศ์สวัสดิ์" autocomplete="name">
+            </div>
+            <div>
+              <label class="holder-sub-label" for="holderPhone">เบอร์โทรศัพท์ *</label>
+              <input type="tel" id="holderPhone" class="input-field holder-input" placeholder="0812345678" maxlength="12" autocomplete="tel">
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+              <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID (ส่งบัตรเข้า LINE OA อัตโนมัติเมื่อแอดมินอนุมัติ)</label>
+              <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:4px 10px; font-size:11px; border-color:var(--color-accent); color:var(--color-accent);">
+                💬 ดึงรหัส LINE อัตโนมัติ
+              </button>
+            </div>
+            <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น U4af4980629... หรือกดปุ่มดึงรหัส LINE อัตโนมัติ">
+            <p class="text-muted" id="lineWebhookHint" style="font-size:11px; margin-top:4px;">ทักแชท LINE OA พิมพ์ <code>บัตร</code> หรือกดปุ่ม <strong>ดึงรหัส LINE อัตโนมัติ</strong> เพื่อเชื่อมบัญชีรับบัตรทันที</p>
+          </div>
+          <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">
+            <label class="holder-sub-label" for="promoCodeInput">🎟️ โค้ดส่วนลดโปรโมชัน / Early Bird (ลองใช้: <code>EARLY10</code> ลด 10% หรือ <code>VIP500</code> ลด 500฿)</label>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="promoCodeInput" class="input-field holder-input" placeholder="กรอกโค้ด เช่น EARLY10 หรือ VIP500" style="text-transform:uppercase;">
+              <button type="button" class="btn-default" id="applyPromoBtn" onclick="applyPromoCode()" style="white-space:nowrap;">ใช้โค้ดส่วนลด</button>
+            </div>
+            <p id="promoStatusMsg" style="font-size:11px; margin-top:4px;" hidden></p>
+          </div>
+          <p class="slip-error" id="holderError" role="alert"></p>
+        </div>
+
+        <div class="summary-card">
+          <div>
+            <span class="text-muted" style="font-size:11px;" id="summaryPriceLabel">ยอดชำระสุทธิ</span>
+            <div style="font-size:18px; font-weight:700; color:var(--color-text);" id="totalPriceDisplay">6,500 THB</div>
+          </div>
+          <!-- Primary CTA Button spec -->
+          <button class="btn-primary" onclick="confirmBooking()">
+            ชำระเงินและรับบัตร
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PromptPay Payment Modal -->
+  <div class="modal-backdrop" id="paymentModal" role="dialog" aria-modal="true" aria-labelledby="payHeading">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="payHeading" style="font-weight:700;">ชำระเงินผ่าน QR พร้อมเพย์</h3>
+        <button class="modal-close" id="payCloseBtn" aria-label="ปิด">&times;</button>
+      </div>
+
+      <!-- Step 1: pay + attach slip -->
+      <div class="modal-content" data-step="pay">
+        <div class="seat-hold-banner" id="payHoldBanner" style="margin-bottom: var(--space-12);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="seat-hold-badge">🔒 ล็อกที่นั่ง</span>
+            <span>ระบบกำลังล็อกที่นั่งให้คุณเป็นเวลา 15:00 นาที</span>
+          </div>
+        </div>
+
+        <div class="pay-order">
+          <p class="pay-order-title" id="payEventTitle"></p>
+          <p class="text-muted" id="payEventMeta"></p>
+          <div class="pay-row"><span>ผู้ถือบัตร</span><span id="payHolder"></span></div>
+          <div class="pay-row"><span>โซน</span><span id="payZone"></span></div>
+          <div class="pay-row"><span>จำนวน</span><span id="payQty"></span></div>
+        </div>
+
+        <div class="pay-qr-box" id="payQrBox">
+          <div class="pay-qr-head">
+            <span class="pp-badge">PromptPay</span>
+            <span>Thai QR Payment</span>
+          </div>
+          <div class="pay-qr" id="payQr" aria-label="QR Code สำหรับชำระเงิน"></div>
+          <div style="text-align:center;">
+            <div class="pay-amount-label">ยอดที่ต้องชำระ</div>
+            <div class="pay-amount"><span id="payAmount">0.00</span><small>THB</small></div>
+          </div>
+          <div class="pay-merchant">
+            <strong id="payMerchant" style="color:#111; font-size:13px;"></strong>
+            <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px; flex-wrap:wrap;">
+              <span>พร้อมเพย์ <strong id="payPromptpayId" style="color:#111;"></strong></span>
+              <button type="button" class="copy-pp-btn" id="copyPromptpayBtn">📋 คัดลอกเบอร์</button>
+            </div>
+          </div>
+          <div class="pay-expired" id="payExpired" hidden>
+            <span>QR Code หมดอายุแล้ว</span>
+            <button class="btn-primary btn-pill" id="payRenewBtn">สร้าง QR ใหม่</button>
+          </div>
+        </div>
+
+        <div class="pay-countdown" id="payCountdownWrap">
+          กรุณาชำระภายใน <strong id="payCountdown">15:00</strong> นาที
+        </div>
+
+        <ol class="pay-steps">
+          <li>เปิดแอปธนาคาร แล้วสแกน QR Code ด้านบน</li>
+          <li>ตรวจสอบยอดเงินให้ตรงกัน แล้วกดยืนยันการโอน</li>
+          <li>แนบสลิปการโอนเงินด้านล่าง เพื่อส่งให้แอดมินตรวจสอบและออกบัตร</li>
+        </ol>
+
+        <div>
+          <span class="field-label">แนบสลิปการชำระเงิน</span>
+          <label class="slip-dropzone" id="slipDropzone">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span class="slip-dropzone-title">แตะเพื่อเลือกรูปสลิป</span>
+            <span class="text-muted">หรือลากไฟล์มาวาง · JPG, PNG, WEBP ไม่เกิน 5 MB</span>
+            <input type="file" id="slipInput" class="visually-hidden" accept="image/jpeg,image/png,image/webp">
+          </label>
+          <div class="slip-preview" id="slipPreview" hidden>
+            <img id="slipThumb" alt="ตัวอย่างสลิปที่แนบ">
+            <div class="slip-meta">
+              <p class="slip-name" id="slipName"></p>
+              <p class="text-muted" id="slipSize"></p>
+            </div>
+            <button class="btn-text" id="slipRemove">เปลี่ยนรูป</button>
+          </div>
+          <div class="slip-verified-badge" id="slipVerifyBadge" hidden></div>
+          <p class="slip-error" id="slipError" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="pay-footer" data-step="pay">
+        <button class="btn-primary btn-block" id="payConfirmBtn" disabled>ยืนยันการชำระเงิน</button>
+        <p class="pay-confirm-hint" id="payConfirmHint">แนบสลิปเพื่อยืนยันการชำระเงิน</p>
+        <button class="btn-text" id="payCancelBtn">ยกเลิกรายการ</button>
+      </div>
+
+      <!-- Step 2: verifying -->
+      <div class="verifying" data-step="verifying" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <h3 style="font-weight:700;">กำลังบันทึกและตรวจสลิปซ้ำ</h3>
+        <p class="text-muted">กรุณาอย่าปิดหน้านี้ ระบบกำลังส่งข้อมูลให้แอดมิน</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- E-Ticket Viewer -->
+  <div class="modal-backdrop" id="ticketModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="ticketHeading">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h3 id="ticketHeading" style="font-weight:700;">บัตรคอนเสิร์ตของคุณ</h3>
+          <p class="text-muted" id="ticketRefLabel"></p>
+        </div>
+        <button class="modal-close" id="ticketCloseBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div id="ticketStatusBanner" class="ticket-status-banner" hidden></div>
+        <div id="liveTicketSecurityBar" class="live-security-bar" hidden>
+          <div class="live-security-top">
+            <span class="live-security-dot"></span>
+            <span class="live-security-title">LIVE DYNAMIC PASS · ป้องกันภาพแคปหน้าจอ</span>
+            <span class="live-security-token" id="liveSecurityToken">TOKEN #000-000</span>
+          </div>
+          <div class="live-security-meta">
+            <span id="liveSecurityClock">เวลาปัจจุบัน: --:--:--</span>
+            <span>เปลี่ยนรหัสความปลอดภัยในอีก <strong id="liveSecurityCountdown">30</strong> วินาที</span>
+          </div>
+          <div class="live-security-progress"><div class="live-security-fill" id="liveSecurityFill"></div></div>
+        </div>
+        <div class="ticket-stage">
+          <div class="ticket-skeleton" id="ticketSkeleton"></div>
+          <img id="ticketImage" hidden alt="">
+        </div>
+        <div class="ticket-actions">
+          <button class="btn-primary btn-block" id="ticketSaveBtn" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            บันทึกบัตร
+          </button>
+          <button class="btn-default" id="ticketShareBtn" hidden>แชร์ / บันทึกลงอัลบั้ม</button>
+          <button class="btn-outline" id="ticketDoneBtn" style="grid-column: 1 / -1;">เสร็จสิ้น</button>
+        </div>
+        <p class="ticket-tip">บนมือถือ สามารถกดค้างที่รูปบัตรเพื่อบันทึกลงอัลบั้มได้</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINE Official Account Flex Message Preview Modal -->
+  <div class="modal-backdrop" id="linePreviewModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="linePreviewHeading">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="linePreviewHeading" style="font-weight:700;">ข้อความบัตรใน LINE Official Account</h3>
+        <button class="modal-close" id="linePreviewCloseBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content" id="linePreviewBody"></div>
+    </div>
+  </div>
+
+  <!-- My Tickets -->
+  <div class="modal-backdrop" id="myTicketsModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="myTicketsHeading">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="myTicketsHeading" style="font-weight:700;">บัตรของฉัน</h3>
+        <button class="modal-close" id="myTicketsCloseBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content" id="myTicketsList"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification for feedback -->
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#229BFF" stroke-width="2">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+    <span id="toastMsg">บันทึกการจองบัตรเรียบร้อยแล้ว!</span>
+  </div>
+
+  <!-- Footer with Token Rules -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-wrapper">
+        <div>
+          <p style="font-weight:700; color:#FFFFFF; margin-bottom:4px;">Thai Ticket Concert System</p>
+          <p>ระบบจำหน่ายบัตรคอนเสิร์ตและการแสดง ออกแบบด้วย Design System thaiticketmajor.com</p>
+        </div>
+        <div>
+          <p>© 2026 Ticket Hub Thailand. สงวนลิขสิทธิ์ทุกประการ</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/vendor/qrcode.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/promptpay.js"></script>
+  <script src="js/sound-effects.js"></script>
+  <script src="js/seat-map.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/ticket-store.js"></script>
+  <script src="js/ticket-renderer.js"></script>
+  <script src="js/ticket-viewer.js"></script>
+  <script src="js/checkout.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
