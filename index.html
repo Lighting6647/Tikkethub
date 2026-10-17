@@ -467,12 +467,18 @@
     }
 
     .summary-card {
-      background-color: #292929;
+      background-color: #242424;
       padding: var(--space-12) var(--space-16);
       border-radius: var(--radius-btn);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      position: sticky;
+      bottom: 0;
+      z-index: 20;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
     }
 
     /* Toast Notification */
