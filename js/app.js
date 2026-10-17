@@ -181,8 +181,22 @@ function selectZone(name, price, btn) {
 }
 
 function changeQty(delta) {
-  currentQty = Math.min(MAX_QTY, Math.max(1, currentQty + delta));
-  document.getElementById('ticketQty').textContent = currentQty;
+  const selectedSeats = window.SeatMap ? window.SeatMap.getSelectedSeats() : [];
+  if (selectedSeats.length > 0) {
+    // If user has picked seats on the map, adjust seat selection or inform user
+    const nextQty = Math.min(MAX_QTY, Math.max(1, currentQty + delta));
+    if (nextQty !== currentQty) {
+      currentQty = nextQty;
+      // Auto adjust selected seats to match requested quantity using active zone
+      if (window.SeatMap) {
+        window.SeatMap.autoSelectForZone(selectedZoneName, currentQty);
+      }
+    }
+  } else {
+    currentQty = Math.min(MAX_QTY, Math.max(1, currentQty + delta));
+  }
+  const qtyEl = document.getElementById('ticketQty');
+  if (qtyEl) qtyEl.textContent = currentQty;
   updatePriceDisplay();
 }
 
@@ -391,6 +405,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const cursor = e.target.selectionStart;
       const formatted = formatIdCardInput(e.target.value);
       e.target.value = formatted;
+    });
+  }
+  if (window.SeatMap && typeof window.SeatMap.onChange === 'function') {
+    window.SeatMap.onChange((selectedSeats) => {
+      if (selectedSeats && selectedSeats.length > 0) {
+        currentQty = selectedSeats.length;
+        const lastSeat = selectedSeats[selectedSeats.length - 1];
+        if (lastSeat) {
+          selectedZoneName = lastSeat.zone;
+          selectedZonePrice = lastSeat.price;
+        }
+      }
+      const qtyEl = document.getElementById('ticketQty');
+      if (qtyEl) qtyEl.textContent = currentQty;
+      updatePriceDisplay();
     });
   }
   renderEvents();
