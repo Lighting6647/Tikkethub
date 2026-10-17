@@ -121,6 +121,18 @@ if (!orderColumns.includes('seats')) {
 if (!orderColumns.includes('holder_id_card')) {
   db.exec(`ALTER TABLE orders ADD COLUMN holder_id_card TEXT DEFAULT '';`);
 }
+if (!orderColumns.includes('drive_file_id')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN drive_file_id TEXT DEFAULT '';`);
+}
+if (!orderColumns.includes('drive_view_link')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN drive_view_link TEXT DEFAULT '';`);
+}
+if (!orderColumns.includes('verified_by')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN verified_by TEXT DEFAULT '';`);
+}
+if (!orderColumns.includes('verification_detail')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN verification_detail TEXT DEFAULT '';`);
+}
 
 const DEFAULT_EVENTS = [
   {
@@ -334,6 +346,10 @@ function rowToOrder(row) {
     slipMime: row.slip_mime,
     slipData: row.slip_data,
     slipHash: row.slip_hash,
+    driveFileId: row.drive_file_id || '',
+    driveViewLink: row.drive_view_link || '',
+    verifiedBy: row.verified_by || '',
+    verificationDetail: row.verification_detail || '',
     status: row.status,
     rejectReason: row.reject_reason || '',
     lineSent: row.line_sent,
@@ -462,6 +478,33 @@ function updateOrderStatus(ref, { status, rejectReason = '', lineSent = 0, lineL
     lineSent,
     lineLog ? JSON.stringify(lineLog) : '',
     now,
+    ref
+  );
+  return getOrder(ref);
+}
+
+function updateOrderDriveAndVerification(ref, { driveFileId = '', driveViewLink = '', verifiedBy = '', verificationDetail = '', status = null, reviewedAt = 0 }) {
+  const existing = getOrder(ref);
+  if (!existing) return null;
+
+  const newStatus = status || existing.status;
+  const newReviewedAt = reviewedAt || (status === 'approved' ? Date.now() : existing.reviewedAt);
+  const newDriveFileId = driveFileId || existing.driveFileId;
+  const newDriveViewLink = driveViewLink || existing.driveViewLink;
+  const newVerifiedBy = verifiedBy || existing.verifiedBy;
+  const newVerificationDetail = verificationDetail || existing.verificationDetail;
+
+  db.prepare(`
+    UPDATE orders
+    SET drive_file_id = ?, drive_view_link = ?, verified_by = ?, verification_detail = ?, status = ?, reviewed_at = ?
+    WHERE ref = ?
+  `).run(
+    newDriveFileId,
+    newDriveViewLink,
+    newVerifiedBy,
+    newVerificationDetail,
+    newStatus,
+    newReviewedAt,
     ref
   );
   return getOrder(ref);
@@ -1151,6 +1194,7 @@ module.exports = {
   getOrder,
   listOrders,
   updateOrderStatus,
+  updateOrderDriveAndVerification,
   checkInOrder,
   getStats,
   listEventsWithQuota,

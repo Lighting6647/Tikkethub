@@ -247,16 +247,32 @@
     </div>
   </div>
 
-  <!-- Slip Zoom Modal -->
+  <!-- Slip Zoom Modal with Zoom, Rotation & Google Drive Link -->
   <div class="modal-backdrop" id="slipZoomModal" data-dismissable="true" role="dialog" aria-modal="true">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:640px;">
       <div class="modal-header">
         <h3 id="slipZoomTitle" style="font-weight:700;">ตรวจสอบรูปสลิป</h3>
         <button class="modal-close" id="closeSlipZoomBtn" aria-label="ปิด">&times;</button>
       </div>
       <div class="modal-content">
-        <img id="slipZoomImg" class="slip-zoom-img" alt="สลิปโอนเงิน">
-        <p class="text-muted" id="slipZoomMeta" style="font-size:12px;word-break:break-all;"></p>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div id="slipZoomActions" style="display:flex; gap:6px;">
+            <button type="button" class="btn-outline" id="btnZoomIn" style="font-size:11px; padding:3px 8px;">➕ ซูมเข้า</button>
+            <button type="button" class="btn-outline" id="btnZoomOut" style="font-size:11px; padding:3px 8px;">➖ ซูมออก</button>
+            <button type="button" class="btn-outline" id="btnZoomReset" style="font-size:11px; padding:3px 8px;">↺ รีเซ็ต</button>
+            <button type="button" class="btn-outline" id="btnRotateSlip" style="font-size:11px; padding:3px 8px;">🔄 หมุน 90°</button>
+          </div>
+          <a id="slipDriveDirectLink" href="#" target="_blank" rel="noopener" class="btn-outline" style="font-size:11px; padding:3px 10px; color:#63b3ed; border-color:#63b3ed; text-decoration:none;" hidden>
+            📁 เปิดไฟล์ใน Google Drive ↗
+          </a>
+        </div>
+        <div style="max-height: 480px; overflow: auto; display:flex; justify-content:center; align-items:center; background:#181818; border-radius:8px; padding:12px; border:1px solid rgba(255,255,255,0.08);">
+          <img id="slipZoomImg" class="slip-zoom-img" alt="สลิปโอนเงิน" style="max-width:100%; border-radius:4px; transition: transform 0.15s ease; transform-origin: center center;">
+        </div>
+        <div id="slipZoomDetails" style="background:#262626; padding:10px 12px; border-radius:6px; font-size:12px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:4px;">
+          <p class="text-muted" id="slipZoomMeta" style="font-size:11px; word-break:break-all; margin:0;"></p>
+          <div id="slipVerifyBadgeBox" style="font-size:12px;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -328,7 +344,64 @@
           <label class="field-label" for="settingAdminPinInput">เปลี่ยนรหัส PIN แอดมินใหม่ (อย่างน้อย 4 หลัก · เว้นว่างหากไม่เปลี่ยน)</label>
           <input type="password" id="settingAdminPinInput" class="input-field holder-input" placeholder="เช่น 123456">
         </div>
-        <button class="btn-primary btn-block" id="saveSettingsBtn">บันทึกการตั้งค่า</button>
+
+        <!-- Google Drive Cloud Storage Settings -->
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:var(--color-accent); font-size:13px;">📁 ที่เก็บสลิป Google Drive (Cloud Storage)</strong>
+            <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:3px 8px;">🔌 ทดสอบเชื่อมต่อ Drive</button>
+          </div>
+          <div>
+            <label class="field-label" for="settingDriveFolderInput">Google Drive Folder ID (โฟลเดอร์สำหรับเก็บสลิป)</label>
+            <input type="text" id="settingDriveFolderInput" class="input-field holder-input" placeholder="เช่น 1A2b3C4d5E_... หรือเว้นว่างเพื่อใช้ที่เก็บในระบบ">
+          </div>
+          <div class="holder-grid" style="margin-top:8px;">
+            <div>
+              <label class="field-label" for="settingDriveEmailInput">Service Account Client Email</label>
+              <input type="text" id="settingDriveEmailInput" class="input-field holder-input" placeholder="เช่น your-service-account@project.iam.gserviceaccount.com">
+            </div>
+            <div>
+              <label class="field-label" for="settingDriveKeyInput">Service Account Private Key (PEM / JSON)</label>
+              <input type="password" id="settingDriveKeyInput" class="input-field holder-input" placeholder="-----BEGIN PRIVATE KEY----- ...">
+            </div>
+          </div>
+          <p class="text-muted" id="driveTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+        </div>
+
+        <!-- Automated Slip Verification Settings -->
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:var(--color-accent); font-size:13px;">⚡ ตรวจสอบสลิปอัตโนมัติ (Bank Slip Verification)</strong>
+            <button type="button" class="btn-outline" id="btnTestSlip" style="font-size:11px; padding:3px 8px;">🔍 ทดสอบตรวจสลิป</button>
+          </div>
+          <div style="margin-bottom:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="settingSlipAutoApprove" style="width:16px; height:16px;">
+              <span style="font-size:13px; font-weight:600;">เปิดระบบอนุมัติอัตโนมัติ (Auto-Approve & ส่งบัตรเข้า LINE ทันทีเมื่อสลิปถูกต้อง)</span>
+            </label>
+          </div>
+          <div class="holder-grid">
+            <div>
+              <label class="field-label" for="settingSlipProviderInput">ผู้ให้บริการตรวจสลิป (Provider)</label>
+              <select id="settingSlipProviderInput" class="input-field holder-input">
+                <option value="simulator">Smart Simulator (ทดสอบในระบบ / โหมดสาธิต)</option>
+                <option value="slipok">SlipOK (เชื่อมโยงธนาคารตรง)</option>
+                <option value="easyslip">EasySlip (API ตรวจสลิป)</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="settingSlipApiKeyInput">API Key ผู้ให้บริการ</label>
+              <input type="password" id="settingSlipApiKeyInput" class="input-field holder-input" placeholder="วาง API Key จาก SlipOK / EasySlip">
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <label class="field-label" for="settingSlipBranchInput">Branch ID / Merchant Code (ถ้ามี)</label>
+            <input type="text" id="settingSlipBranchInput" class="input-field holder-input" placeholder="เช่น branch_01 หรือเว้นว่าง">
+          </div>
+          <p class="text-muted" id="slipTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+        </div>
+
+        <button class="btn-primary btn-block" id="saveSettingsBtn" style="margin-top:12px;">บันทึกการตั้งค่า</button>
       </div>
     </div>
   </div>

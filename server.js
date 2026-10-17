@@ -14,6 +14,8 @@ const crypto = require('node:crypto');
 const { URL } = require('node:url');
 const db = require('./backend/db');
 const { sendLineTicketPush, replyLineWebhook } = require('./backend/line');
+const drive = require('./backend/drive');
+const slipVerifier = require('./backend/slip-verifier');
 
 const PORT = Number(process.env.PORT || 8080);
 const ROOT = __dirname;
@@ -408,6 +410,79 @@ async function handleApi(req, res, url) {
     try {
       const created = db.createOrder(body);
       broadcastSeatSync('order_created');
+
+      // Async Google Drive upload and Slip Verification in background
+      (async () => {
+        try {
+          const comma = (created.slipData || '').indexOf(',');
+          const base64Data = comma >= 0 ? created.slipData.slice(comma + 1) : created.slipData;
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+
+          // 1. Google Drive Upload
+          const driveResult = await drive.uploadSlipToDrive({
+            buffer: imageBuffer,
+            mimeType: created.slipMime || 'image/png',
+            fileName: `${created.ref}_slip_${created.issuedAt}.png`,
+            ref: created.ref
+          });
+          if (driveResult && driveResult.ok && driveResult.viewLink) {
+            db.updateOrderDriveAndVerification(created.ref, {
+              driveFileId: driveResult.fileId,
+              driveViewLink: driveResult.viewLink
+            });
+            db.addAuditLog({
+              action: 'DRIVE_UPLOAD_SUCCESS',
+              targetRef: created.ref,
+              detail: `อัปโหลดสลิปขึ้น Google Drive สำเร็จ (${driveResult.fileName})`,
+              actor: 'GoogleDriveEngine'
+            });
+          }
+
+          // 2. Slip Automated Verification
+          const verifyResult = await slipVerifier.verifySlip({
+            order: created,
+            slipDataUrl: created.slipData,
+            slipBuffer: imageBuffer
+          });
+          if (verifyResult) {
+            const detail = verifyResult.detail || verifyResult.reason || '';
+            const verifiedBy = verifyResult.provider || 'SlipVerifier';
+            if (verifyResult.autoApproved) {
+              const approved = db.updateOrderDriveAndVerification(created.ref, {
+                status: 'approved',
+                reviewedAt: Date.now(),
+                verifiedBy,
+                verificationDetail: detail
+              });
+              db.addAuditLog({
+                action: 'AUTO_SLIP_APPROVED',
+                targetRef: created.ref,
+                detail: `ระบบตรวจสลิปอัตโนมัติอนุมัติรายการ (${verifiedBy})`,
+                actor: verifiedBy
+              });
+              if (approved && approved.lineUserId) {
+                const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
+                if (token) {
+                  const lineRes = await sendLineTicketPush(approved.lineUserId, approved, token);
+                  db.updateOrderStatus(approved.ref, {
+                    status: 'approved',
+                    lineSent: lineRes.ok ? 1 : 0,
+                    lineLog: lineRes
+                  });
+                }
+              }
+            } else {
+              db.updateOrderDriveAndVerification(created.ref, {
+                verifiedBy,
+                verificationDetail: detail
+              });
+            }
+          }
+        } catch (postErr) {
+          console.error('[Async Post-Order Error]', postErr);
+        }
+      })();
+
       return sendJson(
         res,
         201,
@@ -694,7 +769,7 @@ async function handleApi(req, res, url) {
     return res.end(csv);
   }
 
-  // Settings (LINE OA Channel Access Token + PromptPay ID + Merchant Name + Admin PIN)
+  // Settings (LINE OA Channel Access Token + PromptPay ID + Merchant Name + Admin PIN + Google Drive + Slip Verifier)
   if (pathname === '/api/settings') {
     if (!isAdminAuthenticated(req)) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
@@ -705,6 +780,14 @@ async function handleApi(req, res, url) {
       const merchantName = db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.');
       const bankAccount = db.getSetting('bank_account', '');
       const bankName = db.getSetting('bank_name', '');
+      const googleDriveFolderId = db.getSetting('google_drive_folder_id', process.env.GOOGLE_DRIVE_FOLDER_ID || '');
+      const googleServiceAccountEmail = db.getSetting('google_service_account_email', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '');
+      const hasGooglePrivateKey = Boolean(db.getSetting('google_service_account_private_key', process.env.GOOGLE_PRIVATE_KEY || ''));
+      const slipVerifyProvider = db.getSetting('slip_verify_provider', process.env.SLIP_VERIFY_PROVIDER || 'simulator');
+      const slipVerifyApiKey = db.getSetting('slip_verify_api_key', process.env.SLIP_VERIFY_API_KEY || '');
+      const slipVerifyBranchId = db.getSetting('slip_verify_branch_id', process.env.SLIP_VERIFY_BRANCH_ID || '');
+      const slipAutoApproveEnabled = db.getSetting('slip_auto_approve_enabled', 'false') === 'true';
+
       return sendJson(res, 200, {
         ok: true,
         hasLineToken: Boolean(token),
@@ -712,7 +795,14 @@ async function handleApi(req, res, url) {
         promptpayId,
         merchantName,
         bankAccount,
-        bankName
+        bankName,
+        googleDriveFolderId,
+        googleServiceAccountEmail,
+        hasGooglePrivateKey,
+        slipVerifyProvider,
+        slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
+        slipVerifyBranchId,
+        slipAutoApproveEnabled
       });
     }
     if (method === 'PUT') {
@@ -746,6 +836,35 @@ async function handleApi(req, res, url) {
         db.setSetting('bank_name', body.bankName.trim());
         changes.push(`ตั้งค่าธนาคารเป็น "${body.bankName.trim()}"`);
       }
+      if (typeof body.googleDriveFolderId === 'string') {
+        db.setSetting('google_drive_folder_id', body.googleDriveFolderId.trim());
+        changes.push('อัปเดต Google Drive Folder ID');
+      }
+      if (typeof body.googleServiceAccountEmail === 'string') {
+        db.setSetting('google_service_account_email', body.googleServiceAccountEmail.trim());
+        changes.push('อัปเดต Google Service Account Email');
+      }
+      if (typeof body.googleServiceAccountPrivateKey === 'string' && body.googleServiceAccountPrivateKey.trim()) {
+        db.setSetting('google_service_account_private_key', body.googleServiceAccountPrivateKey.trim());
+        changes.push('อัปเดต Google Service Account Private Key');
+      }
+      if (typeof body.slipVerifyProvider === 'string') {
+        db.setSetting('slip_verify_provider', body.slipVerifyProvider.trim());
+        changes.push(`ตั้งค่าผู้ให้บริการตรวจสลิปเป็น ${body.slipVerifyProvider.trim()}`);
+      }
+      if (typeof body.slipVerifyApiKey === 'string' && body.slipVerifyApiKey.trim()) {
+        db.setSetting('slip_verify_api_key', body.slipVerifyApiKey.trim());
+        changes.push('อัปเดต Slip Verification API Key');
+      }
+      if (typeof body.slipVerifyBranchId === 'string') {
+        db.setSetting('slip_verify_branch_id', body.slipVerifyBranchId.trim());
+        changes.push('อัปเดต Slip Verification Branch ID');
+      }
+      if (typeof body.slipAutoApproveEnabled === 'boolean' || typeof body.slipAutoApproveEnabled === 'string') {
+        const val = String(body.slipAutoApproveEnabled) === 'true';
+        db.setSetting('slip_auto_approve_enabled', val ? 'true' : 'false');
+        changes.push(`ระบบอนุมัติและส่งบัตรอัตโนมัติ: ${val ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`);
+      }
       if (typeof body.adminPin === 'string' && body.adminPin.trim().length >= 4) {
         db.setSetting('admin_pin', body.adminPin.trim());
         changes.push('เปลี่ยนรหัส PIN แอดมิน');
@@ -765,9 +884,42 @@ async function handleApi(req, res, url) {
         promptpayId: db.getSetting('promptpay_id', '0954654698'),
         merchantName: db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.'),
         bankAccount: db.getSetting('bank_account', ''),
-        bankName: db.getSetting('bank_name', '')
+        bankName: db.getSetting('bank_name', ''),
+        googleDriveFolderId: db.getSetting('google_drive_folder_id', ''),
+        googleServiceAccountEmail: db.getSetting('google_service_account_email', ''),
+        hasGooglePrivateKey: Boolean(db.getSetting('google_service_account_private_key', '')),
+        slipVerifyProvider: db.getSetting('slip_verify_provider', 'simulator'),
+        slipVerifyBranchId: db.getSetting('slip_verify_branch_id', ''),
+        slipAutoApproveEnabled: db.getSetting('slip_auto_approve_enabled', 'false') === 'true'
       });
     }
+  }
+
+  // Admin Google Drive Connection Test
+  if (pathname === '/api/admin/drive/test' && method === 'POST') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const body = await readJsonBody(req);
+    const folderId = (body.googleDriveFolderId || db.getSetting('google_drive_folder_id', '')).trim();
+    const clientEmail = (body.googleServiceAccountEmail || db.getSetting('google_service_account_email', '')).trim();
+    const privateKey = (body.googleServiceAccountPrivateKey || db.getSetting('google_service_account_private_key', '')).trim();
+    const testRes = await drive.testDriveConnection({ folderId, clientEmail, privateKey });
+    return sendJson(res, 200, testRes);
+  }
+
+  // Admin Slip Verification Test
+  if (pathname === '/api/admin/slip/test' && method === 'POST') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const body = await readJsonBody(req);
+    const testOrder = { ref: 'TEST-VERIFY', total: Number(body.amount || 3600) };
+    const verifyRes = await slipVerifier.verifySlip({
+      order: testOrder,
+      slipDataUrl: body.slipData
+    });
+    return sendJson(res, 200, { ok: true, result: verifyRes });
   }
 
   return sendJson(res, 404, { error: 'ไม่พบ API ที่เรียกใช้งาน' });

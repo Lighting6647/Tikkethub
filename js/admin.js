@@ -210,6 +210,8 @@
               ${statusBadge(o.status)}
               ${lineStatusBadge(o)}
               ${checkInBadge(o)}
+              ${o.driveViewLink ? `<a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" class="badge-drive" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(34, 155, 255, 0.15); color:var(--color-accent); text-decoration:none; border:1px solid rgba(34,155,255,0.3);">📁 Google Drive ↗</a>` : ''}
+              ${o.verifiedBy ? `<span class="badge-verify" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(104, 211, 145, 0.15); color:#68D391; border:1px solid rgba(104, 211, 145, 0.3);">✔ ${esc(o.verifiedBy)}</span>` : ''}
               <span class="text-muted" style="font-size:12px;">สั่งซื้อเมื่อ ${esc(issuedStr)}</span>
             </div>
 
@@ -240,6 +242,8 @@
 
             <div class="order-hash">
               ✔ ตรวจสลิปซ้ำผ่าน (SHA-256: ${esc(shortHash)}…)
+              ${o.verificationDetail ? ` · <span style="color:#68D391;">${esc(o.verificationDetail)}</span>` : ''}
+              ${o.driveViewLink ? ` · <a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" style="color:var(--color-accent);">เปิดดูรูปใน Google Drive ↗</a>` : ''}
               ${o.checkedInAt ? ` · <span style="color:var(--color-accent);">เข้างานเมื่อ ${esc(new Date(o.checkedInAt).toLocaleString('th-TH'))} (${esc(o.checkedInBy || 'Gate A')})</span>` : ''}
               ${o.status === 'rejected' && o.rejectReason ? ` · <span style="color:#FF6B6B;">เหตุผลที่ปฏิเสธ: ${esc(o.rejectReason)}</span>` : ''}
             </div>
@@ -440,10 +444,51 @@
     }
   }
 
+  let slipZoomScale = 1;
+  let slipZoomRotate = 0;
+
+  function updateSlipTransform() {
+    const img = $('slipZoomImg');
+    if (img) {
+      img.style.transform = `scale(${slipZoomScale}) rotate(${slipZoomRotate}deg)`;
+    }
+  }
+
   function openSlipZoom(order) {
-    $('slipZoomImg').src = order.slipData;
+    slipZoomScale = 1;
+    slipZoomRotate = 0;
+    const img = $('slipZoomImg');
+    img.src = order.slipData;
+    updateSlipTransform();
+
     $('slipZoomTitle').textContent = `สลิปการโอนเงิน · ${order.ref} (${Number(order.total).toLocaleString('th-TH')} THB)`;
-    $('slipZoomMeta').textContent = `ผู้ถือบัตร: ${order.holderName} (${order.holderPhone}) · SHA-256: ${order.slipHash}`;
+    $('slipZoomMeta').textContent = `ผู้ถือบัตร: ${order.holderName} (${order.holderPhone}) · เวลาสั่งซื้อ: ${new Date(order.issuedAt).toLocaleString('th-TH')} · SHA-256: ${order.slipHash}`;
+
+    const driveLink = $('slipDriveDirectLink');
+    if (driveLink) {
+      if (order.driveViewLink) {
+        driveLink.href = order.driveViewLink;
+        driveLink.hidden = false;
+      } else {
+        driveLink.hidden = true;
+      }
+    }
+
+    const badgeBox = $('slipVerifyBadgeBox');
+    if (badgeBox) {
+      const parts = [];
+      if (order.verifiedBy) {
+        parts.push(`<span style="color:#68D391;">✔ ตรวจสอบผ่าน: ${window.UI.escapeHtml(order.verifiedBy)}</span>`);
+      }
+      if (order.verificationDetail) {
+        parts.push(`<span style="color:var(--color-muted); font-size:11px;">(${window.UI.escapeHtml(order.verificationDetail)})</span>`);
+      }
+      if (order.driveViewLink) {
+        parts.push(`<span style="color:var(--color-accent); font-size:11px;">· สำรองไฟล์ใน Google Drive แล้ว</span>`);
+      }
+      badgeBox.innerHTML = parts.join(' ') || '<span style="color:var(--color-muted);">รอแอดมินตรวจสอบสลิปด้วยตนเอง</span>';
+    }
+
     window.UI.open('slipZoomModal');
   }
 
@@ -1069,6 +1114,33 @@
       if ($('settingBankAccountInput')) {
         $('settingBankAccountInput').value = data.bankAccount || '';
       }
+      if ($('settingDriveFolderInput')) {
+        $('settingDriveFolderInput').value = data.googleDriveFolderId || '';
+      }
+      if ($('settingDriveEmailInput')) {
+        $('settingDriveEmailInput').value = data.googleServiceAccountEmail || '';
+      }
+      if ($('settingDriveKeyInput')) {
+        $('settingDriveKeyInput').value = '';
+        $('settingDriveKeyInput').placeholder = data.hasGooglePrivateKey
+          ? '•••••••• (ตั้งค่าแล้ว · เว้นว่างไว้หากไม่ต้องการเปลี่ยน)'
+          : '-----BEGIN PRIVATE KEY----- ...';
+      }
+      if ($('settingSlipProviderInput')) {
+        $('settingSlipProviderInput').value = data.slipVerifyProvider || 'simulator';
+      }
+      if ($('settingSlipApiKeyInput')) {
+        $('settingSlipApiKeyInput').value = '';
+        $('settingSlipApiKeyInput').placeholder = data.slipVerifyApiKeyMasked
+          ? `•••••••• (${data.slipVerifyApiKeyMasked})`
+          : 'วาง API Key จาก SlipOK / EasySlip';
+      }
+      if ($('settingSlipBranchInput')) {
+        $('settingSlipBranchInput').value = data.slipVerifyBranchId || '';
+      }
+      if ($('settingSlipAutoApprove')) {
+        $('settingSlipAutoApprove').checked = Boolean(data.slipAutoApproveEnabled);
+      }
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
     } catch {
@@ -1084,9 +1156,29 @@
     const bankName = $('settingBankNameInput') ? $('settingBankNameInput').value.trim() : '';
     const bankAccount = $('settingBankAccountInput') ? $('settingBankAccountInput').value.trim() : '';
     const adminPin = $('settingAdminPinInput') ? $('settingAdminPinInput').value.trim() : '';
-    const payload = { promptpayId, merchantName, bankName, bankAccount };
+    const googleDriveFolderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
+    const googleServiceAccountEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
+    const googleServiceAccountPrivateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
+    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'simulator';
+    const slipVerifyApiKey = $('settingSlipApiKeyInput') ? $('settingSlipApiKeyInput').value.trim() : '';
+    const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
+    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
+
+    const payload = {
+      promptpayId,
+      merchantName,
+      bankName,
+      bankAccount,
+      googleDriveFolderId,
+      googleServiceAccountEmail,
+      slipVerifyProvider,
+      slipVerifyBranchId,
+      slipAutoApproveEnabled
+    };
     if (token) payload.lineChannelAccessToken = token;
     if (adminPin) payload.adminPin = adminPin;
+    if (googleServiceAccountPrivateKey) payload.googleServiceAccountPrivateKey = googleServiceAccountPrivateKey;
+    if (slipVerifyApiKey) payload.slipVerifyApiKey = slipVerifyApiKey;
 
     try {
       const res = await fetch('/api/settings', {
@@ -1102,9 +1194,76 @@
       }
       if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
       window.UI.close('lineSettingsModal');
-      window.UI.toast(`บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId}${data.bankAccount ? ' · บัญชี: ' + data.bankAccount : ''})`);
+      window.UI.toast(`บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId}${data.bankAccount ? ' · บัญชี: ' + data.bankAccount : ''} · Cloud: Google Drive & ตรวจสลิป)`);
     } catch (err) {
       window.UI.toast(err.message, 'error');
+    }
+  }
+
+  async function testDriveConnection() {
+    const statusEl = $('driveTestStatus');
+    const folderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
+    const clientEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
+    const privateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
+
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.style.color = 'var(--color-accent)';
+      statusEl.textContent = '⏳ กำลังทดสอบเชื่อมต่อ Google Drive API...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/drive/test', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          googleDriveFolderId: folderId,
+          googleServiceAccountEmail: clientEmail,
+          googleServiceAccountPrivateKey: privateKey
+        })
+      });
+      const data = await res.json();
+      if (statusEl) {
+        statusEl.style.color = data.ok ? '#68D391' : '#FF6B6B';
+        statusEl.textContent = data.message || (data.ok ? 'เชื่อมต่อ Google Drive สำเร็จ' : 'เชื่อมต่อไม่สำเร็จ');
+      }
+    } catch (err) {
+      if (statusEl) {
+        statusEl.style.color = '#FF6B6B';
+        statusEl.textContent = `เกิดข้อผิดพลาด: ${err.message}`;
+      }
+    }
+  }
+
+  async function testSlipVerification() {
+    const statusEl = $('slipTestStatus');
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.style.color = 'var(--color-accent)';
+      statusEl.textContent = '⏳ กำลังทดสอบระบบตรวจสลิป...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/slip/test', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ amount: 3600 })
+      });
+      const data = await res.json();
+      if (statusEl) {
+        if (data.ok && data.result) {
+          statusEl.style.color = data.result.verified ? '#68D391' : '#FF6B6B';
+          statusEl.textContent = `ผลการทดสอบ (${data.result.provider || 'Verifier'}): ${data.result.detail || data.result.reason || 'พร้อมทำงาน'}`;
+        } else {
+          statusEl.style.color = '#FF6B6B';
+          statusEl.textContent = 'ทดสอบไม่สำเร็จ';
+        }
+      }
+    } catch (err) {
+      if (statusEl) {
+        statusEl.style.color = '#FF6B6B';
+        statusEl.textContent = `เกิดข้อผิดพลาด: ${err.message}`;
+      }
     }
   }
 
@@ -1417,6 +1576,38 @@
     }
 
     $('closeSlipZoomBtn').addEventListener('click', () => window.UI.close('slipZoomModal'));
+    if ($('btnZoomIn')) {
+      $('btnZoomIn').addEventListener('click', () => {
+        slipZoomScale = Math.min(3, slipZoomScale + 0.25);
+        updateSlipTransform();
+      });
+    }
+    if ($('btnZoomOut')) {
+      $('btnZoomOut').addEventListener('click', () => {
+        slipZoomScale = Math.max(0.5, slipZoomScale - 0.25);
+        updateSlipTransform();
+      });
+    }
+    if ($('btnZoomReset')) {
+      $('btnZoomReset').addEventListener('click', () => {
+        slipZoomScale = 1;
+        slipZoomRotate = 0;
+        updateSlipTransform();
+      });
+    }
+    if ($('btnRotateSlip')) {
+      $('btnRotateSlip').addEventListener('click', () => {
+        slipZoomRotate = (slipZoomRotate + 90) % 360;
+        updateSlipTransform();
+      });
+    }
+    if ($('btnTestDrive')) {
+      $('btnTestDrive').addEventListener('click', testDriveConnection);
+    }
+    if ($('btnTestSlip')) {
+      $('btnTestSlip').addEventListener('click', testSlipVerification);
+    }
+
     $('closeAdminLinePreviewBtn').addEventListener('click', () => window.UI.close('adminLinePreviewModal'));
     $('refreshAdminBtn').addEventListener('click', () => {
       loadStats();
