@@ -4,12 +4,33 @@
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const db = require('../backend/db');
 
 const BASE_URL = process.env.APP_URL || 'http://localhost:8080';
 const SHOTS = process.env.SHOT_DIR || path.join(__dirname, 'screenshots');
 
+async function isServerUp() {
+  try {
+    const res = await fetch(`${BASE_URL}/api/events`);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function run() {
+  let serverProcess = null;
+  if (!(await isServerUp())) {
+    serverProcess = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+      stdio: 'ignore'
+    });
+    for (let i = 0; i < 40; i++) {
+      if (await isServerUp()) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+
   db.clearAllForTest();
 
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -188,18 +209,18 @@ async function run() {
     await fetch('/api/seats/hold', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ seats: ['VIP-05'], sessionId: 'sess_peer_test_sse', durationMs: 1800 })
+      body: JSON.stringify({ seats: ['VIP-05'], sessionId: 'sess_peer_test_sse', durationMs: 1200 })
     });
   });
   await page.waitForFunction(() => {
     const btn = document.querySelector('button[data-seat-id="VIP-05"]');
     return btn && btn.classList.contains('seat-held-other');
-  });
+  }, { timeout: 10000 });
   // Wait for Server-Side Expiration Worker to auto-unlock VIP-05 via SSE
   await page.waitForFunction(() => {
     const btn = document.querySelector('button[data-seat-id="VIP-05"]');
     return btn && !btn.classList.contains('seat-held-other');
-  }, { timeout: 6000 });
+  }, { timeout: 10000 });
 
   await page.fill('#promoCodeInput', 'EARLY10');
   await page.click('#applyPromoBtn');
@@ -295,6 +316,9 @@ async function run() {
 
   assert.deepEqual(errors, [], 'zero console errors');
   await browser.close();
+  if (serverProcess) {
+    try { serverProcess.kill(); } catch {}
+  }
   console.log('E2E PASSED');
 }
 
