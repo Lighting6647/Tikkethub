@@ -305,6 +305,25 @@
             <input type="text" id="settingMerchantNameInput" class="input-field holder-input" placeholder="เช่น Thai Ticket Concert Co., Ltd.">
           </div>
         </div>
+        <div class="holder-grid" style="margin-top:8px;">
+          <div>
+            <label class="field-label" for="settingBankNameInput">ธนาคาร (ทางเลือกสำหรับโอนผ่านเลขบัญชี)</label>
+            <select id="settingBankNameInput" class="input-field holder-input">
+              <option value="">-- ไม่ระบุ / ใช้พร้อมเพย์อย่างเดียว --</option>
+              <option value="ธนาคารกสิกรไทย (KBANK)">ธนาคารกสิกรไทย (KBANK)</option>
+              <option value="ธนาคารไทยพาณิชย์ (SCB)">ธนาคารไทยพาณิชย์ (SCB)</option>
+              <option value="ธนาคารกรุงเทพ (BBL)">ธนาคารกรุงเทพ (BBL)</option>
+              <option value="ธนาคารกรุงไทย (KTB)">ธนาคารกรุงไทย (KTB)</option>
+              <option value="ธนาคารกรุงศรีอยุธยา (BAY)">ธนาคารกรุงศรีอยุธยา (BAY)</option>
+              <option value="ธนาคารทหารไทยธนชาต (TTB)">ธนาคารทหารไทยธนชาต (TTB)</option>
+              <option value="ธนาคารออมสิน (GSB)">ธนาคารออมสิน (GSB)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="settingBankAccountInput">เลขที่บัญชีธนาคาร (แสดงใต้ QR สำหรับคัดลอก)</label>
+            <input type="text" id="settingBankAccountInput" class="input-field holder-input" placeholder="เช่น 012-3-45678-9">
+          </div>
+        </div>
         <div>
           <label class="field-label" for="settingAdminPinInput">เปลี่ยนรหัส PIN แอดมินใหม่ (อย่างน้อย 4 หลัก · เว้นว่างหากไม่เปลี่ยน)</label>
           <input type="password" id="settingAdminPinInput" class="input-field holder-input" placeholder="เช่น 123456">

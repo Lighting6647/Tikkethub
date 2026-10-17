@@ -1063,6 +1063,12 @@
       if ($('settingMerchantNameInput')) {
         $('settingMerchantNameInput').value = data.merchantName || 'Thai Ticket Concert Co., Ltd.';
       }
+      if ($('settingBankNameInput')) {
+        $('settingBankNameInput').value = data.bankName || '';
+      }
+      if ($('settingBankAccountInput')) {
+        $('settingBankAccountInput').value = data.bankAccount || '';
+      }
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
     } catch {
@@ -1075,8 +1081,10 @@
     const token = $('settingLineTokenInput').value.trim();
     const promptpayId = $('settingPromptpayInput').value.trim();
     const merchantName = $('settingMerchantNameInput') ? $('settingMerchantNameInput').value.trim() : '';
+    const bankName = $('settingBankNameInput') ? $('settingBankNameInput').value.trim() : '';
+    const bankAccount = $('settingBankAccountInput') ? $('settingBankAccountInput').value.trim() : '';
     const adminPin = $('settingAdminPinInput') ? $('settingAdminPinInput').value.trim() : '';
-    const payload = { promptpayId, merchantName };
+    const payload = { promptpayId, merchantName, bankName, bankAccount };
     if (token) payload.lineChannelAccessToken = token;
     if (adminPin) payload.adminPin = adminPin;
 
@@ -1094,7 +1102,7 @@
       }
       if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
       window.UI.close('lineSettingsModal');
-      window.UI.toast(`บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId})`);
+      window.UI.toast(`บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId}${data.bankAccount ? ' · บัญชี: ' + data.bankAccount : ''})`);
     } catch (err) {
       window.UI.toast(err.message, 'error');
     }

@@ -12,6 +12,8 @@
   let deadline = 0;
   let activePromptPayId = cfg.PROMPTPAY_ID;
   let activeMerchantName = cfg.MERCHANT_NAME;
+  let activeBankAccount = '';
+  let activeBankName = '';
 
   function setStep(step) {
     document.querySelectorAll('#paymentModal [data-step]').forEach((el) => {
@@ -34,6 +36,8 @@
       if (data && data.ok) {
         if (data.promptpayId) activePromptPayId = data.promptpayId;
         if (data.merchantName) activeMerchantName = data.merchantName;
+        activeBankAccount = data.bankAccount || '';
+        activeBankName = data.bankName || '';
       }
     } catch {
       /* fallback to activePromptPayId */
@@ -43,6 +47,15 @@
     }
     if ($('payMerchant')) {
       $('payMerchant').textContent = activeMerchantName;
+    }
+    if ($('payBankRow')) {
+      if (activeBankAccount) {
+        $('payBankRow').style.display = 'flex';
+        if ($('payBankName')) $('payBankName').textContent = activeBankName ? `${activeBankName} :` : 'เลขที่บัญชี :';
+        if ($('payBankAccount')) $('payBankAccount').textContent = activeBankAccount;
+      } else {
+        $('payBankRow').style.display = 'none';
+      }
     }
     if (order) {
       renderQr();
@@ -272,6 +285,18 @@
           /* ignore */
         }
         window.UI.toast(`คัดลอกหมายเลขพร้อมเพย์ ${formatPromptPayId(activePromptPayId)} แล้ว`);
+      });
+    }
+    if ($('copyBankBtn')) {
+      $('copyBankBtn').addEventListener('click', async () => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(activeBankAccount);
+          }
+        } catch {
+          /* ignore */
+        }
+        window.UI.toast(`คัดลอกเลขที่บัญชี ${activeBankAccount} เรียบร้อย`);
       });
     }
     $('slipInput').addEventListener('change', (e) => {

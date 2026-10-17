@@ -259,14 +259,18 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true });
   }
 
-  // Public payment config for customer checkout QR
+  // Public payment config for customer checkout QR & bank transfer
   if (method === 'GET' && pathname === '/api/payment-config') {
     const promptpayId = db.getSetting('promptpay_id', '0954654698');
     const merchantName = db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.');
+    const bankAccount = db.getSetting('bank_account', '');
+    const bankName = db.getSetting('bank_name', '');
     return sendJson(res, 200, {
       ok: true,
       promptpayId,
-      merchantName
+      merchantName,
+      bankAccount,
+      bankName
     });
   }
 
@@ -699,12 +703,16 @@ async function handleApi(req, res, url) {
       const token = db.getSetting('line_channel_access_token', '');
       const promptpayId = db.getSetting('promptpay_id', '0954654698');
       const merchantName = db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.');
+      const bankAccount = db.getSetting('bank_account', '');
+      const bankName = db.getSetting('bank_name', '');
       return sendJson(res, 200, {
         ok: true,
         hasLineToken: Boolean(token),
         lineTokenMasked: maskToken(token),
         promptpayId,
-        merchantName
+        merchantName,
+        bankAccount,
+        bankName
       });
     }
     if (method === 'PUT') {
@@ -730,6 +738,14 @@ async function handleApi(req, res, url) {
         db.setSetting('merchant_name', body.merchantName.trim());
         changes.push(`ตั้งชื่อบัญชีรับเงินเป็น "${body.merchantName.trim()}"`);
       }
+      if (typeof body.bankAccount === 'string') {
+        db.setSetting('bank_account', body.bankAccount.trim());
+        changes.push(`ตั้งค่าเลขที่บัญชีธนาคารเป็น "${body.bankAccount.trim()}"`);
+      }
+      if (typeof body.bankName === 'string') {
+        db.setSetting('bank_name', body.bankName.trim());
+        changes.push(`ตั้งค่าธนาคารเป็น "${body.bankName.trim()}"`);
+      }
       if (typeof body.adminPin === 'string' && body.adminPin.trim().length >= 4) {
         db.setSetting('admin_pin', body.adminPin.trim());
         changes.push('เปลี่ยนรหัส PIN แอดมิน');
@@ -747,7 +763,9 @@ async function handleApi(req, res, url) {
         hasLineToken: Boolean(token),
         lineTokenMasked: maskToken(token),
         promptpayId: db.getSetting('promptpay_id', '0954654698'),
-        merchantName: db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.')
+        merchantName: db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.'),
+        bankAccount: db.getSetting('bank_account', ''),
+        bankName: db.getSetting('bank_name', '')
       });
     }
   }
