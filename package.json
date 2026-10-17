@@ -2,9 +2,12 @@
   "name": "thaiticket-concert-hub",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "start": "node server.js",
-    "build": "node --check server.js && node --check backend/db.js && node --check backend/line.js && node --check js/app.js && node --check js/checkout.js && node --check js/seat-map.js && node --check js/admin.js && node --check js/ticket-renderer.js && node --check js/ticket-viewer.js",
+    "build": "node --check server.js && node --check api/index.js && node --check backend/db.js && node --check backend/line.js && node --check js/app.js && node --check js/checkout.js && node --check js/seat-map.js && node --check js/admin.js && node --check js/ticket-renderer.js && node --check js/ticket-viewer.js",
     "test": "node --test tests/promptpay.test.js && node --test tests/seat-holds.test.js && node --test tests/seat-map.test.js && node tests/e2e.js"
   },
   "devDependencies": {

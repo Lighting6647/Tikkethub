@@ -697,7 +697,7 @@ function serveStatic(req, res, url) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+async function requestHandler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (url.pathname.startsWith('/api/')) {
@@ -709,7 +709,9 @@ const server = http.createServer(async (req, res) => {
     const status = err.status || 500;
     sendJson(res, status, { error: err.message || 'เกิดข้อผิดพลาดในเซิร์ฟเวอร์', code: err.code });
   }
-});
+}
+
+const server = http.createServer(requestHandler);
 
 if (require.main === module) {
   server.listen(PORT, () => {
@@ -717,4 +719,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, resetRateLimitsForTest };
+module.exports = requestHandler;
+module.exports.server = server;
+module.exports.requestHandler = requestHandler;
+module.exports.resetRateLimitsForTest = resetRateLimitsForTest;
