@@ -50,6 +50,39 @@ function resetRateLimitsForTest() {
   rateBuckets.clear();
 }
 
+// Real-time SSE Seat Hold Stream & Server-Side Expiration Worker
+const sseSeatClients = new Set();
+
+function broadcastSeatSync(reason = 'update') {
+  if (sseSeatClients.size === 0) return;
+  for (const client of sseSeatClients) {
+    try {
+      const payload = {
+        ...db.getSeatStatuses(client.sessionId),
+        reason,
+        timestamp: Date.now()
+      };
+      client.res.write(`event: seat_sync\ndata: ${JSON.stringify(payload)}\n\n`);
+    } catch {
+      sseSeatClients.delete(client);
+    }
+  }
+}
+
+const seatExpirationWorker = setInterval(() => {
+  try {
+    const purged = db.cleanExpiredHolds();
+    if (purged > 0) {
+      broadcastSeatSync('expired_cleanup');
+    }
+  } catch {
+    /* ignore */
+  }
+}, 2000);
+if (typeof seatExpirationWorker.unref === 'function') {
+  seatExpirationWorker.unref();
+}
+
 // Admin Session Token (HMAC-SHA256)
 function createAdminToken() {
   const exp = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
@@ -140,6 +173,14 @@ function validateOrderPayload(body) {
   if (holderName.length < 2) return 'กรุณากรอกชื่อ-นามสกุลผู้ถือบัตร';
   const digits = String(body.holderPhone || '').replace(/\D/g, '');
   if (digits.length < 9 || digits.length > 10) return 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลักให้ถูกต้อง';
+  const idRaw = String(body.holderIdCard || '').trim();
+  const idDigits = idRaw.replace(/\D/g, '');
+  if (!idRaw) {
+    return 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ต';
+  }
+  if (idDigits.length !== 13 && idRaw.length < 7) {
+    return 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ตให้ถูกต้อง';
+  }
   if (!body.slipData || !String(body.slipData).startsWith('data:image/')) {
     return 'กรุณาแนบรูปสลิปการโอนเงิน';
   }
@@ -163,6 +204,7 @@ function buildCsv(orders) {
     'ยอดชำระรวม (THB)',
     'ชื่อผู้ถือบัตร',
     'เบอร์โทรศัพท์',
+    'เลขบัตรประชาชน / Passport',
     'LINE User ID',
     'สถานะสลิป',
     'ส่งบัตรผ่าน LINE',
@@ -194,6 +236,7 @@ function buildCsv(orders) {
       o.total,
       o.holderName,
       o.holderPhone,
+      o.holderIdCard || '',
       o.lineUserId,
       statusText(o.status),
       lineText(o.lineSent),
@@ -360,6 +403,7 @@ async function handleApi(req, res, url) {
     }
     try {
       const created = db.createOrder(body);
+      broadcastSeatSync('order_created');
       return sendJson(
         res,
         201,
@@ -450,6 +494,7 @@ async function handleApi(req, res, url) {
         lineSent: 0,
         lineLog: null
       });
+      broadcastSeatSync('order_rejected');
       db.addAuditLog({
         action: 'REJECT_SLIP',
         targetRef: ref,
@@ -493,7 +538,40 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
-  // Real-time Seat Hold Engine (10-minute Lock & Race Condition Protection)
+  // Real-time Seat Hold Engine (10-minute Lock, Race Condition Protection & Live SSE Stream)
+  if (method === 'GET' && pathname === '/api/seats/stream') {
+    const sessionId = url.searchParams.get('sessionId') || '';
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive'
+    });
+    const client = { res, sessionId };
+    sseSeatClients.add(client);
+
+    const initialPayload = {
+      ...db.getSeatStatuses(sessionId),
+      reason: 'connected',
+      timestamp: Date.now()
+    };
+    res.write(`event: seat_sync\ndata: ${JSON.stringify(initialPayload)}\n\n`);
+
+    const keepAlive = setInterval(() => {
+      try {
+        res.write(': keepalive\n\n');
+      } catch {
+        clearInterval(keepAlive);
+      }
+    }, 15000);
+    if (typeof keepAlive.unref === 'function') keepAlive.unref();
+
+    req.on('close', () => {
+      clearInterval(keepAlive);
+      sseSeatClients.delete(client);
+    });
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/seats/status') {
     const sessionId = url.searchParams.get('sessionId') || '';
     return sendJson(res, 200, db.getSeatStatuses(sessionId));
@@ -502,12 +580,18 @@ async function handleApi(req, res, url) {
   if (method === 'POST' && pathname === '/api/seats/hold') {
     const body = await readJsonBody(req);
     const result = db.holdSeats(body.seats, body.sessionId, body.durationMs || 600000);
+    if (result && result.ok) {
+      broadcastSeatSync('hold');
+    }
     return sendJson(res, 200, result);
   }
 
   if (method === 'POST' && pathname === '/api/seats/release') {
     const body = await readJsonBody(req);
     const result = db.releaseSeats(body.seats, body.sessionId);
+    if (result && result.ok) {
+      broadcastSeatSync('release');
+    }
     return sendJson(res, 200, result);
   }
 

@@ -178,23 +178,29 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Details grid (Row 1: Holder Name & Phone, Row 2: Zone & Qty, Row 3: Total & Status)
-    const dy = perfY + 78;
+    // Details grid (Row 1: Holder Name & Phone, Row 2: ID Card & Zone, Row 3: Qty & Total / Status)
+    const dy = perfY + 68;
     const col2 = ix + iw / 2 + 16;
     const isApproved = ticket.status === 'approved' || !ticket.status;
+    const rawId = String(ticket.holderIdCard || '').trim();
+    const idDigits = rawId.replace(/\D/g, '');
+    const maskedId = idDigits.length === 13
+      ? `${idDigits.slice(0, 1)}-${idDigits.slice(1, 5)}-xxxxx-xx-${idDigits.slice(12)}`
+      : (rawId.length >= 7 ? `${rawId.slice(0, 2)}***${rawId.slice(-3)}` : (rawId || '-'));
+
     field(ctx, 'ผู้ถือบัตร', ticket.holderName || 'ผู้ถือบัตรทั่วไป', ix, dy);
     field(ctx, 'เบอร์โทรศัพท์', ticket.holderPhone || '-', col2, dy);
 
-    field(ctx, 'โซนที่นั่ง', ticket.zone, ix, dy + 125);
-    field(ctx, 'จำนวน', `${ticket.qty} ใบ`, col2, dy + 125);
+    field(ctx, 'เลขบัตร ปชช. / Passport', maskedId, ix, dy + 115);
+    field(ctx, 'โซนที่นั่ง', ticket.zone, col2, dy + 115);
 
-    field(ctx, 'ยอดชำระ', `${Number(ticket.total).toLocaleString('th-TH')} THB`, ix, dy + 250);
+    field(ctx, 'จำนวน / ยอดชำระ', `${ticket.qty} ใบ · ${Number(ticket.total).toLocaleString('th-TH')} THB`, ix, dy + 230);
     field(
       ctx,
       'สถานะบัตร',
       isApproved ? 'อนุมัติแล้ว' : 'รอตรวจสอบสลิป',
       col2,
-      dy + 250,
+      dy + 230,
       isApproved ? C.accent : C.pending
     );
 
@@ -202,13 +208,13 @@
     const qrSize = 380;
     const qrBox = qrSize + 52;
     const qx = (W - qrBox) / 2;
-    const qy = dy + 355;
+    const qy = dy + 340;
     roundRect(ctx, qx, qy, qrBox, qrBox, 24);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     drawQr(
       ctx,
-      `THAITICKET|${ticket.ref}|${ticket.zone}|${ticket.qty}|${ticket.holderPhone || ''}`,
+      `THAITICKET|${ticket.ref}|${ticket.zone}|${ticket.qty}|${ticket.holderPhone || ''}|${rawId}`,
       qx + 26,
       qy + 26,
       qrSize

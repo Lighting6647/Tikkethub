@@ -118,6 +118,9 @@ if (!orderColumns.includes('discount_amount')) {
 if (!orderColumns.includes('seats')) {
   db.exec(`ALTER TABLE orders ADD COLUMN seats TEXT DEFAULT '[]';`);
 }
+if (!orderColumns.includes('holder_id_card')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN holder_id_card TEXT DEFAULT '';`);
+}
 
 const DEFAULT_EVENTS = [
   {
@@ -325,6 +328,7 @@ function rowToOrder(row) {
     seats,
     holderName: row.holder_name,
     holderPhone: row.holder_phone,
+    holderIdCard: row.holder_id_card || '',
     lineUserId: row.line_user_id || '',
     slipName: row.slip_name,
     slipMime: row.slip_mime,
@@ -376,10 +380,10 @@ function createOrder(input) {
     INSERT INTO orders (
       ref, title, date, venue, zone, qty, unit_price, total,
       promo_code, discount_amount, seats,
-      holder_name, holder_phone, line_user_id,
+      holder_name, holder_phone, holder_id_card, line_user_id,
       slip_name, slip_mime, slip_data, slip_hash,
       status, issued_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
   `);
 
   stmt.run(
@@ -396,6 +400,7 @@ function createOrder(input) {
     JSON.stringify(seatsArr),
     String(input.holderName).trim(),
     String(input.holderPhone).trim(),
+    String(input.holderIdCard || '').trim(),
     String(input.lineUserId || '').trim(),
     String(input.slipName || 'slip.png').trim(),
     String(input.slipMime || 'image/png').trim(),
@@ -745,11 +750,11 @@ function restoreBackupSnapshot(snapshot) {
         INSERT INTO orders (
           ref, title, date, venue, zone, qty, unit_price, total,
           promo_code, discount_amount,
-          holder_name, holder_phone, line_user_id,
+          holder_name, holder_phone, holder_id_card, line_user_id,
           slip_name, slip_mime, slip_data, slip_hash,
           status, reject_reason, line_sent, line_log,
           issued_at, reviewed_at, checked_in_at, checked_in_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const o of snapshot.orders) {
         insOrd.run(
@@ -765,6 +770,7 @@ function restoreBackupSnapshot(snapshot) {
           o.discount_amount ?? o.discountAmount ?? 0,
           o.holder_name || o.holderName || '',
           o.holder_phone || o.holderPhone || '',
+          o.holder_id_card || o.holderIdCard || '',
           o.line_user_id || o.lineUserId || '',
           o.slip_name || o.slipName || 'slip.png',
           o.slip_mime || o.slipMime || 'image/png',
@@ -847,7 +853,8 @@ const BASE_OCCUPIED_SEATS = [
 ];
 
 function cleanExpiredHolds() {
-  db.prepare(`DELETE FROM seat_holds WHERE expires_at <= ?`).run(Date.now());
+  const info = db.prepare(`DELETE FROM seat_holds WHERE expires_at <= ?`).run(Date.now());
+  return Number(info && info.changes ? info.changes : 0);
 }
 
 function getBookedSeatIds() {
@@ -908,6 +915,7 @@ function getSeatStatuses(sessionId = '') {
   return {
     ok: true,
     seats: result,
+    activeHoldsCount: activeHolds.length,
     myHoldExpiresAt: remainingSeconds > 0 ? myHoldExpiresAt : null,
     remainingSeconds
   };
@@ -1036,6 +1044,45 @@ function getPromoterAnalytics() {
     z.remaining = Math.max(0, z.quota - z.sold);
   });
 
+  // Per-event financial settlement breakdown
+  const eventsList = listEventsWithQuota();
+  const eventSettlements = eventsList.map((ev) => {
+    const evApproved = approvedOrders.filter((o) => o.title === ev.title);
+    const ordersCount = evApproved.length;
+    const ticketsSold = evApproved.reduce((s, o) => s + o.qty, 0);
+    const grossRevenue = evApproved.reduce((s, o) => s + (o.total + (o.discount_amount || 0)), 0);
+    const discountAmount = evApproved.reduce((s, o) => s + (o.discount_amount || 0), 0);
+    const netRevenue = evApproved.reduce((s, o) => s + o.total, 0);
+    const checkedInTickets = evApproved.filter((o) => o.checked_in_at > 0).reduce((s, o) => s + o.qty, 0);
+    return {
+      id: ev.id,
+      title: ev.title,
+      date: ev.date,
+      venue: ev.venue,
+      ordersCount,
+      ticketsSold,
+      totalQuota: ev.totalQuota,
+      remainingTotal: ev.remainingTotal,
+      grossRevenue,
+      discountAmount,
+      netRevenue,
+      checkedInTickets
+    };
+  });
+
+  // Promo code breakdown
+  const allPromos = listPromoCodes();
+  const promoBreakdown = allPromos.map((p) => {
+    const matching = approvedOrders.filter((o) => o.promo_code === p.code);
+    return {
+      code: p.code,
+      description: p.description,
+      usedCount: matching.length,
+      totalDiscount: matching.reduce((s, o) => s + (o.discount_amount || 0), 0),
+      netRevenue: matching.reduce((s, o) => s + o.total, 0)
+    };
+  });
+
   // Hourly velocity (last 24 hours in 4-hour buckets)
   const now = Date.now();
   const hourlyBuckets = [];
@@ -1051,8 +1098,8 @@ function getPromoterAnalytics() {
   }
 
   // Gate Check-in Stats
-  const checkedInCount = approvedOrders.filter((o) => o.checked_in_at > 0).length;
-  const checkInRatePct = approvedOrders.length > 0 ? Math.round((checkedInCount / approvedOrders.length) * 100) : 0;
+  const checkedInCount = approvedOrders.filter((o) => o.checked_in_at > 0).reduce((s, o) => s + o.qty, 0);
+  const checkInRatePct = totalTicketsSold > 0 ? Math.round((checkedInCount / totalTicketsSold) * 100) : 0;
 
   // Promo campaign stats
   const promoUsedOrders = approvedOrders.filter((o) => Boolean(o.promo_code));
@@ -1060,6 +1107,12 @@ function getPromoterAnalytics() {
 
   return {
     ok: true,
+    settlementMeta: {
+      reportId: `STL-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`,
+      generatedAt: now,
+      merchantName: getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.'),
+      promptpayId: getSetting('promptpay_id', '0954654698')
+    },
     kpis: {
       totalGrossRevenue,
       totalNetRevenue,
@@ -1076,6 +1129,8 @@ function getPromoterAnalytics() {
       checkInRatePct
     },
     zones: zoneStats,
+    eventSettlements,
+    promoBreakdown,
     hourlyVelocity: hourlyBuckets,
     promos: {
       promoOrderCount: promoUsedOrders.length,

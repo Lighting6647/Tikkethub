@@ -79,6 +79,23 @@ function filterCategory(cat, btn) {
   renderEvents();
 }
 
+function formatIdCardInput(val) {
+  const digits = String(val || '').replace(/\D/g, '');
+  if (digits.length === 0) return val;
+  // If it's alphanumeric/passport (contains letters)
+  if (/[a-zA-Z]/.test(val)) {
+    return val.trim().toUpperCase();
+  }
+  // Format Thai National ID: x-xxxx-xxxxx-xx-x
+  let res = '';
+  if (digits.length > 0) res += digits.substring(0, 1);
+  if (digits.length > 1) res += '-' + digits.substring(1, 5);
+  if (digits.length > 5) res += '-' + digits.substring(5, 10);
+  if (digits.length > 10) res += '-' + digits.substring(10, 12);
+  if (digits.length > 12) res += '-' + digits.substring(12, 13);
+  return res;
+}
+
 function loadSavedHolder() {
   try {
     const raw = localStorage.getItem(HOLDER_KEY);
@@ -89,6 +106,9 @@ function loadSavedHolder() {
     }
     if (saved.holderPhone && !document.getElementById('holderPhone').value) {
       document.getElementById('holderPhone').value = saved.holderPhone;
+    }
+    if (saved.holderIdCard && !document.getElementById('holderIdCard').value) {
+      document.getElementById('holderIdCard').value = formatIdCardInput(saved.holderIdCard);
     }
     if (saved.lineUserId && !document.getElementById('holderLineId').value) {
       document.getElementById('holderLineId').value = saved.lineUserId;
@@ -247,13 +267,16 @@ function confirmBooking() {
   if (!selectedEvent) return;
   const nameEl = document.getElementById('holderName');
   const phoneEl = document.getElementById('holderPhone');
+  const idEl = document.getElementById('holderIdCard');
   const lineEl = document.getElementById('holderLineId');
   const errEl = document.getElementById('holderError');
 
   const holderName = (nameEl ? nameEl.value : '').trim();
   const holderPhone = (phoneEl ? phoneEl.value : '').trim();
+  const holderIdCard = (idEl ? idEl.value : '').trim();
   const lineUserId = (lineEl ? lineEl.value : '').trim();
   const digits = holderPhone.replace(/\D/g, '');
+  const idDigits = holderIdCard.replace(/\D/g, '');
 
   if (holderName.length < 2) {
     if (errEl) errEl.textContent = 'กรุณากรอกชื่อ-นามสกุลผู้ถือบัตร';
@@ -265,10 +288,20 @@ function confirmBooking() {
     if (phoneEl) phoneEl.focus();
     return;
   }
+  if (!holderIdCard) {
+    if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ต';
+    if (idEl) idEl.focus();
+    return;
+  }
+  if (idDigits.length !== 13 && holderIdCard.length < 7) {
+    if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ตให้ถูกต้อง';
+    if (idEl) idEl.focus();
+    return;
+  }
   if (errEl) errEl.textContent = '';
 
   try {
-    localStorage.setItem(HOLDER_KEY, JSON.stringify({ holderName, holderPhone, lineUserId }));
+    localStorage.setItem(HOLDER_KEY, JSON.stringify({ holderName, holderPhone, holderIdCard, lineUserId }));
   } catch {
     /* ignore */
   }
@@ -288,6 +321,7 @@ function confirmBooking() {
     seats,
     holderName,
     holderPhone,
+    holderIdCard,
     lineUserId
   });
 }
@@ -347,6 +381,14 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshCartCount();
     syncEventsFromServer();
   });
+  const idCardInput = document.getElementById('holderIdCard');
+  if (idCardInput) {
+    idCardInput.addEventListener('input', (e) => {
+      const cursor = e.target.selectionStart;
+      const formatted = formatIdCardInput(e.target.value);
+      e.target.value = formatted;
+    });
+  }
   renderEvents();
   syncEventsFromServer();
   TicketStore.syncAll().then(refreshCartCount);

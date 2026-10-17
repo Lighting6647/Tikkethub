@@ -221,6 +221,10 @@
                 <strong>${esc(o.holderName)} (${esc(o.holderPhone)})</strong>
               </div>
               <div class="order-meta-item">
+                <small>เลขบัตร ปชช. / Passport</small>
+                <strong style="color:var(--color-accent);">${esc(o.holderIdCard || '-')}</strong>
+              </div>
+              <div class="order-meta-item">
                 <small>โซน / จำนวน</small>
                 <strong>${esc(o.zone)} · ${o.qty} ใบ</strong>
               </div>
@@ -331,7 +335,7 @@
           </div>
           <div style="font-size:13px; color:#fff;">
             <strong>${esc(o.title)}</strong> · โซน ${esc(o.zone)} (${o.qty} ใบ)<br>
-            ผู้ถือบัตร: <strong>${esc(o.holderName)} (${esc(o.holderPhone)})</strong><br>
+            ผู้ถือบัตร: <strong>${esc(o.holderName)} (${esc(o.holderPhone)})</strong> · ปชช./Passport: <strong>${esc(o.holderIdCard || '-')}</strong><br>
             บันทึกเวลาเข้างาน: ${esc(new Date(o.checkedInAt).toLocaleString('th-TH'))} โดย ${esc(o.checkedInBy)}
           </div>
         `;
@@ -349,7 +353,7 @@
             ${esc(msg)}
             ${
               o
-                ? `<br><span class="text-muted">ผู้ถือบัตร: ${esc(o.holderName)} (${esc(o.holderPhone)}) · โซน ${esc(o.zone)} (${o.qty} ใบ)</span>`
+                ? `<br><span class="text-muted">ผู้ถือบัตร: ${esc(o.holderName)} (${esc(o.holderPhone)}) · ปชช.: ${esc(o.holderIdCard || '-')} · โซน ${esc(o.zone)} (${o.qty} ใบ)</span>`
                 : ''
             }
           </div>
@@ -656,10 +660,151 @@
     }
   }
 
+  let latestAnalyticsData = null;
+
+  function printSettlementReport() {
+    window.UI.toast('กำลังเปิดหน้าต่างพิมพ์ใบสรุปยอดปิดรอบการแสดง (เลือก Save as PDF เพื่อบันทึกไฟล์)');
+    window.print();
+  }
+
+  function downloadSettlementHtml() {
+    if (!latestAnalyticsData) return;
+    const esc = window.UI.escapeHtml;
+    const meta = latestAnalyticsData.settlementMeta || {};
+    const k = latestAnalyticsData.kpis || {};
+    const evs = latestAnalyticsData.eventSettlements || [];
+    const promos = latestAnalyticsData.promoBreakdown || [];
+    const issuedStr = new Date(meta.generatedAt || Date.now()).toLocaleString('th-TH');
+
+    const html = `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ใบสรุปยอดปิดรอบการแสดง (${esc(meta.reportId || 'STL-REPORT')})</title>
+<style>
+  body { font-family: 'Noto Sans Thai', Tahoma, sans-serif; color: #111; margin: 28px; line-height: 1.45; }
+  .head { border-bottom: 3px solid #B40000; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; }
+  h1 { margin: 0 0 4px 0; font-size: 20px; color: #B40000; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 22px; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; }
+  th { background: #f3f3f3; }
+  tfoot td { font-weight: 700; background: #fafafa; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  .kpi-box { border: 1px solid #ccc; border-radius: 6px; padding: 10px; }
+  .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 32px; }
+  .sign-box { border: 1px dashed #888; border-radius: 6px; padding: 18px; text-align: center; }
+  .sign-line { border-bottom: 1px solid #333; height: 34px; margin: 16px 30px 8px; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <div>
+      <h1>ใบสรุปยอดปิดรอบการแสดงและรายงานการเงิน (Official Event Settlement Report)</h1>
+      <div>ผู้รับชำระเงิน: <strong>${esc(meta.merchantName || 'Thai Ticket Concert Co., Ltd.')}</strong> · พร้อมเพย์: <strong>${esc(meta.promptpayId || '0954654698')}</strong></div>
+    </div>
+    <div style="text-align:right; font-size:12px;">
+      <div>เลขที่เอกสาร: <strong>${esc(meta.reportId || 'STL-2026')}</strong></div>
+      <div>วันที่ออกรายงาน: ${esc(issuedStr)}</div>
+    </div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-box"><small>รายได้สุทธิ (Net Revenue)</small><div style="font-size:18px;font-weight:700;color:#B40000;">${Number(k.totalNetRevenue || 0).toLocaleString('th-TH')} THB</div></div>
+    <div class="kpi-box"><small>ยอดก่อนหักส่วนลด (Gross)</small><div style="font-size:18px;font-weight:700;">${Number(k.totalGrossRevenue || 0).toLocaleString('th-TH')} THB</div></div>
+    <div class="kpi-box"><small>ส่วนลดโปรโมชันรวม</small><div style="font-size:18px;font-weight:700;">-${Number(k.totalDiscountGiven || 0).toLocaleString('th-TH')} THB</div></div>
+    <div class="kpi-box"><small>บัตรที่จำหน่ายแล้ว / เช็กอิน</small><div style="font-size:18px;font-weight:700;">${k.totalTicketsSold || 0} ใบ (เช็กอิน ${k.checkedInCount || 0} ใบ)</div></div>
+  </div>
+  <h3>1. ตารางสรุปยอดขายแยกตามรอบการแสดง (Event Financial Settlement)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>คอนเสิร์ต / รอบการแสดง</th>
+        <th>วันที่ & สถานที่</th>
+        <th>บิลอนุมัติ</th>
+        <th>บัตรที่ขายได้</th>
+        <th>เช็กอินหน้างาน</th>
+        <th>ยอดเต็ม (Gross)</th>
+        <th>ส่วนลด (Discount)</th>
+        <th>ยอดสุทธิ (Net THB)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${evs
+        .map(
+          (e) => `<tr>
+        <td><strong>${esc(e.title)}</strong></td>
+        <td>${esc(e.date)} · ${esc(e.venue)}</td>
+        <td>${e.ordersCount} รายการ</td>
+        <td>${e.ticketsSold} / ${e.totalQuota} ใบ</td>
+        <td>${e.checkedInTickets} ใบ</td>
+        <td>${Number(e.grossRevenue).toLocaleString('th-TH')} THB</td>
+        <td>-${Number(e.discountAmount).toLocaleString('th-TH')} THB</td>
+        <td><strong>${Number(e.netRevenue).toLocaleString('th-TH')} THB</strong></td>
+      </tr>`
+        )
+        .join('')}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">รวมทั้งสิ้น (Grand Total)</td>
+        <td>${k.approvedOrders || 0} รายการ</td>
+        <td>${k.totalTicketsSold || 0} ใบ</td>
+        <td>${k.checkedInCount || 0} ใบ</td>
+        <td>${Number(k.totalGrossRevenue || 0).toLocaleString('th-TH')} THB</td>
+        <td>-${Number(k.totalDiscountGiven || 0).toLocaleString('th-TH')} THB</td>
+        <td>${Number(k.totalNetRevenue || 0).toLocaleString('th-TH')} THB</td>
+      </tr>
+    </tfoot>
+  </table>
+  <h3>2. สรุปการใช้โค้ดส่วนลดโปรโมชัน (Promo Code Settlement)</h3>
+  <table>
+    <thead>
+      <tr><th>รหัสโค้ด</th><th>รายละเอียดแคมเปญ</th><th>จำนวนที่ใช้</th><th>ส่วนลดที่มอบให้รวม</th><th>ยอดชำระสุทธิจากโค้ด</th></tr>
+    </thead>
+    <tbody>
+      ${promos
+        .map(
+          (p) => `<tr>
+        <td><strong>${esc(p.code)}</strong></td>
+        <td>${esc(p.description)}</td>
+        <td>${p.usedCount} รายการ</td>
+        <td>-${Number(p.totalDiscount).toLocaleString('th-TH')} THB</td>
+        <td>${Number(p.netRevenue).toLocaleString('th-TH')} THB</td>
+      </tr>`
+        )
+        .join('')}
+    </tbody>
+  </table>
+  <div class="sign-grid">
+    <div class="sign-box">
+      <strong>ผู้จัดงาน / Promoter Representative</strong>
+      <div class="sign-line"></div>
+      <div>วันที่ ____ / ____ / ________</div>
+    </div>
+    <div class="sign-box">
+      <strong>ฝ่ายการเงินและบัญชี / Finance & Settlement Auditor</strong>
+      <div class="sign-line"></div>
+      <div>วันที่ ____ / ____ / ________</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `thaiticket-settlement-${(meta.reportId || 'report').toLowerCase()}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    window.UI.toast('ดาวน์โหลดไฟล์ใบสรุปยอดปิดรอบการแสดงเรียบร้อยแล้ว');
+  }
+
   async function openAnalyticsModal() {
     const box = $('analyticsModalContent');
     if (!box) return;
-    box.innerHTML = `<div class="empty-state"><p>กำลังประมวลผลสถิติและ Heatmap...</p></div>`;
+    box.innerHTML = `<div class="empty-state"><p>กำลังประมวลผลสถิติและใบสรุปยอดปิดรอบการแสดง...</p></div>`;
     window.UI.open('analyticsModal');
 
     try {
@@ -672,14 +817,33 @@
       }
       if (!data.ok) throw new Error(data.error || 'ดึงข้อมูลไม่สำเร็จ');
 
+      latestAnalyticsData = data;
+      const esc = window.UI.escapeHtml;
+      const meta = data.settlementMeta || {};
       const k = data.kpis;
       const z = data.zones;
       const p = data.promos;
+      const evs = data.eventSettlements || [];
+      const promoList = data.promoBreakdown || [];
       const v = data.hourlyVelocity || [];
       const maxVelocityCount = Math.max(1, ...v.map((item) => item.count));
+      const generatedTime = new Date(meta.generatedAt || Date.now()).toLocaleString('th-TH');
 
       box.innerHTML = `
-        <div class="analytics-grid">
+        <div class="analytics-grid" id="printableSettlementArea">
+          <!-- Official Settlement Header -->
+          <div class="settlement-report-header" id="settlementReportHeader">
+            <div>
+              <div style="font-size:11px; color:var(--color-accent); font-weight:700; letter-spacing:0.5px;">OFFICIAL FINANCIAL SETTLEMENT REPORT · ใบสรุปยอดปิดรอบการแสดง</div>
+              <div style="font-size:16px; font-weight:700; color:#fff; margin-top:2px;">${esc(meta.merchantName || 'Thai Ticket Concert Co., Ltd.')}</div>
+              <div class="text-muted" style="font-size:12px;">บัญชีพร้อมเพย์รับชำระ: <strong>${esc(meta.promptpayId || '0954654698')}</strong></div>
+            </div>
+            <div style="text-align:right; font-size:12px;">
+              <div>เลขที่ใบสรุปยอด: <strong style="color:var(--color-accent);" id="settlementReportId">${esc(meta.reportId || 'STL-2026')}</strong></div>
+              <div class="text-muted">ออกรายงานเมื่อ: ${esc(generatedTime)}</div>
+            </div>
+          </div>
+
           <!-- KPI Cards -->
           <div class="analytics-kpis">
             <div class="analytics-kpi-card">
@@ -701,6 +865,58 @@
               <span class="analytics-kpi-title">เช็กอินหน้างาน (Gate Check-in)</span>
               <span class="analytics-kpi-val" style="color:#229BFF;">${k.checkedInCount} <small style="font-size:12px;">ใบ (${k.checkInRatePct}%)</small></span>
               <span class="analytics-kpi-sub">สแกนผ่านจุดตรวจแล้ว</span>
+            </div>
+          </div>
+
+          <!-- Per-Event Financial Settlement Table -->
+          <div class="heatmap-box">
+            <div class="heatmap-box-title">
+              <span>📑 ตารางสรุปยอดขายและรายได้สุทธิแยกตามคอนเสิร์ต (Event Settlement Breakdown)</span>
+              <span style="font-size:11px; color:var(--color-muted); font-weight:normal;">เฉพาะรายการที่อนุมัติสลิปแล้ว</span>
+            </div>
+            <div class="settlement-table-wrap">
+              <table class="settlement-table" id="eventSettlementTable">
+                <thead>
+                  <tr>
+                    <th>คอนเสิร์ต / การแสดง</th>
+                    <th>วันที่ & สถานที่</th>
+                    <th>บิลอนุมัติ</th>
+                    <th>บัตรที่ขาย / โควตา</th>
+                    <th>เช็กอิน</th>
+                    <th>ยอดเต็ม (Gross)</th>
+                    <th>ส่วนลด</th>
+                    <th>รายได้สุทธิ (Net)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${evs
+                    .map(
+                      (ev) => `
+                    <tr>
+                      <td><strong style="color:#fff;">${esc(ev.title)}</strong></td>
+                      <td class="text-muted">${esc(ev.date)} · ${esc(ev.venue)}</td>
+                      <td>${ev.ordersCount} รายการ</td>
+                      <td>${ev.ticketsSold} / ${ev.totalQuota} ใบ</td>
+                      <td style="color:var(--color-accent);">${ev.checkedInTickets} ใบ</td>
+                      <td>${Number(ev.grossRevenue).toLocaleString('th-TH')} THB</td>
+                      <td style="color:#F5A623;">-${Number(ev.discountAmount).toLocaleString('th-TH')} THB</td>
+                      <td><strong style="color:var(--color-accent);">${Number(ev.netRevenue).toLocaleString('th-TH')} THB</strong></td>
+                    </tr>`
+                    )
+                    .join('')}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="2">รวมยอดปิดรอบทั้งหมด (Grand Settlement Total)</td>
+                    <td>${k.approvedOrders} รายการ</td>
+                    <td>${k.totalTicketsSold} ใบ</td>
+                    <td style="color:var(--color-accent);">${k.checkedInCount} ใบ</td>
+                    <td>${Number(k.totalGrossRevenue).toLocaleString('th-TH')} THB</td>
+                    <td style="color:#F5A623;">-${Number(k.totalDiscountGiven).toLocaleString('th-TH')} THB</td>
+                    <td style="color:var(--color-accent);">${Number(k.totalNetRevenue).toLocaleString('th-TH')} THB</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
 
@@ -738,6 +954,41 @@
             </div>
           </div>
 
+          <!-- Promo Code Settlement Table -->
+          <div class="heatmap-box">
+            <div class="heatmap-box-title">
+              <span>🎟️ สรุปยอดการใช้โค้ดส่วนลดโปรโมชัน (Promo Code Settlement)</span>
+              <span class="badge-accent">โควตา Early Bird คงเหลือ: ${p.earlyBirdRemainingQuota} สิทธิ์</span>
+            </div>
+            <div class="settlement-table-wrap">
+              <table class="settlement-table" id="promoSettlementTable">
+                <thead>
+                  <tr>
+                    <th>รหัสโค้ด</th>
+                    <th>แคมเปญส่วนลด</th>
+                    <th>จำนวนที่ใช้</th>
+                    <th>ยอดส่วนลดรวม</th>
+                    <th>ยอดชำระสุทธิจากโค้ด</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${promoList
+                    .map(
+                      (pr) => `
+                    <tr>
+                      <td><strong style="color:var(--color-accent);">${esc(pr.code)}</strong></td>
+                      <td>${esc(pr.description)}</td>
+                      <td>${pr.usedCount} รายการ</td>
+                      <td style="color:#F5A623;">-${Number(pr.totalDiscount).toLocaleString('th-TH')} THB</td>
+                      <td><strong>${Number(pr.netRevenue).toLocaleString('th-TH')} THB</strong></td>
+                    </tr>`
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- Hourly Velocity -->
           <div class="heatmap-box">
             <div class="heatmap-box-title">
@@ -762,20 +1013,34 @@
             </div>
           </div>
 
-          <!-- Promo Campaign Metrics -->
-          <div class="zone-chip" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-            <div>
-              <strong>🎟️ แคมเปญ Early Bird (EARLY10) & คูปองโปรโมชัน</strong>
-              <div class="text-muted" style="font-size:12px; margin-top:2px;">
-                คำสั่งซื้อที่ใช้โค้ดส่วนลด: <strong>${p.promoOrderCount}</strong> รายการ · มอบส่วนลดให้แฟนคลับแล้ว: <strong style="color:var(--color-accent);">${Number(p.totalDiscountGiven).toLocaleString('th-TH')} THB</strong>
-              </div>
+          <!-- Official Sign-off Block for Print / PDF Settlement -->
+          <div class="settlement-signoff-grid">
+            <div class="settlement-signoff-box">
+              <strong>ผู้จัดงาน / Promoter Representative</strong>
+              <div class="settlement-signoff-line"></div>
+              <div class="text-muted">ลงชื่อผู้รับรองยอดขาย · วันที่ ____/____/____</div>
             </div>
-            <div style="text-align:right;">
-              <span class="badge-accent">โควตา Early Bird คงเหลือ: ${p.earlyBirdRemainingQuota} สิทธิ์</span>
+            <div class="settlement-signoff-box">
+              <strong>ฝ่ายการเงินและบัญชี / Finance & Settlement Auditor</strong>
+              <div class="settlement-signoff-line"></div>
+              <div class="text-muted">ลงชื่อผู้ตรวจสอบสลิป · วันที่ ____/____/____</div>
             </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="settlement-actions-bar">
+            <button type="button" class="btn-default" id="downloadSettlementHtmlBtn">📄 ดาวน์โหลดรายงานฉบับพิมพ์ (.html)</button>
+            <button type="button" class="btn-primary" id="printSettlementFooterBtn">🖨️ สั่งพิมพ์ใบสรุปยอด / บันทึกเป็น PDF</button>
           </div>
         </div>
       `;
+
+      if ($('printSettlementFooterBtn')) {
+        $('printSettlementFooterBtn').addEventListener('click', printSettlementReport);
+      }
+      if ($('downloadSettlementHtmlBtn')) {
+        $('downloadSettlementHtmlBtn').addEventListener('click', downloadSettlementHtml);
+      }
     } catch (err) {
       box.innerHTML = `<p class="slip-error">เกิดข้อผิดพลาดในการโหลด Analytics: ${window.UI.escapeHtml(err.message)}</p>`;
     }
@@ -1129,6 +1394,9 @@
 
     if ($('openAnalyticsBtn')) {
       $('openAnalyticsBtn').addEventListener('click', openAnalyticsModal);
+    }
+    if ($('printSettlementBtn')) {
+      $('printSettlementBtn').addEventListener('click', printSettlementReport);
     }
     if ($('closeAnalyticsModalBtn')) {
       $('closeAnalyticsModalBtn').addEventListener('click', () => window.UI.close('analyticsModal'));

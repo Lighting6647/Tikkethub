@@ -761,13 +761,18 @@
             </div>
           </div>
           <div style="margin-top:8px;">
+            <label class="holder-sub-label" for="holderIdCard">เลขประจำตัวประชาชน 13 หลัก / Passport (สำหรับยืนยันตัวตนหน้างาน) *</label>
+            <input type="text" id="holderIdCard" class="input-field holder-input" placeholder="เช่น 1-1004-12345-67-8 หรือเลขพาสปอร์ต" maxlength="17" autocomplete="off">
+            <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี (ข้อมูลจะถูกเข้ารหัสปลอดภัย)</p>
+          </div>
+          <div style="margin-top:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-              <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID (ส่งบัตรเข้า LINE OA อัตโนมัติเมื่อแอดมินอนุมัติ)</label>
+              <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID (ส่งบัตรเข้า LINE OA — ไม่บังคับ)</label>
               <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:4px 10px; font-size:11px; border-color:var(--color-accent); color:var(--color-accent);">
                 💬 ดึงรหัส LINE อัตโนมัติ
               </button>
             </div>
-            <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น U4af4980629... หรือกดปุ่มดึงรหัส LINE อัตโนมัติ">
+            <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น U4af4980629... (ไม่บังคับ)">
             <p class="text-muted" id="lineWebhookHint" style="font-size:11px; margin-top:4px;">ทักแชท LINE OA พิมพ์ <code>บัตร</code> หรือกดปุ่ม <strong>ดึงรหัส LINE อัตโนมัติ</strong> เพื่อเชื่อมบัญชีรับบัตรทันที</p>
           </div>
           <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">
@@ -816,6 +821,7 @@
           <p class="pay-order-title" id="payEventTitle"></p>
           <p class="text-muted" id="payEventMeta"></p>
           <div class="pay-row"><span>ผู้ถือบัตร</span><span id="payHolder"></span></div>
+          <div class="pay-row"><span>เลขบัตร ปชช. / Passport</span><span id="payIdCard"></span></div>
           <div class="pay-row"><span>โซน</span><span id="payZone"></span></div>
           <div class="pay-row"><span>จำนวน</span><span id="payQty"></span></div>
         </div>

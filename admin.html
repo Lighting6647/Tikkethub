@@ -125,12 +125,12 @@
         </a>
         <div class="admin-actions">
           <button class="btn-primary" id="openScannerBtn">📷 สแกนบัตรเข้างาน</button>
-          <button class="btn-outline" id="openAnalyticsBtn">📊 Analytics & Heatmap</button>
-          <button class="btn-outline" id="openLinePreviewNavBtn">📱 พรีวิว LINE Flex</button>
-          <button class="btn-outline" id="openEventManagerBtn">🎤 จัดการคอนเสิร์ต</button>
+          <button class="btn-outline" id="openAnalyticsBtn">📊 รายงานปิดรอบ / PDF</button>
+          <button class="btn-outline" id="openLinePreviewNavBtn">📱 พรีวิว LINE</button>
+          <button class="btn-outline" id="openEventManagerBtn">🎤 คอนเสิร์ต/โควตา</button>
           <button class="btn-outline" id="openAuditLogBtn">📋 ประวัติแอดมิน</button>
           <button class="btn-outline" id="openBackupModalBtn">💾 สำรองข้อมูล</button>
-          <button class="btn-outline" id="openLineSettingsBtn">⚙️ ตั้งค่าพร้อมเพย์ / LINE</button>
+          <button class="btn-outline" id="openLineSettingsBtn">⚙️ ตั้งค่าพร้อมเพย์</button>
           <a href="/api/admin/export.csv" class="btn-default" id="exportCsvBtn">Export CSV</a>
           <button class="btn-outline" id="adminLogoutBtn" hidden>ออกจากระบบ</button>
           <a href="index.html" class="btn-outline">หน้าจองบัตร</a>
@@ -457,14 +457,17 @@
     </div>
   </div>
 
-  <!-- Promoter Analytics & Heatmap Modal -->
+  <!-- Promoter Analytics, Heatmap & Printable Settlement Report Modal -->
   <div class="modal-backdrop" id="analyticsModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="analyticsModalTitle">
-    <div class="modal-box" style="max-width:760px;">
-      <div class="modal-header">
-        <h3 id="analyticsModalTitle" style="font-weight:700;">📊 สถิติยอดขาย & แดชบอร์ด Heatmap (Promoter Analytics)</h3>
-        <button class="modal-close" id="closeAnalyticsModalBtn" aria-label="ปิด">&times;</button>
+    <div class="modal-box" style="max-width:860px;">
+      <div class="modal-header" style="gap:12px; flex-wrap:wrap;">
+        <h3 id="analyticsModalTitle" style="font-weight:700;">📊 รายงานสรุปยอดปิดรอบการแสดง & แดชบอร์ดการเงิน (Settlement & Analytics)</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn-primary" id="printSettlementBtn" style="padding:6px 12px; font-size:12px;">🖨️ พิมพ์ใบสรุปยอด / บันทึก PDF</button>
+          <button class="modal-close" id="closeAnalyticsModalBtn" aria-label="ปิด">&times;</button>
+        </div>
       </div>
-      <div class="modal-content" id="analyticsModalContent">
+      <div class="modal-content" id="analyticsModalContent" style="max-height:80vh; overflow-y:auto;">
         <!-- Dynamically rendered by admin.js -->
       </div>
     </div>

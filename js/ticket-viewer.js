@@ -124,6 +124,12 @@
         ? '<span class="badge-accent">ส่งเข้า LINE จริงสำเร็จ (Messaging API)</span>'
         : '<span class="badge-accent">ตัวอย่าง LINE Flex Message (พร้อมส่งเมื่อใส่ Channel Access Token)</span>';
 
+    const rawId = String(ticket.holderIdCard || '').trim();
+    const idDigits = rawId.replace(/\D/g, '');
+    const maskedId = idDigits.length === 13
+      ? `${idDigits.slice(0, 1)}-${idDigits.slice(1, 5)}-xxxxx-xx-${idDigits.slice(12)}`
+      : (rawId.length >= 7 ? `${rawId.slice(0, 2)}***${rawId.slice(-3)}` : (rawId || '-'));
+
     box.innerHTML = `
       <div style="margin-bottom:12px;">${modeLabel}</div>
       <div class="line-flex-card">
@@ -141,7 +147,10 @@
             <div><small>เบอร์โทรศัพท์</small><strong>${esc(ticket.holderPhone || '-')}</strong></div>
           </div>
           <div class="line-flex-row">
+            <div><small>เลขบัตร ปชช. / Passport</small><strong>${esc(maskedId)}</strong></div>
             <div><small>โซนที่นั่ง</small><strong>${esc(ticket.zone)}</strong></div>
+          </div>
+          <div class="line-flex-row">
             <div><small>จำนวน / ยอดชำระ</small><strong style="color:#229BFF;">${ticket.qty} ใบ (${Number(ticket.total).toLocaleString('th-TH')} THB)</strong></div>
           </div>
           <div class="line-flex-ref">
@@ -269,17 +278,24 @@
     const esc = window.UI.escapeHtml;
     box.innerHTML = list
       .map(
-        (t) => `
-        <article class="my-ticket">
-          <div class="my-ticket-main">
-            ${statusBadgeHtml(t.status)}
-            <h4 class="my-ticket-title">${esc(t.title)}</h4>
-            <p class="text-muted">${esc(t.date)} · ${esc(t.zone)} · ${t.qty} ใบ</p>
-            <p class="text-muted">ผู้ถือบัตร: ${esc(t.holderName || '-')} (${esc(t.holderPhone || '-')})</p>
-            <p class="my-ticket-ref">${esc(t.ref)}</p>
-          </div>
-          <button class="btn-primary" data-ref="${esc(t.ref)}">ดูบัตร</button>
-        </article>`
+        (t) => {
+          const raw = String(t.holderIdCard || '').trim();
+          const idDigits = raw.replace(/\D/g, '');
+          const masked = idDigits.length === 13
+            ? `${idDigits.slice(0, 1)}-${idDigits.slice(1, 5)}-xxxxx-xx-${idDigits.slice(12)}`
+            : (raw.length >= 7 ? `${raw.slice(0, 2)}***${raw.slice(-3)}` : (raw || '-'));
+          return `
+          <article class="my-ticket">
+            <div class="my-ticket-main">
+              ${statusBadgeHtml(t.status)}
+              <h4 class="my-ticket-title">${esc(t.title)}</h4>
+              <p class="text-muted">${esc(t.date)} · ${esc(t.zone)} · ${t.qty} ใบ</p>
+              <p class="text-muted">ผู้ถือบัตร: ${esc(t.holderName || '-')} (${esc(t.holderPhone || '-')}) · ปชช.: ${esc(masked)}</p>
+              <p class="my-ticket-ref">${esc(t.ref)}</p>
+            </div>
+            <button class="btn-primary" data-ref="${esc(t.ref)}">ดูบัตร</button>
+          </article>`;
+        }
       )
       .join('');
   }

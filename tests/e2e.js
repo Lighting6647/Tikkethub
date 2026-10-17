@@ -33,9 +33,10 @@ async function run() {
   await page.click('text=ชำระเงินและรับบัตร');
   assert.match(await page.textContent('#holderError'), /กรุณากรอกชื่อ/);
 
-  // Fill valid holder info + use 1-click LINE OA Webhook auto-fill button
+  // Fill valid holder info (Name, Phone, Thai National Citizen ID) + use 1-click LINE OA Webhook auto-fill button
   await page.fill('#holderName', 'ธนภัทร วงศ์สวัสดิ์');
   await page.fill('#holderPhone', '0891234567');
+  await page.fill('#holderIdCard', '1-1004-12345-67-8');
   await page.click('#fetchLineIdBtn');
   await page.waitForFunction(() => {
     const el = document.getElementById('holderLineId');
@@ -50,6 +51,7 @@ async function run() {
   await page.waitForSelector('#paymentModal.active');
   assert.ok(await page.locator('#payQr svg').count(), 'QR rendered');
   assert.match(await page.textContent('#payHolder'), /ธนภัทร วงศ์สวัสดิ์/);
+  assert.match(await page.textContent('#payIdCard'), /1-1004-xxxx-xxxxx-67-8|1-1004/);
   assert.ok(await page.isDisabled('#payConfirmBtn'));
 
   // 3. Upload valid slip #1 & submit
@@ -176,9 +178,29 @@ async function run() {
   await dl.saveAs(path.join(SHOTS, 'downloaded-ticket.png'));
   await page.click('#ticketDoneBtn');
 
-  // Verify updated PromptPay number (095-465-4698), Merchant Name, Promo Code (EARLY10), and Copy button on customer QR payment screen
+  // Verify updated PromptPay number (095-465-4698), Merchant Name, Promo Code (EARLY10), Real-time SSE Seat Sync, and Copy button
   await page.click('button[data-event-id="1"]');
   await page.waitForSelector('#bookingModal.active');
+  assert.match(await page.textContent('#seatRealtimeBadge'), /Live SSE/);
+
+  // Test Real-time SSE Seat Hold from another peer session + Server-Side Expiration Worker auto-unlock
+  await page.evaluate(async () => {
+    await fetch('/api/seats/hold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seats: ['VIP-05'], sessionId: 'sess_peer_test_sse', durationMs: 1800 })
+    });
+  });
+  await page.waitForFunction(() => {
+    const btn = document.querySelector('button[data-seat-id="VIP-05"]');
+    return btn && btn.classList.contains('seat-held-other');
+  });
+  // Wait for Server-Side Expiration Worker to auto-unlock VIP-05 via SSE
+  await page.waitForFunction(() => {
+    const btn = document.querySelector('button[data-seat-id="VIP-05"]');
+    return btn && !btn.classList.contains('seat-held-other');
+  }, { timeout: 6000 });
+
   await page.fill('#promoCodeInput', 'EARLY10');
   await page.click('#applyPromoBtn');
   await page.waitForFunction(() => {
@@ -235,12 +257,19 @@ async function run() {
   await adminPage.locator('#adminLinePreviewModal .modal-box').screenshot({ path: path.join(SHOTS, 'smartphone-line-preview.png') });
   await adminPage.click('#closeAdminLinePreviewBtn');
 
-  // 8.7 Test Promoter Analytics Dashboard & Zone Occupancy Heatmap Modal
+  // 8.7 Test Promoter Analytics Dashboard, Zone Occupancy Heatmap & Printable Settlement Report Modal
   await adminPage.click('#openAnalyticsBtn');
   await adminPage.waitForSelector('#analyticsModal.active');
-  await adminPage.waitForSelector('.heatmap-track');
+  await adminPage.waitForSelector('#eventSettlementTable');
   assert.ok((await adminPage.locator('.analytics-kpi-card').count()) >= 4, '4 KPI cards rendered in analytics');
   assert.ok((await adminPage.locator('.zone-heatmap-item').count()) >= 4, '4 zones rendered in seating heatmap');
+  assert.match(await adminPage.textContent('#settlementReportHeader'), /OFFICIAL FINANCIAL SETTLEMENT REPORT/);
+  assert.match(await adminPage.textContent('#eventSettlementTable'), /ECHOES OF ASIA WORLD TOUR 2026/);
+  const [settlementDl] = await Promise.all([
+    adminPage.waitForEvent('download'),
+    adminPage.click('#downloadSettlementHtmlBtn')
+  ]);
+  assert.match(settlementDl.suggestedFilename(), /^thaiticket-settlement-.*\.html$/);
   await adminPage.locator('#analyticsModal .modal-box').screenshot({ path: path.join(SHOTS, 'promoter-analytics-heatmap.png') });
   await adminPage.click('#closeAnalyticsModalBtn');
 

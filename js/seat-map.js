@@ -117,24 +117,57 @@
     holdTimerId = setInterval(updateCountdownDisplay, 1000);
   }
 
+  let sseSource = null;
+  let sseConnected = false;
+
+  function applyServerSeatPayload(data) {
+    if (!data || !data.seats) return;
+    for (const seat of SEATS_DATA) {
+      const info = data.seats[seat.id];
+      if (info) {
+        seat.occupied = info.status === 'occupied';
+        seat.heldByOther = info.status === 'held_by_other';
+      }
+    }
+    if (data.myHoldExpiresAt && data.remainingSeconds > 0) {
+      startHoldCountdown(data.myHoldExpiresAt);
+    } else if (data.reason === 'expired_cleanup' && selectedSeats.length > 0 && !data.myHoldExpiresAt) {
+      selectedSeats = [];
+      clearInterval(holdTimerId);
+      holdTimerId = null;
+      notifyChange();
+      if (window.UI) window.UI.toast('หมดเวลาล็อกที่นั่ง ระบบได้ปลดล็อกที่นั่งคืนสู่กองกลางแล้ว', 'error');
+    }
+    render();
+  }
+
+  function connectRealtimeStream() {
+    if (typeof EventSource !== 'function' || sseSource) return;
+    try {
+      const sid = getSessionId();
+      sseSource = new EventSource(`/api/seats/stream?sessionId=${encodeURIComponent(sid)}`);
+      sseSource.addEventListener('seat_sync', (ev) => {
+        sseConnected = true;
+        try {
+          const payload = JSON.parse(ev.data);
+          applyServerSeatPayload(payload);
+        } catch {}
+      });
+      sseSource.onerror = () => {
+        sseConnected = false;
+      };
+    } catch {}
+  }
+
   async function syncStatuses() {
+    connectRealtimeStream();
     if (typeof fetch !== 'function') return;
     try {
       const sid = getSessionId();
       const res = await fetch(`/api/seats/status?sessionId=${encodeURIComponent(sid)}`, { cache: 'no-store' });
       const data = await res.json();
       if (data && data.ok && data.seats) {
-        for (const seat of SEATS_DATA) {
-          const info = data.seats[seat.id];
-          if (info) {
-            seat.occupied = info.status === 'occupied';
-            seat.heldByOther = info.status === 'held_by_other';
-          }
-        }
-        if (data.myHoldExpiresAt && data.remainingSeconds > 0) {
-          startHoldCountdown(data.myHoldExpiresAt);
-        }
-        render();
+        applyServerSeatPayload(data);
       }
     } catch {}
   }
@@ -313,12 +346,15 @@
           <div class="stage-title">STAGE · เวทีการแสดง</div>
         </div>
 
-        <!-- Legend -->
+        <!-- Legend + Real-time SSE Sync Indicator -->
         <div class="seat-legend">
           <div class="legend-item"><span class="legend-dot dot-available"></span>ว่าง (คลิกเลือกได้)</div>
           <div class="legend-item"><span class="legend-dot dot-selected"></span>ที่นั่งที่คุณเลือก</div>
           <div class="legend-item"><span class="legend-dot" style="background:#F5A623;"></span>กำลังถูกล็อกโดยผู้อื่น</div>
           <div class="legend-item"><span class="legend-dot dot-occupied"></span>จองแล้ว</div>
+          <div class="legend-item" id="seatRealtimeBadge" style="color:var(--color-accent); font-weight:600;">
+            🟢 ซิงก์ผังที่นั่งเรียลไทม์ (Live SSE)
+          </div>
         </div>
 
         <!-- Zones Layout -->

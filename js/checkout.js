@@ -169,6 +169,7 @@
           seats: order.seats || [],
           holderName: order.holderName || 'ผู้จองบัตร',
           holderPhone: order.holderPhone || '081-xxx-xxxx',
+          holderIdCard: order.holderIdCard || '',
           lineUserId: order.lineUserId || '',
           slipName: slipFile.name,
           slipMime: slipFile.type || 'image/png',
@@ -198,6 +199,10 @@
         qty: order.qty,
         total: order.total,
         seats: order.seats || [],
+        holderName: order.holderName || '',
+        holderPhone: order.holderPhone || '',
+        holderIdCard: order.holderIdCard || '',
+        lineUserId: order.lineUserId || '',
         slipName: slipFile.name,
         issuedAt: Date.now()
       });
@@ -226,6 +231,14 @@
     $('payQty').textContent = `${o.qty} ใบ × ${o.unitPrice.toLocaleString('th-TH')} THB${promoNote}`;
     if ($('payHolder')) {
       $('payHolder').textContent = `${o.holderName} (${o.holderPhone})`;
+    }
+    if ($('payIdCard')) {
+      const id = String(o.holderIdCard || '').trim();
+      const idDigits = id.replace(/\D/g, '');
+      const masked = idDigits.length === 13
+        ? `${idDigits.slice(0, 1)}-${idDigits.slice(1, 5)}-xxxxx-xx-${idDigits.slice(12)}`
+        : (id.length >= 7 ? `${id.slice(0, 2)}***${id.slice(-3)}` : (id || '-'));
+      $('payIdCard').textContent = masked;
     }
     if ($('payHoldBanner')) {
       const seatsStr = o.seats && o.seats.length ? o.seats.join(', ') : o.zone;
