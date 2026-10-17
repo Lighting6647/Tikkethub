@@ -79,14 +79,40 @@ function filterCategory(cat, btn) {
   renderEvents();
 }
 
-function formatIdCardInput(val) {
-  const digits = String(val || '').replace(/\D/g, '');
-  if (digits.length === 0) return val;
-  // If it's alphanumeric/passport (contains letters)
-  if (/[a-zA-Z]/.test(val)) {
-    return val.trim().toUpperCase();
+function validateThaiCitizenId(idStr) {
+  if (!idStr) return false;
+  const trimmed = String(idStr).trim();
+  // Foreign passport: contains letters and has length 7-15
+  if (/[a-zA-Z]/.test(trimmed)) {
+    return trimmed.length >= 7 && trimmed.length <= 15;
   }
-  // Format Thai National ID: x-xxxx-xxxxx-xx-x
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length !== 13) return false;
+  if (digits[0] === '0') return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(digits[i], 10) * (13 - i);
+  }
+  const checkDigit = (11 - (sum % 11)) % 10;
+  return checkDigit === parseInt(digits[12], 10);
+}
+
+function formatPhoneInput(val) {
+  const digits = String(val || '').replace(/\D/g, '').slice(0, 10);
+  if (digits.length === 0) return '';
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function formatIdCardInput(val) {
+  const raw = String(val || '').trim();
+  if (!raw) return '';
+  // If it's alphanumeric/passport (contains letters)
+  if (/[a-zA-Z]/.test(raw)) {
+    return raw.toUpperCase().slice(0, 15);
+  }
+  const digits = raw.replace(/\D/g, '').slice(0, 13);
   let res = '';
   if (digits.length > 0) res += digits.substring(0, 1);
   if (digits.length > 1) res += '-' + digits.substring(1, 5);
@@ -99,22 +125,63 @@ function formatIdCardInput(val) {
 function loadSavedHolder() {
   try {
     const raw = localStorage.getItem(HOLDER_KEY);
-    if (!raw) return;
+    const clearBtn = document.getElementById('clearSavedHolderBtn');
+    const badgeEl = document.getElementById('savedHolderBadge');
+    if (!raw) {
+      if (clearBtn) clearBtn.hidden = true;
+      if (badgeEl) badgeEl.hidden = true;
+      return;
+    }
     const saved = JSON.parse(raw);
-    if (saved.holderName && !document.getElementById('holderName').value) {
-      document.getElementById('holderName').value = saved.holderName;
+    let loadedAny = false;
+    const nameEl = document.getElementById('holderName');
+    const phoneEl = document.getElementById('holderPhone');
+    const idEl = document.getElementById('holderIdCard');
+    const lineEl = document.getElementById('holderLineId');
+
+    if (saved.holderName && nameEl && !nameEl.value) {
+      nameEl.value = saved.holderName;
+      loadedAny = true;
     }
-    if (saved.holderPhone && !document.getElementById('holderPhone').value) {
-      document.getElementById('holderPhone').value = saved.holderPhone;
+    if (saved.holderPhone && phoneEl && !phoneEl.value) {
+      phoneEl.value = formatPhoneInput(saved.holderPhone);
+      loadedAny = true;
     }
-    if (saved.holderIdCard && !document.getElementById('holderIdCard').value) {
-      document.getElementById('holderIdCard').value = formatIdCardInput(saved.holderIdCard);
+    if (saved.holderIdCard && idEl && !idEl.value) {
+      idEl.value = formatIdCardInput(saved.holderIdCard);
+      loadedAny = true;
     }
-    if (saved.lineUserId && !document.getElementById('holderLineId').value) {
-      document.getElementById('holderLineId').value = saved.lineUserId;
+    if (saved.lineUserId && lineEl && !lineEl.value) {
+      lineEl.value = saved.lineUserId;
+      loadedAny = true;
     }
+    if (clearBtn) clearBtn.hidden = !loadedAny;
+    if (badgeEl) badgeEl.hidden = !loadedAny;
   } catch {
     /* ignore */
+  }
+}
+
+function clearSavedHolderInfo() {
+  try {
+    localStorage.removeItem(HOLDER_KEY);
+  } catch {
+    /* ignore */
+  }
+  const nameEl = document.getElementById('holderName');
+  const phoneEl = document.getElementById('holderPhone');
+  const idEl = document.getElementById('holderIdCard');
+  const lineEl = document.getElementById('holderLineId');
+  if (nameEl) nameEl.value = '';
+  if (phoneEl) phoneEl.value = '';
+  if (idEl) idEl.value = '';
+  if (lineEl) lineEl.value = '';
+  const clearBtn = document.getElementById('clearSavedHolderBtn');
+  if (clearBtn) clearBtn.hidden = true;
+  const badgeEl = document.getElementById('savedHolderBadge');
+  if (badgeEl) badgeEl.hidden = true;
+  if (window.UI && typeof window.UI.toast === 'function') {
+    window.UI.toast('ล้างข้อมูลผู้ซื้อที่บันทึกไว้ในเครื่องเรียบร้อย');
   }
 }
 
@@ -322,13 +389,32 @@ function confirmBooking() {
     }
     return;
   }
-  if (idDigits.length !== 13 && holderIdCard.length < 7) {
-    if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ตให้ถูกต้อง (บังคับใส่)';
-    if (idEl) {
-      idEl.classList.add('input-error');
-      idEl.focus();
+  if (/[a-zA-Z]/.test(holderIdCard)) {
+    if (!validateThaiCitizenId(holderIdCard)) {
+      if (errEl) errEl.textContent = 'เลขพาสปอร์ตต้องมีความยาว 7-15 ตัวอักษร (เช่น AA1234567)';
+      if (idEl) {
+        idEl.classList.add('input-error');
+        idEl.focus();
+      }
+      return;
     }
-    return;
+  } else {
+    if (idDigits.length !== 13) {
+      if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลักให้ครบถ้วน (บังคับใส่)';
+      if (idEl) {
+        idEl.classList.add('input-error');
+        idEl.focus();
+      }
+      return;
+    }
+    if (!validateThaiCitizenId(holderIdCard)) {
+      if (errEl) errEl.textContent = 'เลขประจำตัวประชาชน 13 หลักไม่ถูกต้องตามสูตรคำนวณ Checksum ของกรมการปกครอง';
+      if (idEl) {
+        idEl.classList.add('input-error');
+        idEl.focus();
+      }
+      return;
+    }
   }
   if (!lineUserId) {
     if (errEl) errEl.textContent = 'กรุณากรอก LINE ID หรือกดปุ่มดึงรหัส LINE อัตโนมัติ (บังคับใส่ เพื่อรับบัตร)';
@@ -340,8 +426,14 @@ function confirmBooking() {
   }
   if (errEl) errEl.textContent = '';
 
+  const rememberCb = document.getElementById('rememberHolderCheckbox');
+  const shouldRemember = !rememberCb || rememberCb.checked;
   try {
-    localStorage.setItem(HOLDER_KEY, JSON.stringify({ holderName, holderPhone, holderIdCard, lineUserId }));
+    if (shouldRemember) {
+      localStorage.setItem(HOLDER_KEY, JSON.stringify({ holderName, holderPhone, holderIdCard, lineUserId }));
+    } else {
+      localStorage.removeItem(HOLDER_KEY);
+    }
   } catch {
     /* ignore */
   }
@@ -405,56 +497,78 @@ function refreshCartCount() {
   document.getElementById('cartCount').textContent = TicketStore.count();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('searchInput').addEventListener('input', (e) => {
-    searchQuery = e.target.value.trim();
-    renderEvents();
-  });
-  document.getElementById('eventsContainer').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-event-id]');
-    if (!btn) return;
-    const ev = eventsData.find((x) => x.id === Number(btn.dataset.eventId));
-    if (ev) openBookingModal(ev.title, ev.date, ev.venue);
-  });
-  document.getElementById('cartButton').addEventListener('click', () => TicketViewer.openList());
-  document.addEventListener('tickets:changed', () => {
-    refreshCartCount();
-    syncEventsFromServer();
-  });
-  const idCardInput = document.getElementById('holderIdCard');
-  if (idCardInput) {
-    idCardInput.addEventListener('input', (e) => {
-      const cursor = e.target.selectionStart;
-      const formatted = formatIdCardInput(e.target.value);
-      e.target.value = formatted;
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim();
+      renderEvents();
     });
-  }
-  ['holderName', 'holderPhone', 'holderIdCard', 'holderLineId'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('input', () => {
-        el.classList.remove('input-error');
-        const errEl = document.getElementById('holderError');
-        if (errEl) errEl.textContent = '';
+    document.getElementById('eventsContainer').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-event-id]');
+      if (!btn) return;
+      const ev = eventsData.find((x) => x.id === Number(btn.dataset.eventId));
+      if (ev) openBookingModal(ev.title, ev.date, ev.venue);
+    });
+    document.getElementById('cartButton').addEventListener('click', () => TicketViewer.openList());
+    document.addEventListener('tickets:changed', () => {
+      refreshCartCount();
+      syncEventsFromServer();
+    });
+    const idCardInput = document.getElementById('holderIdCard');
+    if (idCardInput) {
+      idCardInput.addEventListener('input', (e) => {
+        e.target.value = formatIdCardInput(e.target.value);
       });
     }
-  });
-  if (window.SeatMap && typeof window.SeatMap.onChange === 'function') {
-    window.SeatMap.onChange((selectedSeats) => {
-      if (selectedSeats && selectedSeats.length > 0) {
-        currentQty = selectedSeats.length;
-        const lastSeat = selectedSeats[selectedSeats.length - 1];
-        if (lastSeat) {
-          selectedZoneName = lastSeat.zone;
-          selectedZonePrice = lastSeat.price;
-        }
+    const phoneInput = document.getElementById('holderPhone');
+    if (phoneInput) {
+      phoneInput.addEventListener('input', (e) => {
+        e.target.value = formatPhoneInput(e.target.value);
+      });
+    }
+    ['holderName', 'holderPhone', 'holderIdCard', 'holderLineId'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => {
+          el.classList.remove('input-error');
+          const errEl = document.getElementById('holderError');
+          if (errEl) errEl.textContent = '';
+        });
       }
-      const qtyEl = document.getElementById('ticketQty');
-      if (qtyEl) qtyEl.textContent = currentQty;
-      updatePriceDisplay();
     });
-  }
-  renderEvents();
-  syncEventsFromServer();
-  TicketStore.syncAll().then(refreshCartCount);
-});
+    if (window.SeatMap && typeof window.SeatMap.onChange === 'function') {
+      window.SeatMap.onChange((selectedSeats) => {
+        if (selectedSeats && selectedSeats.length > 0) {
+          currentQty = selectedSeats.length;
+          const lastSeat = selectedSeats[selectedSeats.length - 1];
+          if (lastSeat) {
+            selectedZoneName = lastSeat.zone;
+            selectedZonePrice = lastSeat.price;
+          }
+        }
+        const qtyEl = document.getElementById('ticketQty');
+        if (qtyEl) qtyEl.textContent = currentQty;
+        updatePriceDisplay();
+      });
+    }
+    renderEvents();
+    syncEventsFromServer();
+    TicketStore.syncAll().then(refreshCartCount);
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.validateThaiCitizenId = validateThaiCitizenId;
+  window.formatPhoneInput = formatPhoneInput;
+  window.formatIdCardInput = formatIdCardInput;
+  window.clearSavedHolderInfo = clearSavedHolderInfo;
+}
+if (typeof module !== 'undefined') {
+  module.exports = {
+    validateThaiCitizenId,
+    formatPhoneInput,
+    formatIdCardInput,
+    loadSavedHolder,
+    clearSavedHolderInfo
+  };
+}

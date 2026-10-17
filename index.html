@@ -776,13 +776,13 @@
             </div>
             <div>
               <label class="holder-sub-label" for="holderPhone">เบอร์โทรศัพท์ <span class="badge-required">* (บังคับใส่)</span></label>
-              <input type="tel" id="holderPhone" class="input-field holder-input" placeholder="0812345678" maxlength="12" autocomplete="tel" required>
+              <input type="tel" id="holderPhone" class="input-field holder-input" placeholder="เช่น 095-465-4698" maxlength="12" autocomplete="tel" required>
             </div>
           </div>
           <div style="margin-top:8px;">
             <label class="holder-sub-label" for="holderIdCard">เลขประจำตัวประชาชน 13 หลัก / Passport <span class="badge-required">* (บังคับใส่ สำหรับยืนยันตัวตน)</span></label>
-            <input type="text" id="holderIdCard" class="input-field holder-input" placeholder="เช่น 1-1004-12345-67-8 หรือเลขพาสปอร์ต" maxlength="17" autocomplete="off" required>
-            <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี (ข้อมูลจะถูกเข้ารหัสปลอดภัย)</p>
+            <input type="text" id="holderIdCard" class="input-field holder-input" placeholder="เช่น 1-1004-12345-67-3 หรือเลขพาสปอร์ต" maxlength="17" autocomplete="off" required>
+            <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี (ระบบตรวจสอบสูตร Checksum ทางคณิตศาสตร์)</p>
           </div>
           <div style="margin-top:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
@@ -793,6 +793,18 @@
             </div>
             <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น Ohm หรือ U4af4980629..." required>
             <p class="text-muted" id="lineWebhookHint" style="font-size:11px; margin-top:4px;">ทักแชท LINE OA พิมพ์ <code>บัตร</code> หรือกดปุ่ม <strong>ดึงรหัส LINE อัตโนมัติ</strong> เพื่อเชื่อมบัญชีรับบัตรทันที</p>
+          </div>
+          <div style="margin-top:10px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px; border:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--color-text); margin:0;">
+              <input type="checkbox" id="rememberHolderCheckbox" checked style="width:15px; height:15px; accent-color:var(--color-primary); cursor:pointer;">
+              <span>จำข้อมูลผู้ถือบัตรนี้ไว้ในเครื่อง เพื่อความสะดวกในการจองรอบถัดไป</span>
+            </label>
+            <button type="button" class="btn-text" id="clearSavedHolderBtn" onclick="clearSavedHolderInfo()" style="font-size:11px; color:#FF6B6B; padding:0; background:none; border:none; cursor:pointer;" hidden>
+              🗑️ ล้างข้อมูลที่จำไว้
+            </button>
+          </div>
+          <div id="savedHolderBadge" style="font-size:11px; color:#68D391; margin-top:4px;" hidden>
+            ✓ โหลดข้อมูลผู้ซื้อที่บันทึกไว้ในเครื่องเรียบร้อย (สามารถแก้ไขได้)
           </div>
           <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">
             <label class="holder-sub-label" for="promoCodeInput">🎟️ โค้ดส่วนลดโปรโมชัน / Early Bird (ลองใช้: <code>EARLY10</code> ลด 10% หรือ <code>VIP500</code> ลด 500฿)</label>

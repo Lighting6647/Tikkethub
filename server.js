@@ -252,6 +252,63 @@ function buildCsv(orders) {
   return '\uFEFF' + [headers.map(escCsv).join(','), ...rows].join('\r\n');
 }
 
+function buildGuestListCsv(orders) {
+  const headers = [
+    'ลำดับ',
+    'รหัสการจอง (Ref)',
+    'คอนเสิร์ต',
+    'รอบการแสดง',
+    'โซนที่นั่ง',
+    'เลขที่นั่ง (Seat Codes)',
+    'จำนวนบัตร (ใบ)',
+    'ชื่อ-นามสกุล ผู้ถือบัตร',
+    'เลขบัตรประชาชน / Passport',
+    'เบอร์โทรศัพท์ติดต่อ',
+    'LINE User ID',
+    'สถานะการชำระเงิน',
+    'สถานะการตรวจเข้างาน',
+    'เวลาตรวจเข้างาน (Check-in)',
+    'เวลาทำรายการสั่งซื้อ'
+  ];
+
+  const escCsv = (val) => {
+    const s = String(val ?? '').replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const statusText = (s) =>
+    s === 'approved' ? 'อนุมัติแล้ว (สิทธิ์เข้างานสมบูรณ์)' : s === 'rejected' ? 'ปฏิเสธ' : 'รอตรวจสอบ';
+  const checkInText = (t) =>
+    t > 0 ? 'เข้างานแล้ว' : 'ยังไม่เข้างาน';
+  const checkInTimeText = (t) =>
+    t > 0 ? new Date(t).toLocaleString('th-TH') : '-';
+
+  const rows = orders.map((o, idx) => {
+    const seatsText = Array.isArray(o.seats) && o.seats.length ? o.seats.join(', ') : (o.zone || '-');
+    return [
+      idx + 1,
+      o.ref,
+      o.title,
+      o.date,
+      o.zone,
+      seatsText,
+      o.qty,
+      o.holderName,
+      o.holderIdCard || '',
+      o.holderPhone,
+      o.lineUserId,
+      statusText(o.status),
+      checkInText(o.checkedInAt),
+      checkInTimeText(o.checkedInAt),
+      new Date(o.issuedAt).toLocaleString('th-TH')
+    ]
+      .map(escCsv)
+      .join(',');
+  });
+
+  return '\uFEFF' + [headers.map(escCsv).join(','), ...rows].join('\r\n');
+}
+
 async function handleApi(req, res, url) {
   const pathname = url.pathname;
   const method = req.method;
@@ -769,6 +826,27 @@ async function handleApi(req, res, url) {
     return res.end(csv);
   }
 
+  // Admin Guest List CSV Export (for on-site gate check-in & citizen ID verification)
+  if (method === 'GET' && pathname === '/api/admin/guest-list.csv') {
+    if (!isAdminAuthenticated(req)) {
+      res.writeHead(302, { Location: '/admin.html' });
+      return res.end();
+    }
+    const filterStatus = url.searchParams.get('status') || 'approved';
+    let orders = db.listOrders({ includeSlipData: false });
+    if (filterStatus && filterStatus !== 'all') {
+      orders = orders.filter((o) => o.status === filterStatus);
+    }
+    const csv = buildGuestListCsv(orders);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="thaiticket-guest-list-${dateStr}.csv"`,
+      'Cache-Control': 'no-store'
+    });
+    return res.end(csv);
+  }
+
   // Settings (LINE OA Channel Access Token + PromptPay ID + Merchant Name + Admin PIN + Google Drive + Slip Verifier)
   if (pathname === '/api/settings') {
     if (!isAdminAuthenticated(req)) {
@@ -977,3 +1055,5 @@ module.exports = requestHandler;
 module.exports.server = server;
 module.exports.requestHandler = requestHandler;
 module.exports.resetRateLimitsForTest = resetRateLimitsForTest;
+module.exports.buildCsv = buildCsv;
+module.exports.buildGuestListCsv = buildGuestListCsv;

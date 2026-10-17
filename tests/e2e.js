@@ -54,10 +54,18 @@ async function run() {
   await page.click('text=ชำระเงินและรับบัตร');
   assert.match(await page.textContent('#holderError'), /กรุณากรอกชื่อ/);
 
-  // Fill valid holder info (Name, Phone, Thai National Citizen ID) + use 1-click LINE OA Webhook auto-fill button
+  // Test invalid Thai Citizen ID Checksum rejection
   await page.fill('#holderName', 'ธนภัทร วงศ์สวัสดิ์');
   await page.fill('#holderPhone', '0891234567');
   await page.fill('#holderIdCard', '1-1004-12345-67-8');
+  await page.fill('#holderLineId', 'U1234567890abcdef1234567890abcdef');
+  await page.click('text=ชำระเงินและรับบัตร');
+  assert.match(await page.textContent('#holderError'), /สูตรคำนวณ Checksum ของกรมการปกครอง/);
+
+  // Fill valid holder info (Valid Checksum ID: 1-1004-12345-67-3) + use 1-click LINE OA Webhook auto-fill button
+  await page.fill('#holderIdCard', '1-1004-12345-67-3');
+  const formattedPhone = await page.inputValue('#holderPhone');
+  assert.equal(formattedPhone, '089-123-4567', 'Phone auto-formatted with hyphens');
   await page.click('#fetchLineIdBtn');
   await page.waitForFunction(() => {
     const el = document.getElementById('holderLineId');
@@ -72,7 +80,7 @@ async function run() {
   await page.waitForSelector('#paymentModal.active');
   assert.ok(await page.locator('#payQr svg').count(), 'QR rendered');
   assert.match(await page.textContent('#payHolder'), /ธนภัทร วงศ์สวัสดิ์/);
-  assert.match(await page.textContent('#payIdCard'), /1-1004-xxxx-xxxxx-67-8|1-1004/);
+  assert.match(await page.textContent('#payIdCard'), /1-1004-xxxx-xxxxx-67-3|1-1004/);
   assert.ok(await page.isDisabled('#payConfirmBtn'));
 
   // 3. Upload valid slip #1 & submit
@@ -183,6 +191,10 @@ async function run() {
   // Verify CSV export download from Admin
   const [csvDl] = await Promise.all([adminPage.waitForEvent('download'), adminPage.click('#exportCsvBtn')]);
   assert.equal(csvDl.suggestedFilename(), 'thaiticket-orders.csv');
+
+  // Verify Guest List CSV export download from Admin (for on-site check-in & ID verification)
+  const [guestListDl] = await Promise.all([adminPage.waitForEvent('download'), adminPage.click('#exportGuestListBtn')]);
+  assert.match(guestListDl.suggestedFilename(), /^thaiticket-guest-list-.*\.csv$/);
 
   // 8. Customer's open ticket modal automatically updates to 'approved', shows Live Dynamic Security Pass, and unlocks Save PNG!
   await page.waitForFunction(() => {

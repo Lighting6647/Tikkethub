@@ -1187,6 +1187,7 @@ function getPromoterAnalytics() {
 function clearAllForTest() {
   db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events; DELETE FROM seat_holds;`);
   ensureSeedData();
+  setSetting('slip_auto_approve_enabled', 'false');
 }
 
 module.exports = {
