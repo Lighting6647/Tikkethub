@@ -91,6 +91,14 @@ db.exec(`
     description TEXT NOT NULL DEFAULT '',
     active INTEGER NOT NULL DEFAULT 1
   );
+
+  CREATE TABLE IF NOT EXISTS seat_holds (
+    seat_id TEXT PRIMARY KEY,
+    holder_session TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_seat_holds_expires ON seat_holds(expires_at);
 `);
 
 // Safe migrations for existing orders table
@@ -106,6 +114,9 @@ if (!orderColumns.includes('promo_code')) {
 }
 if (!orderColumns.includes('discount_amount')) {
   db.exec(`ALTER TABLE orders ADD COLUMN discount_amount INTEGER DEFAULT 0;`);
+}
+if (!orderColumns.includes('seats')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN seats TEXT DEFAULT '[]';`);
 }
 
 const DEFAULT_EVENTS = [
@@ -294,6 +305,12 @@ function rowToOrder(row) {
   } catch {
     lineLog = null;
   }
+  let seats = [];
+  try {
+    seats = row.seats ? JSON.parse(row.seats) : [];
+  } catch {
+    seats = [];
+  }
   return {
     ref: row.ref,
     title: row.title,
@@ -305,6 +322,7 @@ function rowToOrder(row) {
     total: row.total,
     promoCode: row.promo_code || '',
     discountAmount: row.discount_amount || 0,
+    seats,
     holderName: row.holder_name,
     holderPhone: row.holder_phone,
     lineUserId: row.line_user_id || '',
@@ -353,14 +371,15 @@ function createOrder(input) {
 
   const ref = generateRef();
   const now = Date.now();
+  const seatsArr = Array.isArray(input.seats) ? input.seats : [];
   const stmt = db.prepare(`
     INSERT INTO orders (
       ref, title, date, venue, zone, qty, unit_price, total,
-      promo_code, discount_amount,
+      promo_code, discount_amount, seats,
       holder_name, holder_phone, line_user_id,
       slip_name, slip_mime, slip_data, slip_hash,
       status, issued_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
   `);
 
   stmt.run(
@@ -374,6 +393,7 @@ function createOrder(input) {
     Number(input.total),
     String(input.promoCode || '').trim().toUpperCase(),
     Number(input.discountAmount || 0),
+    JSON.stringify(seatsArr),
     String(input.holderName).trim(),
     String(input.holderPhone).trim(),
     String(input.lineUserId || '').trim(),
@@ -383,6 +403,15 @@ function createOrder(input) {
     hash,
     now
   );
+
+  // Release any active holds for these seats
+  if (seatsArr.length > 0) {
+    for (const s of seatsArr) {
+      try {
+        db.prepare(`DELETE FROM seat_holds WHERE seat_id = ?`).run(String(s).trim());
+      } catch {}
+    }
+  }
 
   return getOrder(ref);
 }
@@ -810,8 +839,255 @@ function listAuditLogs(limit = 100) {
     }));
 }
 
+const BASE_OCCUPIED_SEATS = [
+  'VIP-03', 'VIP-04', 'VIP-09',
+  'A-01', 'A-02', 'A-07', 'A-08',
+  'B-04', 'B-05', 'B-11',
+  'C-02', 'C-08', 'C-09', 'C-15', 'C-16'
+];
+
+function cleanExpiredHolds() {
+  db.prepare(`DELETE FROM seat_holds WHERE expires_at <= ?`).run(Date.now());
+}
+
+function getBookedSeatIds() {
+  const rows = db.prepare(`SELECT seats FROM orders WHERE status != 'rejected'`).all();
+  const set = new Set(BASE_OCCUPIED_SEATS);
+  for (const r of rows) {
+    if (r.seats) {
+      try {
+        const arr = JSON.parse(r.seats);
+        if (Array.isArray(arr)) {
+          arr.forEach((s) => set.add(String(s).trim()));
+        }
+      } catch {}
+    }
+  }
+  return set;
+}
+
+function getSeatStatuses(sessionId = '') {
+  cleanExpiredHolds();
+  const bookedSet = getBookedSeatIds();
+  const activeHolds = db
+    .prepare(`SELECT seat_id, holder_session, expires_at FROM seat_holds WHERE expires_at > ?`)
+    .all(Date.now());
+  const holdMap = new Map();
+  for (const h of activeHolds) {
+    holdMap.set(h.seat_id, h);
+  }
+
+  const result = {};
+  const now = Date.now();
+  let myHoldExpiresAt = 0;
+
+  const allSeatIds = [
+    ...Array.from({ length: 12 }, (_, i) => `VIP-${String(i + 1).padStart(2, '0')}`),
+    ...Array.from({ length: 16 }, (_, i) => `A-${String(i + 1).padStart(2, '0')}`),
+    ...Array.from({ length: 16 }, (_, i) => `B-${String(i + 1).padStart(2, '0')}`),
+    ...Array.from({ length: 20 }, (_, i) => `C-${String(i + 1).padStart(2, '0')}`)
+  ];
+
+  for (const seatId of allSeatIds) {
+    if (bookedSet.has(seatId)) {
+      result[seatId] = { status: 'occupied' };
+    } else if (holdMap.has(seatId)) {
+      const h = holdMap.get(seatId);
+      if (sessionId && h.holder_session === sessionId) {
+        result[seatId] = { status: 'held_by_me', expiresAt: h.expires_at };
+        if (h.expires_at > myHoldExpiresAt) myHoldExpiresAt = h.expires_at;
+      } else {
+        result[seatId] = { status: 'held_by_other', expiresAt: h.expires_at };
+      }
+    } else {
+      result[seatId] = { status: 'available' };
+    }
+  }
+
+  const remainingSeconds = myHoldExpiresAt > now ? Math.round((myHoldExpiresAt - now) / 1000) : 0;
+  return {
+    ok: true,
+    seats: result,
+    myHoldExpiresAt: remainingSeconds > 0 ? myHoldExpiresAt : null,
+    remainingSeconds
+  };
+}
+
+function holdSeats(seats, sessionId, durationMs = 600000) {
+  if (!Array.isArray(seats) || !seats.length) {
+    return { ok: false, error: 'กรุณาระบุที่นั่งที่ต้องการล็อก' };
+  }
+  if (!sessionId || typeof sessionId !== 'string') {
+    return { ok: false, error: 'ไม่พบ Session ID' };
+  }
+  if (seats.length > 4) {
+    return { ok: false, error: 'เลือกล็อกที่นั่งได้สูงสุด 4 ที่นั่ง' };
+  }
+
+  cleanExpiredHolds();
+  const bookedSet = getBookedSeatIds();
+  const now = Date.now();
+  const expiresAt = now + durationMs;
+
+  const conflicts = [];
+  for (const seatId of seats) {
+    if (bookedSet.has(seatId)) {
+      conflicts.push(seatId);
+      continue;
+    }
+    const existing = db
+      .prepare(`SELECT holder_session, expires_at FROM seat_holds WHERE seat_id = ? AND expires_at > ?`)
+      .get(seatId, now);
+    if (existing && existing.holder_session !== sessionId) {
+      conflicts.push(seatId);
+    }
+  }
+
+  if (conflicts.length > 0) {
+    return {
+      ok: false,
+      conflictSeats: conflicts,
+      message: `ที่นั่ง ${conflicts.join(', ')} ถูกจองหรือกำลังมีผู้ใช้อื่นเลือกอยู่ กรุณาเลือกที่นั่งอื่น`
+    };
+  }
+
+  // Clear any existing seats held by this session that are NOT in the new list
+  const currentHeld = db.prepare(`SELECT seat_id FROM seat_holds WHERE holder_session = ?`).all(sessionId);
+  for (const row of currentHeld) {
+    if (!seats.includes(row.seat_id)) {
+      db.prepare(`DELETE FROM seat_holds WHERE seat_id = ? AND holder_session = ?`).run(row.seat_id, sessionId);
+    }
+  }
+
+  // Save/refresh holds
+  const ins = db.prepare(`
+    INSERT INTO seat_holds (seat_id, holder_session, expires_at, created_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(seat_id) DO UPDATE SET
+      holder_session = excluded.holder_session,
+      expires_at = excluded.expires_at
+  `);
+
+  for (const seatId of seats) {
+    ins.run(seatId, sessionId, expiresAt, now);
+  }
+
+  return {
+    ok: true,
+    heldSeats: seats,
+    expiresAt,
+    remainingSeconds: Math.round(durationMs / 1000)
+  };
+}
+
+function releaseSeats(seats, sessionId) {
+  if (!sessionId) return { ok: false, error: 'ไม่พบ Session ID' };
+  cleanExpiredHolds();
+  if (Array.isArray(seats) && seats.length) {
+    for (const seatId of seats) {
+      db.prepare(`DELETE FROM seat_holds WHERE seat_id = ? AND holder_session = ?`).run(seatId, sessionId);
+    }
+  } else {
+    db.prepare(`DELETE FROM seat_holds WHERE holder_session = ?`).run(sessionId);
+  }
+  return { ok: true };
+}
+
+function getPromoterAnalytics() {
+  const allOrders = db.prepare(`SELECT * FROM orders`).all();
+  const approvedOrders = allOrders.filter((o) => o.status === 'approved');
+  const pendingOrders = allOrders.filter((o) => o.status === 'pending');
+  const rejectedOrders = allOrders.filter((o) => o.status === 'rejected');
+
+  const totalGrossRevenue = approvedOrders.reduce((sum, o) => sum + (o.total + (o.discount_amount || 0)), 0);
+  const totalNetRevenue = approvedOrders.reduce((sum, o) => sum + o.total, 0);
+  const totalDiscountGiven = approvedOrders.reduce((sum, o) => sum + (o.discount_amount || 0), 0);
+  const totalTicketsSold = approvedOrders.reduce((sum, o) => sum + o.qty, 0);
+  const aov = approvedOrders.length > 0 ? Math.round(totalNetRevenue / approvedOrders.length) : 0;
+
+  // Zone Capacities & Breakdown (Impact Arena model)
+  const zoneStats = {
+    VIP: { name: 'VIP Standing', quota: 50, price: 6500, sold: 0, revenue: 0, color: '#B40000' },
+    A: { name: 'Zone A (บัตรนั่ง)', quota: 100, price: 4500, sold: 0, revenue: 0, color: '#229BFF' },
+    B: { name: 'Zone B (บัตรนั่ง)', quota: 120, price: 3200, sold: 0, revenue: 0, color: '#0284c7' },
+    C: { name: 'Zone C (ชั้นบน)', quota: 150, price: 1800, sold: 0, revenue: 0, color: '#0f766e' }
+  };
+
+  for (const o of approvedOrders) {
+    const z = String(o.zone || '').toUpperCase();
+    let key = 'VIP';
+    if (z.includes('VIP')) key = 'VIP';
+    else if (z.includes('ZONE A') || z.startsWith('A')) key = 'A';
+    else if (z.includes('ZONE B') || z.startsWith('B')) key = 'B';
+    else if (z.includes('ZONE C') || z.startsWith('C')) key = 'C';
+
+    if (zoneStats[key]) {
+      zoneStats[key].sold += o.qty;
+      zoneStats[key].revenue += o.total;
+    }
+  }
+
+  const totalCapacity = Object.values(zoneStats).reduce((sum, z) => sum + z.quota, 0);
+  const overallOccupancyPct = totalCapacity > 0 ? Math.min(100, Math.round((totalTicketsSold / totalCapacity) * 100)) : 0;
+
+  Object.keys(zoneStats).forEach((k) => {
+    const z = zoneStats[k];
+    z.occupancyPct = Math.min(100, Math.round((z.sold / z.quota) * 100));
+    z.remaining = Math.max(0, z.quota - z.sold);
+  });
+
+  // Hourly velocity (last 24 hours in 4-hour buckets)
+  const now = Date.now();
+  const hourlyBuckets = [];
+  for (let i = 5; i >= 0; i--) {
+    const startHour = new Date(now - (i + 1) * 4 * 3600 * 1000);
+    const endHour = new Date(now - i * 4 * 3600 * 1000);
+    const label = `${String(startHour.getHours()).padStart(2, '0')}:00 - ${String(endHour.getHours()).padStart(2, '0')}:00`;
+    const count = allOrders.filter((o) => o.issued_at >= startHour.getTime() && o.issued_at < endHour.getTime()).length;
+    const rev = allOrders
+      .filter((o) => o.status === 'approved' && o.issued_at >= startHour.getTime() && o.issued_at < endHour.getTime())
+      .reduce((sum, o) => sum + o.total, 0);
+    hourlyBuckets.push({ label, count, revenue: rev });
+  }
+
+  // Gate Check-in Stats
+  const checkedInCount = approvedOrders.filter((o) => o.checked_in_at > 0).length;
+  const checkInRatePct = approvedOrders.length > 0 ? Math.round((checkedInCount / approvedOrders.length) * 100) : 0;
+
+  // Promo campaign stats
+  const promoUsedOrders = approvedOrders.filter((o) => Boolean(o.promo_code));
+  const earlyBirdOrders = approvedOrders.filter((o) => o.promo_code === 'EARLY10');
+
+  return {
+    ok: true,
+    kpis: {
+      totalGrossRevenue,
+      totalNetRevenue,
+      totalDiscountGiven,
+      totalTicketsSold,
+      totalCapacity,
+      overallOccupancyPct,
+      aov,
+      totalOrders: allOrders.length,
+      approvedOrders: approvedOrders.length,
+      pendingOrders: pendingOrders.length,
+      rejectedOrders: rejectedOrders.length,
+      checkedInCount,
+      checkInRatePct
+    },
+    zones: zoneStats,
+    hourlyVelocity: hourlyBuckets,
+    promos: {
+      promoOrderCount: promoUsedOrders.length,
+      totalDiscountGiven,
+      earlyBirdRedeemed: earlyBirdOrders.length,
+      earlyBirdRemainingQuota: Math.max(0, 100 - earlyBirdOrders.length)
+    }
+  };
+}
+
 function clearAllForTest() {
-  db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events;`);
+  db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events; DELETE FROM seat_holds;`);
   ensureSeedData();
 }
 
@@ -835,5 +1111,10 @@ module.exports = {
   addAuditLog,
   listAuditLogs,
   hashSlipDataUrl,
-  clearAllForTest
+  clearAllForTest,
+  getSeatStatuses,
+  holdSeats,
+  releaseSeats,
+  cleanExpiredHolds,
+  getPromoterAnalytics
 };

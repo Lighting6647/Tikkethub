@@ -573,6 +573,57 @@
   opacity: 0.5;
 }
 
+.seat-btn.seat-held-other {
+  background: rgba(245, 166, 35, 0.22) !important;
+  color: #F5A623 !important;
+  border-color: rgba(245, 166, 35, 0.6) !important;
+  cursor: not-allowed;
+  position: relative;
+  animation: seatHoldPulse 2s infinite ease-in-out;
+}
+
+@keyframes seatHoldPulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.45; }
+}
+
+.seat-hold-live-ticker {
+  background: rgba(34, 155, 255, 0.12);
+  border: 1px solid rgba(34, 155, 255, 0.35);
+  border-radius: var(--radius-btn);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.seat-hold-ticker-badge {
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.seat-hold-ticker-msg {
+  color: #bae6fd;
+  flex: 1;
+}
+
+.seat-hold-timer-text {
+  color: #FFFFFF;
+  font-family: monospace;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
 .selected-seats-bar {
   background: #242424;
   border-radius: 6px;

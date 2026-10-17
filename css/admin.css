@@ -301,3 +301,280 @@
     width: 100%;
   }
 }
+
+/* Smartphone Mockup Frame for LINE Flex Preview */
+.phone-mockup-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.phone-mockup-frame {
+  width: 100%;
+  max-width: 360px;
+  background: #000000;
+  border: 10px solid #2d2d2d;
+  border-radius: 40px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), inset 0 0 4px rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-notch-bar {
+  background: #000000;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.phone-speaker-notch {
+  width: 70px;
+  height: 5px;
+  background: #333333;
+  border-radius: 3px;
+}
+
+.phone-status-bar {
+  background: #202b36;
+  color: #FFFFFF;
+  padding: 4px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.phone-line-header {
+  background: #202b36;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.phone-line-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.phone-line-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #B40000;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  border: 1.5px solid #229BFF;
+}
+
+.phone-line-name-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-line-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.phone-line-badge {
+  background: #06C755;
+  color: #fff;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+.phone-line-sub {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.phone-chat-body {
+  background: #18222d;
+  padding: 16px 12px;
+  min-height: 400px;
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phone-bubble-time {
+  font-size: 10px;
+  color: #94a3b8;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.phone-controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Promoter Analytics Dashboard & Heatmap Styles */
+.analytics-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.analytics-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.analytics-kpi-card {
+  background: #242424;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-btn);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.analytics-kpi-title {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.analytics-kpi-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.analytics-kpi-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.heatmap-box {
+  background: #242424;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  padding: 16px;
+}
+
+.heatmap-box-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.zone-heatmap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zone-heatmap-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zone-heatmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.zone-badge-pill {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.heatmap-track {
+  height: 10px;
+  background: #181818;
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.heatmap-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.velocity-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.velocity-col {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.velocity-bar-wrap {
+  width: 100%;
+  height: 50px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.velocity-bar {
+  width: 16px;
+  background: var(--color-accent);
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+  transition: height 0.5s ease;
+}
+
+.velocity-time {
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.velocity-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFFFFF;
+}

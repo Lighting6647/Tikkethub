@@ -443,37 +443,342 @@
     window.UI.open('slipZoomModal');
   }
 
-  function openLinePreview(order) {
+  let currentPreviewOrder = null;
+
+  function buildLineFlexJson(order) {
+    return {
+      type: 'flex',
+      altText: `บัตรคอนเสิร์ต ${order.title} (${order.ref}) อนุมัติแล้ว`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1E1E1E',
+          paddingAll: '20px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: 'THAI TICKET', color: '#B40000', weight: 'bold', size: 'sm' },
+                { type: 'text', text: 'E-TICKET', color: '#229BFF', weight: 'bold', size: 'sm', align: 'end' }
+              ]
+            },
+            { type: 'text', text: order.title, color: '#FFFFFF', weight: 'bold', size: 'lg', wrap: true, margin: 'md' },
+            { type: 'text', text: `${order.date} · ${order.venue}`, color: '#CCCCCC', size: 'xs', wrap: true, margin: 'sm' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#333333',
+          paddingAll: '20px',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    { type: 'text', text: 'ผู้ถือบัตร', color: '#999999', size: 'xs' },
+                    { type: 'text', text: order.holderName, color: '#FFFFFF', weight: 'bold', size: 'sm', wrap: true }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    { type: 'text', text: 'เบอร์โทรศัพท์', color: '#999999', size: 'xs' },
+                    { type: 'text', text: order.holderPhone, color: '#FFFFFF', weight: 'bold', size: 'sm' }
+                  ]
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    { type: 'text', text: 'โซนที่นั่ง', color: '#999999', size: 'xs' },
+                    { type: 'text', text: order.zone, color: '#FFFFFF', weight: 'bold', size: 'sm' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    { type: 'text', text: 'จำนวน / ยอดชำระ', color: '#999999', size: 'xs' },
+                    {
+                      type: 'text',
+                      text: `${order.qty} ใบ (${Number(order.total).toLocaleString('th-TH')} THB)`,
+                      color: '#229BFF',
+                      weight: 'bold',
+                      size: 'sm'
+                    }
+                  ]
+                }
+              ]
+            },
+            { type: 'separator', color: '#555555', margin: 'lg' },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'lg',
+              alignItems: 'center',
+              contents: [
+                { type: 'text', text: 'รหัสการจอง (แสดงหน้างาน)', color: '#999999', size: 'xs' },
+                { type: 'text', text: order.ref, color: '#FFFFFF', weight: 'bold', size: 'xl', margin: 'xs' },
+                { type: 'text', text: 'สถานะ: ชำระเงินและอนุมัติแล้ว', color: '#229BFF', size: 'xs', margin: 'sm' }
+              ]
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  function renderSmartphoneFlex(order) {
+    currentPreviewOrder = order;
     const esc = window.UI.escapeHtml;
-    const msg = (order.lineLog && order.lineLog.message) || 'สร้างข้อความ LINE Flex Message สำเร็จ';
+    const seatsText = order.seats && order.seats.length ? order.seats.join(', ') : '';
+
     $('adminLinePreviewBody').innerHTML = `
-      <p class="text-muted" style="margin-bottom:12px;">${esc(msg)}</p>
       <div class="line-flex-card">
         <div class="line-flex-header">
-          <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;">
-            <span style="color:#B40000;">THAI TICKET</span>
-            <span style="color:#229BFF;">E-TICKET</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;">
+            <span style="color:#B40000; letter-spacing:0.5px;">THAI TICKET</span>
+            <span style="background:rgba(34,155,255,0.2); color:#229BFF; padding:2px 6px; border-radius:4px;">E-TICKET OFFICIAL</span>
           </div>
-          <div style="font-size:16px;font-weight:700;color:#fff;margin-top:6px;">${esc(order.title)}</div>
-          <div style="font-size:12px;color:#ccc;margin-top:2px;">${esc(order.date)} · ${esc(order.venue)}</div>
+          <div style="font-size:15px;font-weight:700;color:#fff;margin-top:8px; line-height:1.3;">${esc(order.title)}</div>
+          <div style="font-size:11px;color:#cbd5e1;margin-top:4px;">📅 ${esc(order.date)} · 📍 ${esc(order.venue)}</div>
         </div>
+
         <div class="line-flex-body">
           <div class="line-flex-row">
-            <div><small>ผู้ถือบัตร</small><strong>${esc(order.holderName)}</strong></div>
-            <div><small>เบอร์โทรศัพท์</small><strong>${esc(order.holderPhone)}</strong></div>
+            <div>
+              <small>ผู้ถือบัตร</small>
+              <strong>${esc(order.holderName)}</strong>
+            </div>
+            <div>
+              <small>เบอร์โทรศัพท์</small>
+              <strong>${esc(order.holderPhone)}</strong>
+            </div>
           </div>
+
           <div class="line-flex-row">
-            <div><small>โซนที่นั่ง</small><strong>${esc(order.zone)}</strong></div>
-            <div><small>จำนวน / ยอดชำระ</small><strong style="color:#229BFF;">${order.qty} ใบ (${Number(order.total).toLocaleString('th-TH')} THB)</strong></div>
+            <div>
+              <small>โซนที่นั่ง ${seatsText ? `(${esc(seatsText)})` : ''}</small>
+              <strong>${esc(order.zone)}</strong>
+            </div>
+            <div>
+              <small>จำนวน / ยอดชำระ</small>
+              <strong style="color:var(--color-accent);">${order.qty} ใบ (${Number(order.total).toLocaleString('th-TH')} THB)</strong>
+            </div>
           </div>
+
           <div class="line-flex-ref">
-            <small>รหัสการจอง (แสดงหน้างาน)</small>
-            <strong>${esc(order.ref)}</strong>
+            <small>รหัสการจองสำหรับแสดงหน้างาน</small>
+            <div style="font-size:22px; font-weight:800; color:#FFFFFF; letter-spacing:1px; margin-top:2px;">${esc(order.ref)}</div>
+            <div style="font-size:11px; color:#229BFF; margin-top:4px;">✔ ผ่านการตรวจสอบและอนุมัติสลิปแล้ว</div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
+            <button type="button" class="btn-primary btn-block" style="padding:6px; font-size:12px;" onclick="window.open('index.html','_blank')">
+              🎫 เปิดบัตร E-Ticket ฉบับเต็ม
+            </button>
           </div>
         </div>
       </div>
+      <div class="phone-bubble-time">อ่านแล้ว 09:41</div>
     `;
+  }
+
+  function openLinePreview(order) {
+    if (!order) {
+      order = ordersCache.find((o) => o.status === 'approved') || ordersCache[0] || {
+        ref: 'TT9999-DEMO',
+        title: 'ECHOES OF ASIA WORLD TOUR 2026',
+        date: '14 - 15 พ.ย. 2026',
+        venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
+        zone: 'VIP Standing',
+        qty: 2,
+        total: 13000,
+        holderName: 'คุณสมชาย สายเปย์',
+        holderPhone: '0812345678',
+        seats: ['VIP-01', 'VIP-02']
+      };
+    }
+
+    // Populate dropdown
+    const select = $('linePreviewOrderSelect');
+    if (select) {
+      const esc = window.UI.escapeHtml;
+      select.innerHTML = ordersCache.length
+        ? ordersCache
+            .map(
+              (o) =>
+                `<option value="${esc(o.ref)}" ${o.ref === order.ref ? 'selected' : ''}>${esc(o.ref)} · ${esc(o.holderName)} (${esc(o.zone)})</option>`
+            )
+            .join('')
+        : `<option value="${order.ref}" selected>${order.ref} · ${order.holderName}</option>`;
+      select.onchange = (e) => {
+        const target = ordersCache.find((x) => x.ref === e.target.value);
+        if (target) renderSmartphoneFlex(target);
+      };
+    }
+
+    renderSmartphoneFlex(order);
     window.UI.open('adminLinePreviewModal');
+  }
+
+  function copyLineFlexJson() {
+    if (!currentPreviewOrder) return;
+    const jsonStr = JSON.stringify(buildLineFlexJson(currentPreviewOrder), null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard
+        .writeText(jsonStr)
+        .then(() => {
+          window.UI.toast('คัดลอก LINE Flex JSON ไปยังคลิปบอร์ดแล้ว');
+        })
+        .catch(() => {
+          window.UI.toast('ไม่สามารถคัดลอกได้', 'error');
+        });
+    } else {
+      window.UI.toast('คัดลอก LINE Flex JSON เรียบร้อย');
+    }
+  }
+
+  async function openAnalyticsModal() {
+    const box = $('analyticsModalContent');
+    if (!box) return;
+    box.innerHTML = `<div class="empty-state"><p>กำลังประมวลผลสถิติและ Heatmap...</p></div>`;
+    window.UI.open('analyticsModal');
+
+    try {
+      const res = await fetch('/api/admin/analytics', { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.unauthorized) {
+        window.UI.close('analyticsModal');
+        showLoginModal();
+        return;
+      }
+      if (!data.ok) throw new Error(data.error || 'ดึงข้อมูลไม่สำเร็จ');
+
+      const k = data.kpis;
+      const z = data.zones;
+      const p = data.promos;
+      const v = data.hourlyVelocity || [];
+      const maxVelocityCount = Math.max(1, ...v.map((item) => item.count));
+
+      box.innerHTML = `
+        <div class="analytics-grid">
+          <!-- KPI Cards -->
+          <div class="analytics-kpis">
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">รายได้สุทธิ (Net Revenue)</span>
+              <span class="analytics-kpi-val" style="color:var(--color-accent);">${Number(k.totalNetRevenue).toLocaleString('th-TH')} <small style="font-size:12px;">THB</small></span>
+              <span class="analytics-kpi-sub">ยอดก่อนหักส่วนลด: ${Number(k.totalGrossRevenue).toLocaleString('th-TH')} THB</span>
+            </div>
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">ยอดเฉลี่ยต่อบิล (AOV)</span>
+              <span class="analytics-kpi-val">${Number(k.aov).toLocaleString('th-TH')} <small style="font-size:12px;">THB</small></span>
+              <span class="analytics-kpi-sub">คำสั่งซื้อที่อนุมัติ: ${k.approvedOrders} / ${k.totalOrders} รายการ</span>
+            </div>
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">อัตราการจองรวม (Occupancy)</span>
+              <span class="analytics-kpi-val" style="color:#6ee7b7;">${k.overallOccupancyPct}%</span>
+              <span class="analytics-kpi-sub">จำหน่ายแล้ว ${k.totalTicketsSold} / ${k.totalCapacity} ที่นั่ง</span>
+            </div>
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">เช็กอินหน้างาน (Gate Check-in)</span>
+              <span class="analytics-kpi-val" style="color:#229BFF;">${k.checkedInCount} <small style="font-size:12px;">ใบ (${k.checkInRatePct}%)</small></span>
+              <span class="analytics-kpi-sub">สแกนผ่านจุดตรวจแล้ว</span>
+            </div>
+          </div>
+
+          <!-- Seating Heatmap by Zone -->
+          <div class="heatmap-box">
+            <div class="heatmap-box-title">
+              <span>🏟️ ความหนาแน่นและอัตราการจองแต่ละโซน (Venue Seating Heatmap)</span>
+              <span style="font-size:11px; color:var(--color-muted); font-weight:normal;">คำนวณจากยอดที่นั่งจริง</span>
+            </div>
+            <div class="zone-heatmap-list">
+              ${Object.keys(z)
+                .map((key) => {
+                  const zone = z[key];
+                  return `
+                  <div class="zone-heatmap-item">
+                    <div class="zone-heatmap-header">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="zone-badge-pill" style="background:${zone.color};">${key}</span>
+                        <strong>${zone.name}</strong>
+                        <span class="text-muted">(${zone.price.toLocaleString('th-TH')} THB)</span>
+                      </div>
+                      <div>
+                        <strong>${zone.sold} / ${zone.quota} ที่นั่ง</strong>
+                        <span style="color:${zone.color}; font-weight:700; margin-left:6px;">(${zone.occupancyPct}%)</span>
+                        <span class="text-muted" style="margin-left:6px;">· ยอดรวม ${Number(zone.revenue).toLocaleString('th-TH')} THB</span>
+                      </div>
+                    </div>
+                    <div class="heatmap-track">
+                      <div class="heatmap-fill" style="width:${zone.occupancyPct}%; background:${zone.color};"></div>
+                    </div>
+                  </div>
+                `;
+                })
+                .join('')}
+            </div>
+          </div>
+
+          <!-- Hourly Velocity -->
+          <div class="heatmap-box">
+            <div class="heatmap-box-title">
+              <span>⚡ ความเร็วการสั่งซื้อบัตรรายชั่วโมง (24h Velocity Pace)</span>
+              <span style="font-size:11px; color:var(--color-muted); font-weight:normal;">จำนวนคำสั่งซื้อในรอบ 24 ชั่วโมง</span>
+            </div>
+            <div class="velocity-grid">
+              ${v
+                .map((bucket) => {
+                  const pct = Math.max(8, Math.round((bucket.count / maxVelocityCount) * 100));
+                  return `
+                  <div class="velocity-col">
+                    <div class="velocity-bar-wrap">
+                      <div class="velocity-bar" style="height:${pct}%;"></div>
+                    </div>
+                    <span class="velocity-count">${bucket.count} รายการ</span>
+                    <span class="velocity-time">${bucket.label}</span>
+                  </div>
+                `;
+                })
+                .join('')}
+            </div>
+          </div>
+
+          <!-- Promo Campaign Metrics -->
+          <div class="zone-chip" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+              <strong>🎟️ แคมเปญ Early Bird (EARLY10) & คูปองโปรโมชัน</strong>
+              <div class="text-muted" style="font-size:12px; margin-top:2px;">
+                คำสั่งซื้อที่ใช้โค้ดส่วนลด: <strong>${p.promoOrderCount}</strong> รายการ · มอบส่วนลดให้แฟนคลับแล้ว: <strong style="color:var(--color-accent);">${Number(p.totalDiscountGiven).toLocaleString('th-TH')} THB</strong>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <span class="badge-accent">โควตา Early Bird คงเหลือ: ${p.earlyBirdRemainingQuota} สิทธิ์</span>
+            </div>
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      box.innerHTML = `<p class="slip-error">เกิดข้อผิดพลาดในการโหลด Analytics: ${window.UI.escapeHtml(err.message)}</p>`;
+    }
   }
 
   let auditLogsCache = [];
@@ -821,6 +1126,19 @@
 
     $('confirmRejectBtn').addEventListener('click', confirmReject);
     $('closeRejectBtn').addEventListener('click', () => window.UI.close('rejectModal'));
+
+    if ($('openAnalyticsBtn')) {
+      $('openAnalyticsBtn').addEventListener('click', openAnalyticsModal);
+    }
+    if ($('closeAnalyticsModalBtn')) {
+      $('closeAnalyticsModalBtn').addEventListener('click', () => window.UI.close('analyticsModal'));
+    }
+    if ($('openLinePreviewNavBtn')) {
+      $('openLinePreviewNavBtn').addEventListener('click', () => openLinePreview());
+    }
+    if ($('copyLineFlexJsonBtn')) {
+      $('copyLineFlexJsonBtn').addEventListener('click', copyLineFlexJson);
+    }
 
     $('closeSlipZoomBtn').addEventListener('click', () => window.UI.close('slipZoomModal'));
     $('closeAdminLinePreviewBtn').addEventListener('click', () => window.UI.close('adminLinePreviewModal'));

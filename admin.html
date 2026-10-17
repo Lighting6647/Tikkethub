@@ -125,6 +125,8 @@
         </a>
         <div class="admin-actions">
           <button class="btn-primary" id="openScannerBtn">📷 สแกนบัตรเข้างาน</button>
+          <button class="btn-outline" id="openAnalyticsBtn">📊 Analytics & Heatmap</button>
+          <button class="btn-outline" id="openLinePreviewNavBtn">📱 พรีวิว LINE Flex</button>
           <button class="btn-outline" id="openEventManagerBtn">🎤 จัดการคอนเสิร์ต</button>
           <button class="btn-outline" id="openAuditLogBtn">📋 ประวัติแอดมิน</button>
           <button class="btn-outline" id="openBackupModalBtn">💾 สำรองข้อมูล</button>
@@ -412,14 +414,59 @@
     </div>
   </div>
 
-  <!-- Admin LINE Flex Preview Modal -->
-  <div class="modal-backdrop" id="adminLinePreviewModal" data-dismissable="true" role="dialog" aria-modal="true">
-    <div class="modal-box">
+  <!-- Admin LINE Flex Preview Modal (Interactive Smartphone Mockup) -->
+  <div class="modal-backdrop" id="adminLinePreviewModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="linePreviewModalTitle">
+    <div class="modal-box" style="max-width:440px;">
       <div class="modal-header">
-        <h3 style="font-weight:700;">ตัวอย่างข้อความบัตรที่ส่งเข้า LINE OA</h3>
+        <h3 id="linePreviewModalTitle" style="font-weight:700;">📱 พรีวิว E-Ticket บนสมาร์ทโฟน (LINE OA)</h3>
         <button class="modal-close" id="closeAdminLinePreviewBtn" aria-label="ปิด">&times;</button>
       </div>
-      <div class="modal-content" id="adminLinePreviewBody"></div>
+      <div class="modal-content" style="padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+          <label class="holder-sub-label" for="linePreviewOrderSelect" style="margin:0;">เลือกคำสั่งซื้อเพื่อดูพรีวิว:</label>
+          <button type="button" class="copy-pp-btn" id="copyLineFlexJsonBtn">📋 คัดลอก JSON Flex</button>
+        </div>
+        <select id="linePreviewOrderSelect" class="input-field holder-input" style="font-size:12px; margin-bottom:12px;"></select>
+
+        <div class="phone-mockup-wrapper">
+          <div class="phone-mockup-frame">
+            <div class="phone-notch-bar">
+              <div class="phone-speaker-notch"></div>
+            </div>
+            <div class="phone-status-bar">
+              <span>09:41</span>
+              <span>5G 📶 100% 🔋</span>
+            </div>
+            <div class="phone-line-header">
+              <div class="phone-line-account">
+                <div class="phone-line-avatar">TT</div>
+                <div class="phone-line-name-wrap">
+                  <div class="phone-line-title">
+                    THAI TICKET <span class="phone-line-badge">✔ บัญชีทางการ</span>
+                  </div>
+                  <div class="phone-line-sub">@ThaiTicketHub · ตอบกลับอัตโนมัติ</div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-chat-body" id="adminLinePreviewBody">
+              <!-- Rendered Flex bubble goes here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Promoter Analytics & Heatmap Modal -->
+  <div class="modal-backdrop" id="analyticsModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="analyticsModalTitle">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-header">
+        <h3 id="analyticsModalTitle" style="font-weight:700;">📊 สถิติยอดขาย & แดชบอร์ด Heatmap (Promoter Analytics)</h3>
+        <button class="modal-close" id="closeAnalyticsModalBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content" id="analyticsModalContent">
+        <!-- Dynamically rendered by admin.js -->
+      </div>
     </div>
   </div>
 

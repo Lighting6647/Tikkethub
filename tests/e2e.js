@@ -227,6 +227,23 @@ async function run() {
   assert.equal(backupDl.suggestedFilename(), 'thaiticket-backup.json');
   await adminPage.click('#closeBackupModalBtn');
 
+  // 8.6 Test Smartphone Mockup LINE Flex Preview Modal
+  await adminPage.click('#openLinePreviewNavBtn');
+  await adminPage.waitForSelector('#adminLinePreviewModal.active');
+  await adminPage.waitForSelector('.phone-mockup-frame');
+  assert.ok(await adminPage.locator('.phone-line-header').count(), 'smartphone line header rendered');
+  await adminPage.locator('#adminLinePreviewModal .modal-box').screenshot({ path: path.join(SHOTS, 'smartphone-line-preview.png') });
+  await adminPage.click('#closeAdminLinePreviewBtn');
+
+  // 8.7 Test Promoter Analytics Dashboard & Zone Occupancy Heatmap Modal
+  await adminPage.click('#openAnalyticsBtn');
+  await adminPage.waitForSelector('#analyticsModal.active');
+  await adminPage.waitForSelector('.heatmap-track');
+  assert.ok((await adminPage.locator('.analytics-kpi-card').count()) >= 4, '4 KPI cards rendered in analytics');
+  assert.ok((await adminPage.locator('.zone-heatmap-item').count()) >= 4, '4 zones rendered in seating heatmap');
+  await adminPage.locator('#analyticsModal .modal-box').screenshot({ path: path.join(SHOTS, 'promoter-analytics-heatmap.png') });
+  await adminPage.click('#closeAnalyticsModalBtn');
+
   // 9. Responsive check across mobile, tablet, desktop on both pages
   for (const w of [375, 430, 768, 1280]) {
     await page.setViewportSize({ width: w, height: 860 });

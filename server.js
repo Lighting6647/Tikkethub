@@ -493,6 +493,24 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  // Real-time Seat Hold Engine (10-minute Lock & Race Condition Protection)
+  if (method === 'GET' && pathname === '/api/seats/status') {
+    const sessionId = url.searchParams.get('sessionId') || '';
+    return sendJson(res, 200, db.getSeatStatuses(sessionId));
+  }
+
+  if (method === 'POST' && pathname === '/api/seats/hold') {
+    const body = await readJsonBody(req);
+    const result = db.holdSeats(body.seats, body.sessionId, body.durationMs || 600000);
+    return sendJson(res, 200, result);
+  }
+
+  if (method === 'POST' && pathname === '/api/seats/release') {
+    const body = await readJsonBody(req);
+    const result = db.releaseSeats(body.seats, body.sessionId);
+    return sendJson(res, 200, result);
+  }
+
   // Admin Event & Zone Quota Manager
   if (method === 'POST' && pathname === '/api/admin/events') {
     if (!isAdminAuthenticated(req)) {
@@ -562,6 +580,14 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
     }
     return sendJson(res, 200, { ok: true, ...db.getStats() });
+  }
+
+  // Promoter Analytics Dashboard & Zone Occupancy Heatmap
+  if (method === 'GET' && pathname === '/api/admin/analytics') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    return sendJson(res, 200, db.getPromoterAnalytics());
   }
 
   // Admin CSV Export
