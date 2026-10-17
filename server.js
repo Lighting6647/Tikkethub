@@ -13,7 +13,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { URL } = require('node:url');
 const db = require('./backend/db');
-const { sendLineTicketPush, replyLineWebhook } = require('./backend/line');
+const { sendLineTicketPush, replyLineWebhook, sendAdminNewOrderNotification } = require('./backend/line');
 const drive = require('./backend/drive');
 const slipVerifier = require('./backend/slip-verifier');
 
@@ -535,6 +535,13 @@ async function handleApi(req, res, url) {
               });
             }
           }
+
+          // 3. Instant LINE Alert to Admin (if configured)
+          const adminLineId = db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || '');
+          const lineToken = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
+          if (adminLineId && lineToken) {
+            await sendAdminNewOrderNotification(lineToken, adminLineId, created);
+          }
         } catch (postErr) {
           console.error('[Async Post-Order Error]', postErr);
         }
@@ -880,7 +887,8 @@ async function handleApi(req, res, url) {
         slipVerifyProvider,
         slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
         slipVerifyBranchId,
-        slipAutoApproveEnabled
+        slipAutoApproveEnabled,
+        adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || '')
       });
     }
     if (method === 'PUT') {
@@ -943,6 +951,10 @@ async function handleApi(req, res, url) {
         db.setSetting('slip_auto_approve_enabled', val ? 'true' : 'false');
         changes.push(`ระบบอนุมัติและส่งบัตรอัตโนมัติ: ${val ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`);
       }
+      if (typeof body.adminLineUserId === 'string') {
+        db.setSetting('admin_line_user_id', body.adminLineUserId.trim());
+        changes.push(`ตั้งค่า Admin LINE User ID เป็น "${body.adminLineUserId.trim()}"`);
+      }
       if (typeof body.adminPin === 'string' && body.adminPin.trim().length >= 4) {
         db.setSetting('admin_pin', body.adminPin.trim());
         changes.push('เปลี่ยนรหัส PIN แอดมิน');
@@ -998,6 +1010,33 @@ async function handleApi(req, res, url) {
       slipDataUrl: body.slipData
     });
     return sendJson(res, 200, { ok: true, result: verifyRes });
+  }
+
+  // Admin Test Instant LINE Alert
+  if (pathname === '/api/admin/line/test-admin-alert' && method === 'POST') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const body = await readJsonBody(req).catch(() => ({}));
+    const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
+    const adminLineId = (body.adminLineUserId || db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || '')).trim();
+    if (!token) {
+      return sendJson(res, 200, { ok: false, error: 'ยังไม่ได้ตั้งค่า LINE Channel Access Token ในระบบ' });
+    }
+    if (!adminLineId) {
+      return sendJson(res, 200, { ok: false, error: 'กรุณากรอก LINE User ID ของแอดมินก่อนทดสอบ' });
+    }
+    const sampleOrder = {
+      ref: 'TT-TEST-ALERT',
+      title: 'ทดสอบระบบแจ้งเตือนแอดมิน (Thai Ticket)',
+      holderName: 'คุณแอดมิน (ทดสอบ)',
+      holderPhone: '095-465-4698',
+      zone: 'VIP Standing',
+      qty: 1,
+      total: 3500
+    };
+    const alertRes = await sendAdminNewOrderNotification(token, adminLineId, sampleOrder);
+    return sendJson(res, 200, alertRes);
   }
 
   return sendJson(res, 404, { error: 'ไม่พบ API ที่เรียกใช้งาน' });

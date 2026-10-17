@@ -147,7 +147,11 @@
           <h1>ระบบจัดการคำสั่งซื้อ ตรวจสลิป และเช็กอินหน้างาน</h1>
           <p class="text-muted">ตรวจสอบสลิปโอนเงิน ป้องกันสลิปซ้ำด้วย SHA-256 อนุมัติส่งบัตรเข้า LINE OA และสแกน QR Code เช็กอินเข้างาน</p>
         </div>
-        <button class="btn-outline" id="refreshAdminBtn">รีเฟรชข้อมูล</button>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button class="btn-outline" id="toggleSoundBtn" title="เปิด/ปิดเสียงแจ้งเตือนสลิปใหม่">🔔 เสียงเตือน: เปิด</button>
+          <button class="btn-outline" id="requestNotifyBtn" title="เปิดแจ้งเตือนบนหน้าจอคอม/มือถือ">📲 เปิดแจ้งเตือนหน้าจอ</button>
+          <button class="btn-outline" id="refreshAdminBtn">รีเฟรชข้อมูล</button>
+        </div>
       </div>
 
       <!-- KPI Cards -->
@@ -400,6 +404,20 @@
             <input type="text" id="settingSlipBranchInput" class="input-field holder-input" placeholder="เช่น branch_01 หรือเว้นว่าง">
           </div>
           <p class="text-muted" id="slipTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+        </div>
+
+        <!-- Admin Instant Notification Settings -->
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:var(--color-accent); font-size:13px;">🔔 ระบบแจ้งเตือนฝั่งแอดมิน (Admin Instant Notifications)</strong>
+            <button type="button" class="btn-outline" id="btnTestAdminAlert" style="font-size:11px; padding:3px 8px;">📲 ทดสอบยิงเข้า LINE แอดมิน</button>
+          </div>
+          <div>
+            <label class="field-label" for="settingAdminLineUserInput">LINE User ID ของแอดมินสำหรับรับการแจ้งเตือนสลิปใหม่ (Admin Alert)</label>
+            <input type="text" id="settingAdminLineUserInput" class="input-field holder-input" placeholder="เช่น U4af4980629... (รหัส User ID ของแอดมิน)">
+            <p class="text-muted" style="font-size:11px; margin-top:4px;">เมื่อมีลูกค้าจองบัตรและแนบสลิป ระบบจะยิงการแจ้งเตือนพร้อมยอดเงินเข้า LINE แอดมินทันที</p>
+          </div>
+          <p class="text-muted" id="adminAlertTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
         </div>
 
         <button class="btn-primary btn-block" id="saveSettingsBtn" style="margin-top:12px;">บันทึกการตั้งค่า</button>

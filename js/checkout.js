@@ -158,6 +158,46 @@
     });
   }
 
+  function compressImage(file, maxDimension = 1280, quality = 0.85) {
+    return new Promise((resolve) => {
+      if (file.size < 400 * 1024) {
+        fileToDataUrl(file).then(resolve).catch(() => resolve(''));
+        return;
+      }
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressed);
+        };
+        img.onerror = () => {
+          fileToDataUrl(file).then(resolve).catch(() => resolve(''));
+        };
+        img.src = e.target.result;
+      };
+      reader.onerror = () => {
+        fileToDataUrl(file).then(resolve).catch(() => resolve(''));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function confirmPayment() {
     if (!slipFile || isExpired()) return;
     clearInterval(timerId);
@@ -165,7 +205,7 @@
 
     let saved = null;
     try {
-      const slipData = await fileToDataUrl(slipFile);
+      const slipData = await compressImage(slipFile);
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

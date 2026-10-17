@@ -1141,6 +1141,12 @@
       if ($('settingSlipAutoApprove')) {
         $('settingSlipAutoApprove').checked = Boolean(data.slipAutoApproveEnabled);
       }
+      if ($('settingAdminLineUserInput')) {
+        $('settingAdminLineUserInput').value = data.adminLineUserId || '';
+      }
+      if ($('adminAlertTestStatus')) {
+        $('adminAlertTestStatus').hidden = true;
+      }
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
     } catch {
@@ -1163,6 +1169,7 @@
     const slipVerifyApiKey = $('settingSlipApiKeyInput') ? $('settingSlipApiKeyInput').value.trim() : '';
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
     const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
+    const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
 
     const payload = {
       promptpayId,
@@ -1173,7 +1180,8 @@
       googleServiceAccountEmail,
       slipVerifyProvider,
       slipVerifyBranchId,
-      slipAutoApproveEnabled
+      slipAutoApproveEnabled,
+      adminLineUserId
     };
     if (token) payload.lineChannelAccessToken = token;
     if (adminPin) payload.adminPin = adminPin;
@@ -1264,6 +1272,36 @@
         statusEl.style.color = '#FF6B6B';
         statusEl.textContent = `เกิดข้อผิดพลาด: ${err.message}`;
       }
+    }
+  }
+
+  async function testAdminAlert() {
+    const statusEl = $('adminAlertTestStatus');
+    const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.style.color = 'var(--color-accent)';
+      statusEl.textContent = '⏳ กำลังส่งข้อความทดสอบแจ้งเตือนเข้า LINE แอดมิน...';
+    }
+    try {
+      const res = await fetch('/api/admin/line/test-admin-alert', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ adminLineUserId })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'ส่งแจ้งเตือนไม่สำเร็จ');
+      if (statusEl) {
+        statusEl.style.color = '#68D391';
+        statusEl.textContent = '✔ ส่งข้อความแจ้งเตือนเข้า LINE แอดมินสำเร็จเรียบร้อย!';
+      }
+      window.UI.toast('ส่งการแจ้งเตือนเข้า LINE แอดมินสำเร็จ!');
+    } catch (err) {
+      if (statusEl) {
+        statusEl.style.color = '#FF6B6B';
+        statusEl.textContent = `❌ เกิดข้อผิดพลาด: ${err.message}`;
+      }
+      window.UI.toast(err.message, 'error');
     }
   }
 
@@ -1454,6 +1492,147 @@
     }
   }
 
+  let soundEnabled = true;
+  let lastKnownPendingCount = null;
+  let livePollingTimer = null;
+
+  function initSoundSetting() {
+    try {
+      const saved = localStorage.getItem('thaiticket.admin.sound');
+      if (saved !== null) soundEnabled = saved === 'true';
+    } catch {
+      /* ignore */
+    }
+    updateSoundBtnUi();
+  }
+
+  function updateSoundBtnUi() {
+    const btn = $('toggleSoundBtn');
+    if (btn) {
+      btn.innerHTML = soundEnabled ? '🔔 เสียงเตือน: เปิด' : '🔕 เสียงเตือน: ปิด';
+      btn.style.color = soundEnabled ? '#68D391' : 'var(--color-muted)';
+    }
+  }
+
+  function toggleSound() {
+    soundEnabled = !soundEnabled;
+    try {
+      localStorage.setItem('thaiticket.admin.sound', String(soundEnabled));
+    } catch {
+      /* ignore */
+    }
+    updateSoundBtnUi();
+    if (soundEnabled) {
+      playNewOrderSound();
+      window.UI.toast('เปิดเสียงแจ้งเตือนคำสั่งซื้อใหม่แล้ว');
+    } else {
+      window.UI.toast('ปิดเสียงแจ้งเตือนแล้ว');
+    }
+  }
+
+  function playNewOrderSound() {
+    if (!soundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const playTone = (freq, start, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + duration);
+      };
+      // Chime: D5 (587.33Hz) then A5 (880.00Hz)
+      playTone(587.33, 0, 0.22);
+      playTone(880.00, 0.16, 0.45);
+    } catch {
+      /* ignore audio error */
+    }
+  }
+
+  async function requestBrowserNotification() {
+    if (!('Notification' in window)) {
+      window.UI.toast('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนหน้าจอ', 'error');
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      updateNotifyBtnUi();
+      if (perm === 'granted') {
+        window.UI.toast('เปิดการแจ้งเตือนหน้าจอสำเร็จ');
+        new Notification('🔔 Thai Ticket Hub', {
+          body: 'เปิดระบบแจ้งเตือนคำสั่งซื้อสลิปใหม่บนหน้าจอเรียบร้อย!',
+          icon: '/favicon.ico'
+        });
+      } else {
+        window.UI.toast('การแจ้งเตือนถูกปิดกั้นในเบราว์เซอร์', 'error');
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function updateNotifyBtnUi() {
+    const btn = $('requestNotifyBtn');
+    if (!btn || !('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      btn.innerHTML = '📲 แจ้งเตือนหน้าจอ: เปิดแล้ว';
+      btn.style.color = '#68D391';
+    } else {
+      btn.innerHTML = '📲 เปิดแจ้งเตือนหน้าจอ';
+      btn.style.color = '';
+    }
+  }
+
+  function startLivePolling() {
+    if (livePollingTimer) clearInterval(livePollingTimer);
+    livePollingTimer = setInterval(async () => {
+      const loginModal = $('adminLoginModal');
+      if (loginModal && loginModal.classList.contains('active')) return;
+      try {
+        const res = await fetch('/api/admin/stats', {
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (data && data.ok) {
+          const newPending = Number(data.pending || 0);
+          if (lastKnownPendingCount !== null && newPending > lastKnownPendingCount) {
+            const diff = newPending - lastKnownPendingCount;
+            playNewOrderSound();
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('🔔 มีคำสั่งซื้อใหม่รอตรวจสลิป!', {
+                body: `มีรายการสั่งซื้อใหม่เข้ามา ${diff} รายการ (รอตรวจทั้งหมด: ${newPending} รายการ)`,
+                icon: '/favicon.ico'
+              });
+            }
+            window.UI.toast(`🔔 มีคำสั่งซื้อใหม่เข้ามา ${diff} รายการ! กรุณาตรวจสอบสลิป`, 'info');
+            const kpi = $('kpiPending');
+            if (kpi) {
+              kpi.style.transition = 'transform 0.3s, color 0.3s';
+              kpi.style.transform = 'scale(1.25)';
+              kpi.style.color = '#FF6B6B';
+              setTimeout(() => {
+                kpi.style.transform = '';
+                kpi.style.color = '';
+              }, 1200);
+            }
+            await loadOrders();
+          }
+          lastKnownPendingCount = newPending;
+          renderStats(data);
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 5000);
+  }
+
   function bind() {
     document.querySelectorAll('.filter-tab').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1607,6 +1786,15 @@
     if ($('btnTestSlip')) {
       $('btnTestSlip').addEventListener('click', testSlipVerification);
     }
+    if ($('btnTestAdminAlert')) {
+      $('btnTestAdminAlert').addEventListener('click', testAdminAlert);
+    }
+    if ($('toggleSoundBtn')) {
+      $('toggleSoundBtn').addEventListener('click', toggleSound);
+    }
+    if ($('requestNotifyBtn')) {
+      $('requestNotifyBtn').addEventListener('click', requestBrowserNotification);
+    }
 
     $('closeAdminLinePreviewBtn').addEventListener('click', () => window.UI.close('adminLinePreviewModal'));
     $('refreshAdminBtn').addEventListener('click', () => {
@@ -1618,6 +1806,9 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     bind();
+    initSoundSetting();
+    updateNotifyBtnUi();
     checkAdminSession();
+    startLivePolling();
   });
 })();

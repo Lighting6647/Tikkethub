@@ -223,9 +223,124 @@ async function replyLineWebhook(replyToken, userId, channelAccessToken) {
   }
 }
 
+async function sendAdminNewOrderNotification(channelAccessToken, adminUserId, order) {
+  const token = String(channelAccessToken || '').trim();
+  const to = String(adminUserId || '').trim();
+  if (!token || !to) {
+    return { ok: false, error: 'ยังไม่ได้ตั้งค่า LINE Token หรือ Admin LINE User ID' };
+  }
+
+  const flexMsg = {
+    type: 'flex',
+    altText: `🔔 มีคำสั่งซื้อใหม่ (${order.ref}) · ยอด ${Number(order.total).toLocaleString('th-TH')} THB`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#B40000',
+        paddingAll: '16px',
+        contents: [
+          {
+            type: 'text',
+            text: '🔔 รายการสั่งซื้อใหม่รอตรวจสลิป',
+            color: '#FFFFFF',
+            weight: 'bold',
+            size: 'md'
+          },
+          {
+            type: 'text',
+            text: `รหัส: ${order.ref}`,
+            color: '#FFCCCC',
+            size: 'xs',
+            margin: 'xs'
+          }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#1E1E1E',
+        paddingAll: '16px',
+        contents: [
+          {
+            type: 'text',
+            text: order.title,
+            color: '#FFFFFF',
+            weight: 'bold',
+            size: 'sm',
+            wrap: true
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            spacing: 'xs',
+            contents: [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: 'ผู้สั่งซื้อ:', color: '#999999', size: 'xs', flex: 2 },
+                  { type: 'text', text: order.holderName || '-', color: '#FFFFFF', size: 'xs', flex: 4, weight: 'bold' }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: 'เบอร์โทร:', color: '#999999', size: 'xs', flex: 2 },
+                  { type: 'text', text: order.holderPhone || '-', color: '#FFFFFF', size: 'xs', flex: 4 }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: 'โซน/ที่นั่ง:', color: '#999999', size: 'xs', flex: 2 },
+                  { type: 'text', text: `${order.zone || ''} (${order.qty || 1} ใบ)`, color: '#FFFFFF', size: 'xs', flex: 4 }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: 'ยอดโอน:', color: '#999999', size: 'xs', flex: 2 },
+                  { type: 'text', text: `${Number(order.total).toLocaleString('th-TH')} THB`, color: '#68D391', size: 'sm', flex: 4, weight: 'bold' }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  };
+
+  try {
+    const res = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        to,
+        messages: [flexMsg]
+      })
+    });
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data: json };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   buildTicketFlexMessage,
   sendLineTicketPush,
+  sendAdminNewOrderNotification,
   buildWebhookReplyMessages,
   replyLineWebhook
 };
+
