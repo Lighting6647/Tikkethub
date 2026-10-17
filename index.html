@@ -481,6 +481,19 @@
       backdrop-filter: blur(8px);
     }
 
+    .input-field.input-error {
+      border-color: #FF4D4F !important;
+      background-color: rgba(255, 77, 79, 0.08) !important;
+      box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.25) !important;
+    }
+
+    .badge-required {
+      color: #FF4D4F;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+
     /* Toast Notification */
     .toast {
       position: fixed;
@@ -758,27 +771,27 @@
           <label style="font-weight:600; margin-bottom:8px; display:block;">ข้อมูลผู้ถือบัตร (แสดงบนบัตร & ส่งทาง LINE)</label>
           <div class="holder-grid">
             <div>
-              <label class="holder-sub-label" for="holderName">ชื่อ - นามสกุล *</label>
-              <input type="text" id="holderName" class="input-field holder-input" placeholder="เช่น ธนภัทร วงศ์สวัสดิ์" autocomplete="name">
+              <label class="holder-sub-label" for="holderName">ชื่อ - นามสกุล <span class="badge-required">* (บังคับใส่)</span></label>
+              <input type="text" id="holderName" class="input-field holder-input" placeholder="เช่น ธนภัทร วงศ์สวัสดิ์" autocomplete="name" required>
             </div>
             <div>
-              <label class="holder-sub-label" for="holderPhone">เบอร์โทรศัพท์ *</label>
-              <input type="tel" id="holderPhone" class="input-field holder-input" placeholder="0812345678" maxlength="12" autocomplete="tel">
+              <label class="holder-sub-label" for="holderPhone">เบอร์โทรศัพท์ <span class="badge-required">* (บังคับใส่)</span></label>
+              <input type="tel" id="holderPhone" class="input-field holder-input" placeholder="0812345678" maxlength="12" autocomplete="tel" required>
             </div>
           </div>
           <div style="margin-top:8px;">
-            <label class="holder-sub-label" for="holderIdCard">เลขประจำตัวประชาชน 13 หลัก / Passport (สำหรับยืนยันตัวตนหน้างาน) *</label>
-            <input type="text" id="holderIdCard" class="input-field holder-input" placeholder="เช่น 1-1004-12345-67-8 หรือเลขพาสปอร์ต" maxlength="17" autocomplete="off">
+            <label class="holder-sub-label" for="holderIdCard">เลขประจำตัวประชาชน 13 หลัก / Passport <span class="badge-required">* (บังคับใส่ สำหรับยืนยันตัวตน)</span></label>
+            <input type="text" id="holderIdCard" class="input-field holder-input" placeholder="เช่น 1-1004-12345-67-8 หรือเลขพาสปอร์ต" maxlength="17" autocomplete="off" required>
             <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี (ข้อมูลจะถูกเข้ารหัสปลอดภัย)</p>
           </div>
           <div style="margin-top:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-              <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID (ส่งบัตรเข้า LINE OA — ไม่บังคับ)</label>
+              <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID <span class="badge-required">* (บังคับใส่ เพื่อรับบัตรทาง LINE)</span></label>
               <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:4px 10px; font-size:11px; border-color:var(--color-accent); color:var(--color-accent);">
                 💬 ดึงรหัส LINE อัตโนมัติ
               </button>
             </div>
-            <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น U4af4980629... (ไม่บังคับ)">
+            <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น Ohm หรือ U4af4980629..." required>
             <p class="text-muted" id="lineWebhookHint" style="font-size:11px; margin-top:4px;">ทักแชท LINE OA พิมพ์ <code>บัตร</code> หรือกดปุ่ม <strong>ดึงรหัส LINE อัตโนมัติ</strong> เพื่อเชื่อมบัญชีรับบัตรทันที</p>
           </div>
           <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">

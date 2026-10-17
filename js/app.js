@@ -289,6 +289,8 @@ function confirmBooking() {
   const lineEl = document.getElementById('holderLineId');
   const errEl = document.getElementById('holderError');
 
+  [nameEl, phoneEl, idEl, lineEl].forEach((el) => el && el.classList.remove('input-error'));
+
   const holderName = (nameEl ? nameEl.value : '').trim();
   const holderPhone = (phoneEl ? phoneEl.value : '').trim();
   const holderIdCard = (idEl ? idEl.value : '').trim();
@@ -297,23 +299,43 @@ function confirmBooking() {
   const idDigits = holderIdCard.replace(/\D/g, '');
 
   if (holderName.length < 2) {
-    if (errEl) errEl.textContent = 'กรุณากรอกชื่อ-นามสกุลผู้ถือบัตร';
-    if (nameEl) nameEl.focus();
+    if (errEl) errEl.textContent = 'กรุณากรอกชื่อ-นามสกุลผู้ถือบัตร (บังคับใส่)';
+    if (nameEl) {
+      nameEl.classList.add('input-error');
+      nameEl.focus();
+    }
     return;
   }
   if (digits.length < 9 || digits.length > 10) {
-    if (errEl) errEl.textContent = 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลักให้ถูกต้อง';
-    if (phoneEl) phoneEl.focus();
+    if (errEl) errEl.textContent = 'กรุณากรอกเบอร์โทรศัพท์ 9-10 หลักให้ถูกต้อง (บังคับใส่)';
+    if (phoneEl) {
+      phoneEl.classList.add('input-error');
+      phoneEl.focus();
+    }
     return;
   }
   if (!holderIdCard) {
-    if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ต';
-    if (idEl) idEl.focus();
+    if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ต (บังคับใส่)';
+    if (idEl) {
+      idEl.classList.add('input-error');
+      idEl.focus();
+    }
     return;
   }
   if (idDigits.length !== 13 && holderIdCard.length < 7) {
-    if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ตให้ถูกต้อง';
-    if (idEl) idEl.focus();
+    if (errEl) errEl.textContent = 'กรุณากรอกเลขประจำตัวประชาชน 13 หลัก หรือเลขพาสปอร์ตให้ถูกต้อง (บังคับใส่)';
+    if (idEl) {
+      idEl.classList.add('input-error');
+      idEl.focus();
+    }
+    return;
+  }
+  if (!lineUserId) {
+    if (errEl) errEl.textContent = 'กรุณากรอก LINE ID หรือกดปุ่มดึงรหัส LINE อัตโนมัติ (บังคับใส่ เพื่อรับบัตร)';
+    if (lineEl) {
+      lineEl.classList.add('input-error');
+      lineEl.focus();
+    }
     return;
   }
   if (errEl) errEl.textContent = '';
@@ -407,6 +429,16 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.value = formatted;
     });
   }
+  ['holderName', 'holderPhone', 'holderIdCard', 'holderLineId'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        el.classList.remove('input-error');
+        const errEl = document.getElementById('holderError');
+        if (errEl) errEl.textContent = '';
+      });
+    }
+  });
   if (window.SeatMap && typeof window.SeatMap.onChange === 'function') {
     window.SeatMap.onChange((selectedSeats) => {
       if (selectedSeats && selectedSeats.length > 0) {
