@@ -283,6 +283,7 @@
   function render(containerId = 'seatMapContainer') {
     const el = document.getElementById(containerId);
     if (!el) return;
+    connectRealtimeStream();
 
     const selectedIds = new Set(selectedSeats.map((s) => s.id));
 

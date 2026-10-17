@@ -158,6 +158,10 @@ function openBookingModal(title, date, venue) {
     promoMsg.textContent = '';
   }
   loadSavedHolder();
+  setBookingMode('map');
+  if (window.SeatMap && typeof window.SeatMap.syncStatuses === 'function') {
+    window.SeatMap.syncStatuses();
+  }
   const first = document.querySelector('.zone-btn');
   if (first) first.click();
   updatePriceDisplay();
