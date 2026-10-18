@@ -113,3 +113,72 @@ test('Offline Gate & Batch Sync: batch sync updates check-in statuses and logs a
   assert.ok(syncLog, 'Audit trail recorded for OFFLINE_GATE_SYNC');
   assert.match(syncLog.detail, /ซิงก์ข้อมูลเช็กอินจากโหมดออฟไลน์/);
 });
+
+test('Live Gate Throughput Monitor & Gate Staff Role PIN: computes per-gate throughput and zone arrival progress', () => {
+  db.clearAllForTest();
+  assert.equal(db.getSetting('gate_staff_pin'), '888888');
+  assert.equal(db.getSetting('admin_pin'), '123456');
+
+  const oVip = db.createOrder({
+    title: 'MONITOR FEST 2026',
+    date: '2026-12-01',
+    venue: 'Impact Arena',
+    zone: 'VIP Standing',
+    qty: 2,
+    unitPrice: 6500,
+    total: 13000,
+    promoCode: '',
+    discountAmount: 0,
+    holderName: 'คุณวีไอพี เข้าประตูหนึ่ง',
+    holderPhone: '0812223333',
+    holderIdCard: '1-1004-12345-67-3',
+    seats: ['VIP-01', 'VIP-02'],
+    slipName: 'slip-vip.png',
+    slipMime: 'image/png',
+    slipData: makeDummySlip('slip_monitor_vip')
+  });
+  const oZoneA = db.createOrder({
+    title: 'MONITOR FEST 2026',
+    date: '2026-12-01',
+    venue: 'Impact Arena',
+    zone: 'Zone A',
+    qty: 2,
+    unitPrice: 4500,
+    total: 9000,
+    promoCode: '',
+    discountAmount: 0,
+    holderName: 'คุณโซนเอ รอคิว',
+    holderPhone: '0814445555',
+    holderIdCard: '1-1004-12345-67-3',
+    seats: ['A-01', 'A-02'],
+    slipName: 'slip-zonea.png',
+    slipMime: 'image/png',
+    slipData: makeDummySlip('slip_monitor_zonea')
+  });
+
+  db.updateOrderStatus(oVip.ref, { status: 'approved' });
+  db.updateOrderStatus(oZoneA.ref, { status: 'approved' });
+
+  // Scan VIP order at ประตู VIP Fast Track
+  db.checkInOrder(oVip.qrPayload, 'ประตู VIP Fast Track');
+
+  const monitor = db.getGateThroughputMonitor();
+  assert.equal(monitor.ok, true);
+  assert.equal(monitor.summary.totalApprovedTickets, 4);
+  assert.equal(monitor.summary.checkedInTickets, 2);
+  assert.equal(monitor.summary.remainingTickets, 2);
+  assert.equal(monitor.summary.progressPct, 50);
+
+  const vipGate = monitor.gates.find((g) => g.gateName === 'ประตู VIP Fast Track');
+  assert.ok(vipGate);
+  assert.equal(vipGate.ticketsScanned, 2);
+  assert.equal(vipGate.status, 'active');
+
+  const vipZone = monitor.zones.find((z) => z.key === 'VIP');
+  assert.equal(vipZone.soldTickets, 2);
+  assert.equal(vipZone.checkedInTickets, 2);
+  assert.equal(vipZone.arrivalPct, 100);
+  assert.equal(monitor.recentScans.length, 1);
+  assert.equal(monitor.recentScans[0].ref, oVip.ref);
+});
+

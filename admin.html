@@ -146,19 +146,23 @@
   <header class="header">
     <div class="container">
       <div class="nav-bar">
-        <a href="index.html" class="brand">
-          <span class="brand-badge">THAI</span> TICKET · ADMIN
-        </a>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <a href="index.html" class="brand">
+            <span class="brand-badge">THAI</span> TICKET · ADMIN
+          </a>
+          <span id="adminRoleBadge" class="role-pill-badge" hidden>👑 แอดมินหลัก</span>
+        </div>
         <div class="admin-actions">
           <button class="btn-primary" id="openScannerBtn">📷 สแกนบัตรเข้างาน</button>
-          <button class="btn-outline" id="openAnalyticsBtn">📊 รายงานปิดรอบ / PDF</button>
-          <button class="btn-outline" id="openLinePreviewNavBtn">📱 พรีวิว LINE</button>
-          <button class="btn-outline" id="openEventManagerBtn">🎤 คอนเสิร์ต/โควตา</button>
-          <button class="btn-outline" id="openAuditLogBtn">📋 ประวัติแอดมิน</button>
-          <button class="btn-outline" id="openBackupModalBtn">💾 สำรองข้อมูล</button>
-          <button class="btn-outline" id="openLineSettingsBtn">⚙️ ตั้งค่าพร้อมเพย์</button>
+          <button class="btn-outline" id="openGateMonitorBtn" style="border-color:#229BFF; color:#63b3ed;">🚦 มอนิเตอร์ประตูเข้างาน</button>
+          <button class="btn-outline" id="openAnalyticsBtn" data-admin-only="true">📊 รายงานปิดรอบ / PDF</button>
+          <button class="btn-outline" id="openLinePreviewNavBtn" data-admin-only="true">📱 พรีวิว LINE</button>
+          <button class="btn-outline" id="openEventManagerBtn" data-admin-only="true">🎤 คอนเสิร์ต/โควตา</button>
+          <button class="btn-outline" id="openAuditLogBtn" data-admin-only="true">📋 ประวัติแอดมิน</button>
+          <button class="btn-outline" id="openBackupModalBtn" data-admin-only="true">💾 สำรองข้อมูล</button>
+          <button class="btn-outline" id="openLineSettingsBtn" data-admin-only="true">⚙️ ตั้งค่าพร้อมเพย์</button>
           <a href="/api/admin/guest-list.csv?status=approved" class="btn-primary" id="exportGuestListBtn" title="ดาวน์โหลดรายชื่อผู้ถือบัตรและเลขบัตรประชาชนสำหรับตรวจบัตรหน้างาน">📋 Guest List (ตรวจบัตร)</a>
-          <a href="/api/admin/export.csv" class="btn-default" id="exportCsvBtn">Export CSV</a>
+          <a href="/api/admin/export.csv" class="btn-default" id="exportCsvBtn" data-admin-only="true">Export CSV</a>
           <button class="btn-outline" id="adminLogoutBtn" hidden>ออกจากระบบ</button>
           <a href="index.html" class="btn-outline">หน้าจองบัตร</a>
         </div>
@@ -170,8 +174,8 @@
     <div class="container">
       <div class="admin-header-bar">
         <div>
-          <h1>ระบบจัดการคำสั่งซื้อ ตรวจสลิป และเช็กอินหน้างาน</h1>
-          <p class="text-muted">ตรวจสอบสลิปโอนเงิน ป้องกันสลิปซ้ำด้วย SHA-256 อนุมัติส่งบัตรเข้า LINE OA และสแกน QR Code เช็กอินเข้างาน</p>
+          <h1 id="adminMainHeading">ระบบจัดการคำสั่งซื้อ ตรวจสลิป และเช็กอินหน้างาน</h1>
+          <p class="text-muted" id="adminMainSubheading">ตรวจสอบสลิปโอนเงิน ป้องกันสลิปซ้ำด้วย SHA-256 อนุมัติส่งบัตรเข้า LINE OA และสแกน QR Code เช็กอินเข้างาน</p>
         </div>
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <button class="btn-outline" id="toggleSoundBtn" title="เปิด/ปิดเสียงแจ้งเตือนสลิปใหม่">🔔 เสียงเตือน: เปิด</button>
@@ -182,11 +186,11 @@
 
       <!-- KPI Cards -->
       <section class="kpi-grid" aria-label="สรุปภาพรวมยอดขาย">
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpiPendingCard">
           <span class="kpi-label">รายการรอตรวจสลิป (Pending)</span>
           <div class="kpi-value is-pending" id="kpiPending">0</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpiRevenueCard">
           <span class="kpi-label">ยอดขายที่อนุมัติแล้ว</span>
           <div class="kpi-value is-accent" id="kpiRevenue">0 THB</div>
         </div>
@@ -198,14 +202,14 @@
           <span class="kpi-label">สแกนเข้างานแล้ว (Checked-in)</span>
           <div class="kpi-value is-accent" id="kpiCheckedInTickets">0 ใบ</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpiRejectedCard">
           <span class="kpi-label">สลิปที่ปฏิเสธ</span>
           <div class="kpi-value is-danger" id="kpiRejected">0</div>
         </div>
       </section>
 
       <!-- Zone Breakdown -->
-      <section class="zone-summary-box">
+      <section class="zone-summary-box" id="zoneSummarySection">
         <h3 style="font-weight:700;">ยอดขายแยกตามโซนที่นั่ง (เฉพาะที่อนุมัติแล้ว)</h3>
         <div class="zone-chips" id="zoneBreakdown">
           <p class="text-muted">กำลังโหลดข้อมูลโซน...</p>
@@ -216,9 +220,9 @@
       <div class="admin-filter-bar">
         <div class="filter-tabs" role="tablist">
           <button class="filter-tab active" data-status="all">ทั้งหมด</button>
-          <button class="filter-tab" data-status="pending">รอตรวจสอบ (Pending)</button>
+          <button class="filter-tab" data-status="pending" data-admin-only="true">รอตรวจสอบ (Pending)</button>
           <button class="filter-tab" data-status="approved">อนุมัติแล้ว (Approved)</button>
-          <button class="filter-tab" data-status="rejected">ปฏิเสธ (Rejected)</button>
+          <button class="filter-tab" data-status="rejected" data-admin-only="true">ปฏิเสธ (Rejected)</button>
         </div>
 
         <div class="bulk-actions-bar" id="bulkActionsBar">
@@ -226,7 +230,7 @@
             <input type="checkbox" id="selectAllOrdersCheckbox">
             <span>เลือกทั้งหมด (<strong id="selectedOrdersCount">0</strong>)</span>
           </label>
-          <button type="button" class="btn-primary" id="bulkApproveBtn" disabled style="padding:6px 12px; font-size:12px;">
+          <button type="button" class="btn-primary" id="bulkApproveBtn" data-admin-only="true" disabled style="padding:6px 12px; font-size:12px;">
             ✅ อนุมัติ & ส่ง LINE ที่เลือก
           </button>
           <button type="button" class="btn-default" id="bulkCheckInBtn" disabled style="padding:6px 12px; font-size:12px;">
@@ -242,20 +246,32 @@
     </div>
   </main>
 
-  <!-- Admin PIN Login Modal -->
+  <!-- Admin & Gate Staff Role-Based PIN Login Modal -->
   <div class="modal-backdrop" id="adminLoginModal" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
-    <div class="modal-box" style="max-width:420px;">
+    <div class="modal-box" style="max-width:460px;">
       <div class="modal-header">
-        <h3 id="adminLoginTitle" style="font-weight:700;">🔒 ยืนยันตัวตนแอดมิน (Admin PIN)</h3>
+        <h3 id="adminLoginTitle" style="font-weight:700;">🔒 ยืนยันตัวตนเข้าสู่ระบบ (Role-Based PIN)</h3>
       </div>
       <div class="modal-content">
-        <p class="text-muted">กรุณากรอกรหัส PIN แอดมินเพื่อเข้าใช้งานระบบจัดการสลิปและเช็กอินหน้างาน (ค่าเริ่มต้นสำหรับทดสอบ: <code>123456</code>)</p>
+        <p class="text-muted" style="font-size:13px;">ระบบแยกระดับสิทธิ์อัตโนมัติตามรหัส PIN ที่กรอก เพื่อความปลอดภัยของข้อมูลการเงินหน้างาน:</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button type="button" class="role-select-card" id="fillAdminPinBtn" title="คลิกเพื่อกรอกรหัสแอดมินหลัก">
+            <div style="font-weight:700; color:#fff; font-size:13px;">👑 แอดมินหลัก (Admin)</div>
+            <div class="text-muted" style="font-size:11px; margin-top:2px;">ตรวจสลิป · ดูรายได้ · ตั้งค่าระบบ</div>
+            <div style="font-size:11px; color:var(--color-accent); margin-top:4px;">PIN เริ่มต้น: <code>123456</code></div>
+          </button>
+          <button type="button" class="role-select-card" id="fillStaffPinBtn" title="คลิกเพื่อกรอกรหัสเจ้าหน้าที่หน้าประตู">
+            <div style="font-weight:700; color:#68D391; font-size:13px;">🛡️ สตาฟหน้าประตู (Gate)</div>
+            <div class="text-muted" style="font-size:11px; margin-top:2px;">สแกนบัตร · มอนิเตอร์ประตู (ซ่อนรายได้)</div>
+            <div style="font-size:11px; color:#68D391; margin-top:4px;">PIN เริ่มต้น: <code>888888</code></div>
+          </button>
+        </div>
         <div>
-          <label class="field-label" for="adminPinInput">รหัส PIN แอดมิน</label>
-          <input type="password" id="adminPinInput" class="input-field holder-input" placeholder="กรอกรหัส PIN (เช่น 123456)" autocomplete="current-password">
+          <label class="field-label" for="adminPinInput">รหัส PIN เข้าสู่ระบบ (แอดมิน หรือ สตาฟหน้าประตู)</label>
+          <input type="password" id="adminPinInput" class="input-field holder-input" placeholder="กรอกรหัส PIN (เช่น 123456 หรือ 888888)" autocomplete="current-password">
           <p class="slip-error" id="adminLoginError" role="alert"></p>
         </div>
-        <button class="btn-primary btn-block" id="adminLoginBtn">เข้าสู่ระบบแอดมิน</button>
+        <button class="btn-primary btn-block" id="adminLoginBtn">เข้าสู่ระบบ</button>
       </div>
     </div>
   </div>
@@ -263,9 +279,14 @@
   <!-- Gate Check-in QR Scanner Modal with Camera Selector -->
   <div class="modal-backdrop" id="gateScannerModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="gateScannerTitle">
     <div class="modal-box" style="max-width:620px;">
-      <div class="modal-header">
+      <div class="modal-header" style="gap:8px; flex-wrap:wrap;">
         <h3 id="gateScannerTitle" style="font-weight:700;">📷 จุดสแกนบัตรเข้างาน & ตรวจลายเซ็น HMAC-SHA256</h3>
-        <button class="modal-close" id="closeScannerBtn" aria-label="ปิด">&times;</button>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn-outline" id="openGateMonitorFromScannerBtn" style="padding:4px 10px; font-size:12px; border-color:#229BFF; color:#63b3ed;">
+            🚦 มอนิเตอร์ประตู
+          </button>
+          <button class="modal-close" id="closeScannerBtn" aria-label="ปิด">&times;</button>
+        </div>
       </div>
       <div class="modal-content">
         <!-- Live Camera Viewfinder with Camera Device Selector -->
@@ -449,9 +470,15 @@
             <input type="text" id="settingBankAccountInput" class="input-field holder-input" placeholder="เช่น 012-3-45678-9">
           </div>
         </div>
-        <div>
-          <label class="field-label" for="settingAdminPinInput">เปลี่ยนรหัส PIN แอดมินใหม่ (อย่างน้อย 4 หลัก · เว้นว่างหากไม่เปลี่ยน)</label>
-          <input type="password" id="settingAdminPinInput" class="input-field holder-input" placeholder="เช่น 123456">
+        <div class="holder-grid">
+          <div>
+            <label class="field-label" for="settingAdminPinInput">เปลี่ยนรหัส PIN แอดมินหลัก (อย่างน้อย 4 หลัก · เว้นว่างหากไม่เปลี่ยน)</label>
+            <input type="password" id="settingAdminPinInput" class="input-field holder-input" placeholder="เช่น 123456">
+          </div>
+          <div>
+            <label class="field-label" for="settingGateStaffPinInput">เปลี่ยนรหัส PIN เจ้าหน้าที่หน้าประตู (Gate Staff · เริ่มต้น 888888)</label>
+            <input type="password" id="settingGateStaffPinInput" class="input-field holder-input" placeholder="เช่น 888888">
+          </div>
         </div>
 
         <!-- Google Drive Cloud Storage Settings -->
@@ -683,6 +710,23 @@
         </div>
       </div>
       <div class="modal-content" id="analyticsModalContent" style="max-height:80vh; overflow-y:auto;">
+        <!-- Dynamically rendered by admin.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Gate Throughput & Queue Monitor Modal -->
+  <div class="modal-backdrop" id="gateMonitorModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="gateMonitorModalTitle">
+    <div class="modal-box" style="max-width:860px;">
+      <div class="modal-header" style="gap:12px; flex-wrap:wrap;">
+        <h3 id="gateMonitorModalTitle" style="font-weight:700;">🚦 มอนิเตอร์ความเร็วการเข้าฮอลล์แยกตามประตู (Live Gate Throughput & Queue Monitor)</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn-outline" id="refreshGateMonitorBtn" style="padding:6px 12px; font-size:12px;">🔄 อัปเดตเรียลไทม์</button>
+          <button type="button" class="btn-primary" id="switchToScannerFromMonitorBtn" style="padding:6px 12px; font-size:12px;">📷 เปิดกล้องสแกนบัตร</button>
+          <button class="modal-close" id="closeGateMonitorBtn" aria-label="ปิด">&times;</button>
+        </div>
+      </div>
+      <div class="modal-content" id="gateMonitorContent" style="max-height:80vh; overflow-y:auto;">
         <!-- Dynamically rendered by admin.js -->
       </div>
     </div>

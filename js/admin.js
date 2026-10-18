@@ -86,10 +86,47 @@
   function showLoginModal(msg) {
     if ($('adminLoginError')) $('adminLoginError').textContent = msg || '';
     if ($('adminLogoutBtn')) $('adminLogoutBtn').hidden = true;
+    if ($('adminRoleBadge')) $('adminRoleBadge').hidden = true;
     window.UI.open('adminLoginModal');
     setTimeout(() => {
       if ($('adminPinInput')) $('adminPinInput').focus();
     }, 60);
+  }
+
+  let currentUserRole = 'admin';
+
+  function applyRolePermissions(role) {
+    currentUserRole = role === 'gate_staff' ? 'gate_staff' : 'admin';
+    const isStaff = currentUserRole === 'gate_staff';
+
+    const roleBadge = $('adminRoleBadge');
+    if (roleBadge) {
+      roleBadge.hidden = false;
+      roleBadge.className = isStaff ? 'role-pill-badge is-gate-staff' : 'role-pill-badge';
+      roleBadge.textContent = isStaff ? '🛡️ สตาฟหน้าประตู (Gate Staff)' : '👑 แอดมินหลัก (Full Admin)';
+    }
+
+    document.querySelectorAll('[data-admin-only="true"]').forEach((el) => {
+      el.hidden = isStaff;
+    });
+
+    if ($('adminMainHeading')) {
+      $('adminMainHeading').textContent = isStaff
+        ? 'ระบบจุดตรวจบัตรเข้าฮอลล์ & มอนิเตอร์ประตู (Gate Staff Mode)'
+        : 'ระบบจัดการคำสั่งซื้อ ตรวจสลิป และเช็กอินหน้างาน';
+    }
+    if ($('adminMainSubheading')) {
+      $('adminMainSubheading').textContent = isStaff
+        ? 'โหมดเจ้าหน้าที่หน้าประตู: จำกัดสิทธิ์เฉพาะสแกน QR Code เช็กอิน ตรวจสอบลายเซ็น HMAC-SHA256 และดูมอนิเตอร์ความเร็วคนเข้าฮอลล์ (ซ่อนข้อมูลรายได้และการตั้งค่าบัญชี)'
+        : 'ตรวจสอบสลิปโอนเงิน ป้องกันสลิปซ้ำด้วย SHA-256 อนุมัติส่งบัตรเข้า LINE OA และสแกน QR Code เช็กอินเข้างาน';
+    }
+
+    if (isStaff) {
+      currentFilter = 'approved';
+      document.querySelectorAll('.filter-tab').forEach((b) => {
+        b.classList.toggle('active', b.dataset.status === 'approved');
+      });
+    }
   }
 
   async function checkAdminSession() {
@@ -98,6 +135,7 @@
       const data = await res.json();
       if (data && data.authenticated) {
         if ($('adminLogoutBtn')) $('adminLogoutBtn').hidden = false;
+        applyRolePermissions(data.role || 'admin');
         window.UI.close('adminLoginModal');
         await Promise.all([loadStats(), loadOrders()]);
       } else {
@@ -112,7 +150,7 @@
     const pin = ($('adminPinInput').value || '').trim();
     const errEl = $('adminLoginError');
     if (!pin) {
-      errEl.textContent = 'กรุณากรอกรหัส PIN แอดมิน';
+      errEl.textContent = 'กรุณากรอกรหัส PIN แอดมินหรือเจ้าหน้าที่หน้าประตู';
       return;
     }
     errEl.textContent = '';
@@ -135,8 +173,13 @@
       }
       $('adminPinInput').value = '';
       if ($('adminLogoutBtn')) $('adminLogoutBtn').hidden = false;
+      applyRolePermissions(data.role || 'admin');
       window.UI.close('adminLoginModal');
-      window.UI.toast('เข้าสู่ระบบแอดมินสำเร็จ');
+      window.UI.toast(
+        data.role === 'gate_staff'
+          ? '🛡️ เข้าสู่ระบบในโหมดเจ้าหน้าที่จุดตรวจบัตรหน้างาน (Gate Staff)'
+          : '👑 เข้าสู่ระบบแอดมินหลักสำเร็จ'
+      );
       await Promise.all([loadStats(), loadOrders()]);
     } catch (err) {
       errEl.textContent = err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
@@ -188,12 +231,15 @@
         showLoginModal();
         return;
       }
+      const isStaff = currentUserRole === 'gate_staff' || stats.revenueHidden;
       $('kpiPending').textContent = (stats.pendingCount || 0).toLocaleString('th-TH');
       $('kpiApprovedTickets').textContent = (stats.approvedTickets || 0).toLocaleString('th-TH') + ' ใบ';
       if ($('kpiCheckedInTickets')) {
         $('kpiCheckedInTickets').textContent = (stats.checkedInTickets || 0).toLocaleString('th-TH') + ' ใบ';
       }
-      $('kpiRevenue').textContent = (stats.approvedRevenue || 0).toLocaleString('th-TH') + ' THB';
+      $('kpiRevenue').textContent = isStaff
+        ? '🔒 จำกัดสิทธิ์'
+        : (stats.approvedRevenue || 0).toLocaleString('th-TH') + ' THB';
       $('kpiRejected').textContent = (stats.rejectedCount || 0).toLocaleString('th-TH');
 
       const zoneBox = $('zoneBreakdown');
@@ -209,7 +255,7 @@
                 <div style="font-weight:700;">${esc(z.zone)}</div>
                 <div class="text-muted" style="font-size:12px;">${z.tickets} ใบ (${z.orders} รายการ)</div>
               </div>
-              <div style="font-weight:700;color:var(--color-accent);">${z.revenue.toLocaleString('th-TH')} THB</div>
+              <div style="font-weight:700;color:var(--color-accent);">${isStaff ? `${z.tickets} ที่นั่ง` : `${z.revenue.toLocaleString('th-TH')} THB`}</div>
             </div>`
           )
           .join('');
@@ -252,6 +298,7 @@
     }
 
     const esc = window.UI.escapeHtml;
+    const isStaff = currentUserRole === 'gate_staff';
     container.innerHTML = ordersCache
       .map((o) => {
         const issuedStr = new Date(o.issuedAt).toLocaleString('th-TH');
@@ -259,10 +306,14 @@
         const isChecked = selectedOrderRefs.has(o.ref);
         return `
         <article class="order-card" data-order-ref="${esc(o.ref)}">
-          <div class="order-slip-thumb" data-action="zoom-slip" data-ref="${esc(o.ref)}" title="คลิกเพื่อดูรูปสลิปขนาดใหญ่">
-            <img src="${esc(o.slipData)}" alt="สลิป ${esc(o.ref)}">
-            <span class="order-slip-zoom-tag">ขยายดูสลิป</span>
-          </div>
+          ${
+            isStaff
+              ? ''
+              : `<div class="order-slip-thumb" data-action="zoom-slip" data-ref="${esc(o.ref)}" title="คลิกเพื่อดูรูปสลิปขนาดใหญ่">
+                  <img src="${esc(o.slipData)}" alt="สลิป ${esc(o.ref)}">
+                  <span class="order-slip-zoom-tag">ขยายดูสลิป</span>
+                </div>`
+          }
 
           <div class="order-info">
             <div class="order-top-row">
@@ -272,7 +323,7 @@
               ${lineStatusBadge(o)}
               ${checkInBadge(o)}
               ${o.qrSignature ? `<span class="badge-hmac" title="ลายเซ็นดิจิทัล HMAC-SHA256 ป้องกันการปลอมแปลง QR">🔐 SIG:${esc(o.qrSignature)}</span>` : ''}
-              ${o.driveViewLink ? `<a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" class="badge-drive" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(34, 155, 255, 0.15); color:var(--color-accent); text-decoration:none; border:1px solid rgba(34,155,255,0.3);">📁 Google Drive ↗</a>` : ''}
+              ${!isStaff && o.driveViewLink ? `<a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" class="badge-drive" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(34, 155, 255, 0.15); color:var(--color-accent); text-decoration:none; border:1px solid rgba(34,155,255,0.3);">📁 Google Drive ↗</a>` : ''}
               ${o.verifiedBy ? `<span class="badge-verify" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(104, 211, 145, 0.15); color:#68D391; border:1px solid rgba(104, 211, 145, 0.3);">✔ ${esc(o.verifiedBy)}</span>` : ''}
               <span class="text-muted" style="font-size:12px;">สั่งซื้อเมื่อ ${esc(issuedStr)}</span>
             </div>
@@ -294,7 +345,7 @@
               </div>
               <div class="order-meta-item">
                 <small>ยอดโอนตามรายการ</small>
-                <strong style="color:var(--color-accent);">${Number(o.total).toLocaleString('th-TH')} THB</strong>
+                <strong style="color:var(--color-accent);">${isStaff ? '🔒 จำกัดสิทธิ์แอดมิน' : `${Number(o.total).toLocaleString('th-TH')} THB`}</strong>
               </div>
               <div class="order-meta-item">
                 <small>LINE User ID</small>
@@ -305,7 +356,7 @@
             <div class="order-hash">
               ✔ ตรวจสลิปซ้ำผ่าน (SHA-256: ${esc(shortHash)}…)
               ${o.verificationDetail ? ` · <span style="color:#68D391;">${esc(o.verificationDetail)}</span>` : ''}
-              ${o.driveViewLink ? ` · <a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" style="color:var(--color-accent);">เปิดดูรูปใน Google Drive ↗</a>` : ''}
+              ${!isStaff && o.driveViewLink ? ` · <a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" style="color:var(--color-accent);">เปิดดูรูปใน Google Drive ↗</a>` : ''}
               ${o.checkedInAt ? ` · <span style="color:var(--color-accent);">เข้างานเมื่อ ${esc(new Date(o.checkedInAt).toLocaleString('th-TH'))} (${esc(o.checkedInBy || 'Gate A')})</span>` : ''}
               ${o.status === 'rejected' && o.rejectReason ? ` · <span style="color:#FF6B6B;">เหตุผลที่ปฏิเสธ: ${esc(o.rejectReason)}</span>` : ''}
             </div>
@@ -313,20 +364,24 @@
 
           <div class="order-actions">
             ${
-              o.status === 'pending'
-                ? `
-              <button class="btn-primary" data-action="approve" data-ref="${esc(o.ref)}">อนุมัติ & ส่งบัตร LINE</button>
-              <button class="btn-outline" data-action="reject" data-ref="${esc(o.ref)}">ปฏิเสธสลิป</button>
-            `
-                : o.status === 'approved'
+              isStaff
+                ? o.status === 'approved'
+                  ? `<button class="btn-primary" data-action="scan-ticket" data-ref="${esc(o.ref)}">${o.checkedInAt ? 'ตรวจสถานะเข้างาน' : 'สแกนเช็กอินเข้างาน'}</button>`
+                  : `<span class="text-muted" style="font-size:12px;">รอแอดมินอนุมัติสลิป</span>`
+                : o.status === 'pending'
                   ? `
-              <button class="btn-primary" data-action="scan-ticket" data-ref="${esc(o.ref)}">${o.checkedInAt ? 'ตรวจสถานะเข้างาน' : 'สแกนเช็กอินเข้างาน'}</button>
-              <button class="btn-default" data-action="preview-line" data-ref="${esc(o.ref)}">ดูข้อความ LINE OA</button>
-              <button class="btn-outline" data-action="resend-line" data-ref="${esc(o.ref)}">ส่งเข้า LINE ซ้ำ</button>
-            `
-                  : `
-              <button class="btn-primary" data-action="approve" data-ref="${esc(o.ref)}">อนุมัติใหม่อีกครั้ง</button>
-            `
+                <button class="btn-primary" data-action="approve" data-ref="${esc(o.ref)}">อนุมัติ & ส่งบัตร LINE</button>
+                <button class="btn-outline" data-action="reject" data-ref="${esc(o.ref)}">ปฏิเสธสลิป</button>
+              `
+                  : o.status === 'approved'
+                    ? `
+                <button class="btn-primary" data-action="scan-ticket" data-ref="${esc(o.ref)}">${o.checkedInAt ? 'ตรวจสถานะเข้างาน' : 'สแกนเช็กอินเข้างาน'}</button>
+                <button class="btn-default" data-action="preview-line" data-ref="${esc(o.ref)}">ดูข้อความ LINE OA</button>
+                <button class="btn-outline" data-action="resend-line" data-ref="${esc(o.ref)}">ส่งเข้า LINE ซ้ำ</button>
+              `
+                    : `
+                <button class="btn-primary" data-action="approve" data-ref="${esc(o.ref)}">อนุมัติใหม่อีกครั้ง</button>
+              `
             }
           </div>
         </article>`;
@@ -1695,6 +1750,200 @@
     }
   }
 
+  // Live Gate Throughput & Queue Monitor Modal
+  async function loadGateMonitorData() {
+    const box = $('gateMonitorContent');
+    if (!box) return;
+    try {
+      const res = await fetch('/api/checkin/gate-monitor', { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.unauthorized) {
+        window.UI.close('gateMonitorModal');
+        showLoginModal();
+        return;
+      }
+      if (!data.ok) throw new Error(data.error || 'โหลดข้อมูลมอนิเตอร์ประตูไม่สำเร็จ');
+
+      const esc = window.UI.escapeHtml;
+      const s = data.summary || {};
+      const gates = data.gates || [];
+      const zones = data.zones || [];
+      const recent = data.recentScans || [];
+      const clearText =
+        s.remainingTickets === 0
+          ? 'เข้าครบ 100%'
+          : s.estimatedClearanceMinutes
+            ? `~${s.estimatedClearanceMinutes} นาที`
+            : 'รอเริ่มสแกน';
+
+      box.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <!-- 4 Live Throughput KPIs -->
+          <div class="analytics-kpis">
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">ผู้ชมเข้าฮอลล์แล้ว (Checked-in Pax)</span>
+              <span class="analytics-kpi-val" style="color:#68D391;">${Number(s.checkedInTickets || 0).toLocaleString('th-TH')} / ${Number(s.totalApprovedTickets || 0).toLocaleString('th-TH')} <small style="font-size:12px;">ใบ (${s.progressPct || 0}%)</small></span>
+              <span class="analytics-kpi-sub">บิลที่สแกนแล้ว: ${s.checkedInOrders || 0} / ${s.totalApprovedOrders || 0} รายการ</span>
+            </div>
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">คิวรอเข้าฮอลล์ (Remaining Queue)</span>
+              <span class="analytics-kpi-val" style="color:#F5A623;">${Number(s.remainingTickets || 0).toLocaleString('th-TH')} <small style="font-size:12px;">ใบ</small></span>
+              <span class="analytics-kpi-sub">ผู้ถือบัตรที่อนุมัติแล้วแต่ยังไม่ถึงจุดตรวจ</span>
+            </div>
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">ความเร็วสแกนเข้าฮอลล์ (Throughput Rate)</span>
+              <span class="analytics-kpi-val" style="color:var(--color-accent);">${s.paxPerMinute || 0} <small style="font-size:12px;">คน/นาที (Pax/min)</small></span>
+              <span class="analytics-kpi-sub">สแกนในรอบ 15 นาทีล่าสุด: ${s.paxLast15m || 0} ใบ</span>
+            </div>
+            <div class="analytics-kpi-card">
+              <span class="analytics-kpi-title">เวลาคาดการณ์ระบายคิวหมด (Est. Clearance)</span>
+              <span class="analytics-kpi-val" style="color:#63b3ed;">${clearText}</span>
+              <span class="analytics-kpi-sub">คำนวณจากความเร็วการสแกนปัจจุบัน</span>
+            </div>
+          </div>
+
+          <!-- Gate-by-Gate Throughput Breakdown -->
+          <div class="heatmap-box">
+            <div class="heatmap-box-title">
+              <span>🚪 สถิติปริมาณคนสแกนเข้างานแยกตามประตู (Gate-by-Gate Throughput)</span>
+              <span style="font-size:11px; color:var(--color-muted); font-weight:normal;">คลิกที่การ์ดประตูเพื่อสลับจุดตรวจสแกนทันที</span>
+            </div>
+            <div class="gate-lanes-grid" id="gateMonitorLanesGrid">
+              ${gates
+                .map((g) => {
+                  const lastStr = g.lastScanAt
+                    ? new Date(g.lastScanAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : 'ยังไม่มีการสแกน';
+                  return `
+                  <div class="gate-lane-card ${g.status === 'active' ? 'is-active' : 'is-standby'}" data-select-gate="${esc(g.gateName)}" title="คลิกเพื่อตั้งจุดสแกนเป็น ${esc(g.gateName)}">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                      <strong style="color:#fff; font-size:13px;">${esc(g.gateName)}</strong>
+                      <span class="${g.status === 'active' ? 'badge-status-online' : 'badge-pending'}" style="font-size:10px; padding:2px 6px;">
+                        ${g.status === 'active' ? '🟢 กำลังสแกน' : '⚪ สแตนด์บาย'}
+                      </span>
+                    </div>
+                    <div style="font-size:18px; font-weight:800; color:var(--color-accent);">
+                      ${g.ticketsScanned} ใบ <small style="font-size:11px; color:var(--color-muted); font-weight:400;">(${g.ordersScanned} บิล · สัดส่วน ${g.sharePct}%)</small>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#cbd5e1;">
+                      <span>⚡ ความเร็ว: <strong>${g.paxPerMin} Pax/min</strong></span>
+                      <span>🕒 ล่าสุด: ${esc(lastStr)}</span>
+                    </div>
+                    <div class="heatmap-track" style="height:6px; margin-top:2px;">
+                      <div class="heatmap-fill" style="width:${Math.max(4, g.sharePct)}%; background:${g.status === 'active' ? '#68D391' : '#4a5568'};"></div>
+                    </div>
+                  </div>`;
+                })
+                .join('')}
+            </div>
+          </div>
+
+          <!-- Per-Zone Arrival vs Sold Comparison -->
+          <div class="heatmap-box">
+            <div class="heatmap-box-title">
+              <span>🏟️ อัตราผู้ชมที่เข้าฮอลล์แล้วเทียบกับบัตรที่ขายได้แยกตามโซน (Zone Arrival vs Sold)</span>
+              <span style="font-size:11px; color:var(--color-muted); font-weight:normal;">อัปเดตเรียลไทม์จากจุดสแกน</span>
+            </div>
+            <div class="zone-heatmap-list">
+              ${zones
+                .map(
+                  (z) => `
+                  <div class="zone-heatmap-item">
+                    <div class="zone-heatmap-header">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="zone-badge-pill" style="background:${z.color};">${esc(z.key)}</span>
+                        <strong>${esc(z.label)}</strong>
+                      </div>
+                      <div>
+                        <strong style="color:#68D391;">เข้าฮอลล์แล้ว ${z.checkedInTickets}</strong> / <strong>ขายแล้ว ${z.soldTickets} ใบ</strong>
+                        <span style="color:${z.color}; font-weight:700; margin-left:6px;">(${z.arrivalPct}%)</span>
+                        <span class="text-muted" style="margin-left:6px;">· คิวรอเข้าอีก ${z.remainingTickets} ใบ</span>
+                      </div>
+                    </div>
+                    <div class="heatmap-track">
+                      <div class="heatmap-fill" style="width:${z.arrivalPct}%; background:${z.color};"></div>
+                    </div>
+                  </div>`
+                )
+                .join('')}
+            </div>
+          </div>
+
+          <!-- Live Recent Gate Pass Feed -->
+          <div class="heatmap-box">
+            <div class="heatmap-box-title">
+              <span>📋 รายการสแกนผ่านประตูเข้าฮอลล์ล่าสุด (Live Gate Pass Feed)</span>
+              <span style="font-size:11px; color:var(--color-muted); font-weight:normal;">10 รายการล่าสุด</span>
+            </div>
+            ${
+              !recent.length
+                ? `<p class="text-muted" style="font-size:12px;">ยังไม่มีประวัติการสแกนบัตรเข้าฮอลล์</p>`
+                : `<div class="settlement-table-wrap">
+                    <table class="settlement-table">
+                      <thead>
+                        <tr>
+                          <th>เวลาเข้างาน</th>
+                          <th>ประตู / จุดตรวจ</th>
+                          <th>รหัสบัตร</th>
+                          <th>ผู้ถือบัตร</th>
+                          <th>โซน / เลขที่นั่ง</th>
+                          <th>จำนวน</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${recent
+                          .map((r) => {
+                            const tStr = new Date(r.checkedInAt).toLocaleTimeString('th-TH', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit'
+                            });
+                            const seatsStr = Array.isArray(r.seats) && r.seats.length ? ` (${r.seats.join(', ')})` : '';
+                            return `
+                            <tr>
+                              <td style="color:#68D391; font-weight:600;">${esc(tStr)}</td>
+                              <td><span class="badge-accent">${esc(r.checkedInBy)}</span></td>
+                              <td><strong>${esc(r.ref)}</strong></td>
+                              <td>${esc(r.holderName)}</td>
+                              <td>${esc(r.zone)}${esc(seatsStr)}</td>
+                              <td><strong>${r.qty} ใบ</strong></td>
+                            </tr>`;
+                          })
+                          .join('')}
+                      </tbody>
+                    </table>
+                  </div>`
+            }
+          </div>
+        </div>
+      `;
+
+      const lanesGrid = $('gateMonitorLanesGrid');
+      if (lanesGrid) {
+        lanesGrid.addEventListener('click', (e) => {
+          const card = e.target.closest('[data-select-gate]');
+          if (!card) return;
+          const gateName = card.dataset.selectGate;
+          if ($('scanStaffInput')) {
+            $('scanStaffInput').value = gateName;
+          }
+          window.UI.close('gateMonitorModal');
+          openScannerModal();
+          window.UI.toast(`ตั้งค่าจุดสแกนเป็น "${gateName}" เรียบร้อยแล้ว`);
+        });
+      }
+    } catch (err) {
+      box.innerHTML = `<p class="slip-error">เกิดข้อผิดพลาดในการโหลด Gate Monitor: ${window.UI.escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  async function openGateMonitorModal() {
+    window.UI.open('gateMonitorModal');
+    const box = $('gateMonitorContent');
+    if (box) box.innerHTML = `<p class="text-muted">กำลังโหลดข้อมูลมอนิเตอร์ความเร็วการเข้าฮอลล์แยกตามประตู...</p>`;
+    await loadGateMonitorData();
+  }
+
   let auditLogsCache = [];
 
   async function openSettingsModal() {
@@ -1753,6 +2002,7 @@
       }
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
+      if ($('settingGateStaffPinInput')) $('settingGateStaffPinInput').value = '';
     } catch {
       /* ignore */
     }
@@ -1766,6 +2016,7 @@
     const bankName = $('settingBankNameInput') ? $('settingBankNameInput').value.trim() : '';
     const bankAccount = $('settingBankAccountInput') ? $('settingBankAccountInput').value.trim() : '';
     const adminPin = $('settingAdminPinInput') ? $('settingAdminPinInput').value.trim() : '';
+    const gateStaffPin = $('settingGateStaffPinInput') ? $('settingGateStaffPinInput').value.trim() : '';
     const googleDriveFolderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
     const googleServiceAccountEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
     const googleServiceAccountPrivateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
@@ -1789,6 +2040,7 @@
     };
     if (token) payload.lineChannelAccessToken = token;
     if (adminPin) payload.adminPin = adminPin;
+    if (gateStaffPin) payload.gateStaffPin = gateStaffPin;
     if (googleServiceAccountPrivateKey) payload.googleServiceAccountPrivateKey = googleServiceAccountPrivateKey;
     if (slipVerifyApiKey) payload.slipVerifyApiKey = slipVerifyApiKey;
 
@@ -2299,12 +2551,48 @@
     $('adminPinInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loginAdmin();
     });
+    if ($('fillAdminPinBtn')) {
+      $('fillAdminPinBtn').addEventListener('click', () => {
+        $('adminPinInput').value = '123456';
+        $('adminPinInput').focus();
+      });
+    }
+    if ($('fillStaffPinBtn')) {
+      $('fillStaffPinBtn').addEventListener('click', () => {
+        $('adminPinInput').value = '888888';
+        $('adminPinInput').focus();
+      });
+    }
     if ($('adminLogoutBtn')) {
       $('adminLogoutBtn').addEventListener('click', logoutAdmin);
     }
 
     $('openScannerBtn').addEventListener('click', () => openScannerModal());
     $('closeScannerBtn').addEventListener('click', closeScannerModal);
+    if ($('openGateMonitorBtn')) {
+      $('openGateMonitorBtn').addEventListener('click', openGateMonitorModal);
+    }
+    if ($('openGateMonitorFromScannerBtn')) {
+      $('openGateMonitorFromScannerBtn').addEventListener('click', () => {
+        closeScannerModal();
+        openGateMonitorModal();
+      });
+    }
+    if ($('refreshGateMonitorBtn')) {
+      $('refreshGateMonitorBtn').addEventListener('click', () => {
+        loadGateMonitorData();
+        window.UI.toast('อัปเดตข้อมูลมอนิเตอร์ประตูเรียบร้อยแล้ว');
+      });
+    }
+    if ($('switchToScannerFromMonitorBtn')) {
+      $('switchToScannerFromMonitorBtn').addEventListener('click', () => {
+        window.UI.close('gateMonitorModal');
+        openScannerModal();
+      });
+    }
+    if ($('closeGateMonitorBtn')) {
+      $('closeGateMonitorBtn').addEventListener('click', () => window.UI.close('gateMonitorModal'));
+    }
     if ($('cameraDeviceSelect')) {
       $('cameraDeviceSelect').addEventListener('change', (e) => startCameraScanner(e.target.value));
     }

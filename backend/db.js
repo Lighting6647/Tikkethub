@@ -1228,10 +1228,149 @@ function getPromoterAnalytics() {
   };
 }
 
+function getGateThroughputMonitor() {
+  const allApproved = db.prepare(`SELECT * FROM orders WHERE status = 'approved' ORDER BY issued_at DESC`).all();
+  const checkedInOrdersList = allApproved.filter((o) => o.checked_in_at > 0);
+
+  const totalApprovedOrders = allApproved.length;
+  const totalApprovedTickets = allApproved.reduce((sum, o) => sum + (o.qty || 1), 0);
+  const checkedInOrders = checkedInOrdersList.length;
+  const checkedInTickets = checkedInOrdersList.reduce((sum, o) => sum + (o.qty || 1), 0);
+  const remainingTickets = Math.max(0, totalApprovedTickets - checkedInTickets);
+  const progressPct = totalApprovedTickets > 0 ? Math.round((checkedInTickets / totalApprovedTickets) * 100) : 0;
+
+  const now = Date.now();
+  const window15m = 15 * 60 * 1000;
+  const recent15mOrders = checkedInOrdersList.filter((o) => now - o.checked_in_at <= window15m);
+  const paxLast15m = recent15mOrders.reduce((sum, o) => sum + (o.qty || 1), 0);
+  const paxPerMinute = Number((paxLast15m / 15).toFixed(1));
+  const effectivePace =
+    paxPerMinute > 0 ? paxPerMinute : checkedInTickets > 0 ? Number((checkedInTickets / 10).toFixed(1)) : 0;
+  const estimatedClearanceMinutes =
+    remainingTickets === 0 ? 0 : effectivePace > 0 ? Math.ceil(remainingTickets / effectivePace) : null;
+
+  const defaultGateNames = ['ประตู Gate A (Main)', 'ประตู Gate B (Side)', 'ประตู VIP Fast Track'];
+  const gateMap = new Map();
+  for (const name of defaultGateNames) {
+    gateMap.set(name, {
+      gateName: name,
+      ordersScanned: 0,
+      ticketsScanned: 0,
+      recentPax15m: 0,
+      lastScanAt: 0
+    });
+  }
+
+  for (const o of checkedInOrdersList) {
+    const gName = (o.checked_in_by || 'ประตู Gate A (Main)').trim() || 'ประตู Gate A (Main)';
+    if (!gateMap.has(gName)) {
+      gateMap.set(gName, {
+        gateName: gName,
+        ordersScanned: 0,
+        ticketsScanned: 0,
+        recentPax15m: 0,
+        lastScanAt: 0
+      });
+    }
+    const g = gateMap.get(gName);
+    g.ordersScanned += 1;
+    g.ticketsScanned += o.qty || 1;
+    if (now - o.checked_in_at <= window15m) {
+      g.recentPax15m += o.qty || 1;
+    }
+    if (o.checked_in_at > g.lastScanAt) {
+      g.lastScanAt = o.checked_in_at;
+    }
+  }
+
+  const gates = Array.from(gateMap.values()).map((g) => {
+    const sharePct = checkedInTickets > 0 ? Math.round((g.ticketsScanned / checkedInTickets) * 100) : 0;
+    const gatePace = Number((g.recentPax15m / 15).toFixed(1));
+    return {
+      gateName: g.gateName,
+      ordersScanned: g.ordersScanned,
+      ticketsScanned: g.ticketsScanned,
+      sharePct,
+      paxPerMin: gatePace > 0 ? gatePace : g.ticketsScanned > 0 ? Number((g.ticketsScanned / 10).toFixed(1)) : 0,
+      lastScanAt: g.lastScanAt,
+      status: g.ticketsScanned > 0 ? 'active' : 'standby'
+    };
+  });
+
+  const zoneDefinitions = [
+    { key: 'VIP', label: 'VIP Standing / Ringside', color: '#E53E3E' },
+    { key: 'A', label: 'Zone A (Front Arena)', color: '#DD6B20' },
+    { key: 'B', label: 'Zone B (Standard Tier)', color: '#229BFF' },
+    { key: 'C', label: 'Zone C (Balcony / Upper)', color: '#68D391' }
+  ];
+
+  const zones = zoneDefinitions.map((zd) => {
+    const matching = allApproved.filter((o) => {
+      const z = String(o.zone || '').toUpperCase();
+      if (zd.key === 'VIP') return z.includes('VIP');
+      if (zd.key === 'A') return z.includes('ZONE A') || z === 'A';
+      if (zd.key === 'B') return z.includes('ZONE B') || z === 'B';
+      return z.includes('ZONE C') || z === 'C' || (!z.includes('VIP') && !z.includes('ZONE A') && !z.includes('ZONE B'));
+    });
+    const soldTickets = matching.reduce((s, o) => s + (o.qty || 1), 0);
+    const arrivedTickets = matching.filter((o) => o.checked_in_at > 0).reduce((s, o) => s + (o.qty || 1), 0);
+    const arrivalPct = soldTickets > 0 ? Math.round((arrivedTickets / soldTickets) * 100) : 0;
+    return {
+      key: zd.key,
+      label: zd.label,
+      color: zd.color,
+      soldTickets,
+      checkedInTickets: arrivedTickets,
+      remainingTickets: Math.max(0, soldTickets - arrivedTickets),
+      arrivalPct
+    };
+  });
+
+  const recentScans = [...checkedInOrdersList]
+    .sort((a, b) => b.checked_in_at - a.checked_in_at)
+    .slice(0, 10)
+    .map((o) => {
+      let seats = [];
+      try {
+        seats = JSON.parse(o.seats || '[]');
+      } catch {}
+      return {
+        ref: o.ref,
+        holderName: o.holder_name,
+        zone: o.zone,
+        qty: o.qty,
+        seats,
+        checkedInBy: o.checked_in_by || 'ประตู Gate A (Main)',
+        checkedInAt: o.checked_in_at
+      };
+    });
+
+  return {
+    ok: true,
+    timestamp: now,
+    summary: {
+      totalApprovedOrders,
+      totalApprovedTickets,
+      checkedInOrders,
+      checkedInTickets,
+      remainingTickets,
+      progressPct,
+      paxPerMinute: effectivePace,
+      paxLast15m,
+      estimatedClearanceMinutes
+    },
+    gates,
+    zones,
+    recentScans
+  };
+}
+
 function clearAllForTest() {
   db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events; DELETE FROM seat_holds;`);
   ensureSeedData();
   setSetting('slip_auto_approve_enabled', 'false');
+  setSetting('admin_pin', '123456');
+  setSetting('gate_staff_pin', '888888');
 }
 
 module.exports = {
@@ -1261,6 +1400,7 @@ module.exports = {
   releaseSeats,
   cleanExpiredHolds,
   getPromoterAnalytics,
+  getGateThroughputMonitor,
   computeTicketSignature,
   buildSignedQrPayload
 };

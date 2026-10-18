@@ -85,25 +85,31 @@ if (typeof seatExpirationWorker.unref === 'function') {
   seatExpirationWorker.unref();
 }
 
-// Admin Session Token (HMAC-SHA256)
-function createAdminToken() {
+// Admin & Gate Staff Session Token (HMAC-SHA256)
+function createAdminToken(role = 'admin') {
+  const safeRole = role === 'gate_staff' ? 'gate_staff' : 'admin';
   const exp = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
-  const payload = `admin.${exp}`;
+  const payload = `${safeRole}.${exp}`;
   const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
   return `${payload}.${sig}`;
 }
 
-function verifyAdminToken(token) {
-  if (!token || typeof token !== 'string') return false;
+function getTokenRole(token) {
+  if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
-  if (parts.length !== 3 || parts[0] !== 'admin') return false;
+  if (parts.length !== 3) return null;
+  if (parts[0] !== 'admin' && parts[0] !== 'gate_staff') return null;
   const exp = Number(parts[1]);
-  if (!Number.isFinite(exp) || Date.now() > exp) return false;
+  if (!Number.isFinite(exp) || Date.now() > exp) return null;
   const expected = crypto
     .createHmac('sha256', SESSION_SECRET)
     .update(`${parts[0]}.${parts[1]}`)
     .digest('hex');
-  return parts[2] === expected;
+  return parts[2] === expected ? parts[0] : null;
+}
+
+function verifyAdminToken(token) {
+  return Boolean(getTokenRole(token));
 }
 
 function parseCookies(req) {
@@ -120,14 +126,23 @@ function parseCookies(req) {
   return out;
 }
 
-function isAdminAuthenticated(req) {
+function getAuthRole(req) {
   const cookies = parseCookies(req);
-  if (verifyAdminToken(cookies.tt_admin_session)) return true;
+  const cookieRole = getTokenRole(cookies.tt_admin_session);
+  if (cookieRole) return cookieRole;
   const auth = req.headers.authorization || '';
   if (auth.startsWith('Bearer ')) {
-    return verifyAdminToken(auth.slice(7).trim());
+    return getTokenRole(auth.slice(7).trim());
   }
-  return false;
+  return null;
+}
+
+function isAdminAuthenticated(req) {
+  return Boolean(getAuthRole(req));
+}
+
+function isFullAdmin(req) {
+  return getAuthRole(req) === 'admin';
 }
 
 function sendJson(res, status, data, extraHeaders = {}) {
@@ -333,9 +348,10 @@ async function handleApi(req, res, url) {
     });
   }
 
-  // Admin Login / Logout / Session check
+  // Admin & Gate Staff Login / Logout / Session check
   if (pathname === '/api/admin/session' && method === 'GET') {
-    return sendJson(res, 200, { authenticated: isAdminAuthenticated(req) });
+    const role = getAuthRole(req);
+    return sendJson(res, 200, { authenticated: Boolean(role), role: role || null });
   }
 
   if (pathname === '/api/admin/login' && method === 'POST') {
@@ -349,8 +365,17 @@ async function handleApi(req, res, url) {
     }
     const body = await readJsonBody(req);
     const pin = String(body.pin || '').trim();
-    const expectedPin = db.getSetting('admin_pin', '123456');
-    if (pin !== expectedPin) {
+    const expectedAdminPin = db.getSetting('admin_pin', '123456');
+    const expectedStaffPin = db.getSetting('gate_staff_pin', '888888');
+
+    let matchedRole = null;
+    if (pin === expectedAdminPin) {
+      matchedRole = 'admin';
+    } else if (pin === expectedStaffPin) {
+      matchedRole = 'gate_staff';
+    }
+
+    if (!matchedRole) {
       db.addAuditLog({
         action: 'LOGIN_FAILED',
         detail: `พยายามเข้าสู่ระบบด้วยรหัส PIN ไม่ถูกต้อง (IP: ${ip})`,
@@ -358,19 +383,22 @@ async function handleApi(req, res, url) {
       });
       return sendJson(res, 200, {
         ok: false,
-        error: 'รหัสผ่านแอดมิน (PIN) ไม่ถูกต้อง'
+        error: 'รหัสผ่านแอดมินหรือเจ้าหน้าที่หน้าประตู (PIN) ไม่ถูกต้อง'
       });
     }
     db.addAuditLog({
-      action: 'ADMIN_LOGIN',
-      detail: `เข้าสู่ระบบจัดการแอดมินสำเร็จ (IP: ${ip})`,
-      actor: 'Admin'
+      action: matchedRole === 'admin' ? 'ADMIN_LOGIN' : 'STAFF_LOGIN',
+      detail:
+        matchedRole === 'admin'
+          ? `เข้าสู่ระบบจัดการแอดมินสำเร็จ (IP: ${ip})`
+          : `เข้าสู่ระบบจุดตรวจบัตรหน้างาน (Gate Staff Mode) สำเร็จ (IP: ${ip})`,
+      actor: matchedRole === 'admin' ? 'Admin' : 'GateStaff'
     });
-    const token = createAdminToken();
+    const token = createAdminToken(matchedRole);
     return sendJson(
       res,
       200,
-      { ok: true, token },
+      { ok: true, token, role: matchedRole },
       {
         'Set-Cookie': `tt_admin_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200`
       }
@@ -658,6 +686,14 @@ async function handleApi(req, res, url) {
     });
   }
 
+  // Live Gate Throughput & Queue Monitor API
+  if (method === 'GET' && pathname === '/api/checkin/gate-monitor') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    return sendJson(res, 200, db.getGateThroughputMonitor());
+  }
+
   // Bulk Slip Approval, Batch Gate Check-in & Bulk Reject API
   if (method === 'POST' && pathname === '/api/admin/orders/bulk-action') {
     if (!isAdminAuthenticated(req)) {
@@ -668,6 +704,13 @@ async function handleApi(req, res, url) {
       ? body.refs.map((r) => String(r || '').trim().toUpperCase()).filter(Boolean)
       : [];
     const action = String(body.action || 'approve').trim().toLowerCase();
+    if ((action === 'approve' || action === 'reject') && !isFullAdmin(req)) {
+      return sendJson(res, 200, {
+        ok: false,
+        forbidden: true,
+        error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรไม่สามารถอนุมัติหรือปฏิเสธสลิปโอนเงินได้'
+      });
+    }
     const staffName = String(body.staffName || 'Gate A (Bulk)').trim();
     const reason = String(body.reason || 'ไม่ผ่านการตรวจสอบแบบกลุ่ม').trim();
 
@@ -755,6 +798,14 @@ async function handleApi(req, res, url) {
 
     if (!isAdminAuthenticated(req)) {
       return sendJson(res, 200, { ok: false, unauthorized: true, error: 'กรุณาเข้าสู่ระบบแอดมินก่อนดำเนินการ' });
+    }
+
+    if ((action === 'approve' || action === 'reject') && !isFullAdmin(req)) {
+      return sendJson(res, 200, {
+        ok: false,
+        forbidden: true,
+        error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรไม่สามารถอนุมัติหรือปฏิเสธสลิปโอนเงินได้'
+      });
     }
 
     if (method === 'POST' && action === 'approve') {
@@ -950,10 +1001,15 @@ async function handleApi(req, res, url) {
 
   // Admin stats
   if (method === 'GET' && pathname === '/api/admin/stats') {
-    if (!isAdminAuthenticated(req)) {
+    const role = getAuthRole(req);
+    if (!role) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
     }
-    return sendJson(res, 200, { ok: true, ...db.getStats() });
+    const stats = db.getStats();
+    if (role === 'gate_staff') {
+      return sendJson(res, 200, { ok: true, ...stats, revenue: 0, revenueHidden: true, role });
+    }
+    return sendJson(res, 200, { ok: true, ...stats, role });
   }
 
   // Promoter Analytics Dashboard & Zone Occupancy Heatmap
@@ -1001,7 +1057,7 @@ async function handleApi(req, res, url) {
     return res.end(csv);
   }
 
-  // Settings (LINE OA Channel Access Token + PromptPay ID + Merchant Name + Admin PIN + Google Drive + Slip Verifier)
+  // Settings (LINE OA Channel Access Token + PromptPay ID + Merchant Name + Admin PIN + Gate Staff PIN + Google Drive + Slip Verifier)
   if (pathname === '/api/settings') {
     if (!isAdminAuthenticated(req)) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
@@ -1035,10 +1091,18 @@ async function handleApi(req, res, url) {
         slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
         slipVerifyBranchId,
         slipAutoApproveEnabled,
-        adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || '')
+        adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || ''),
+        hasGateStaffPin: Boolean(db.getSetting('gate_staff_pin', '888888'))
       });
     }
     if (method === 'PUT') {
+      if (!isFullAdmin(req)) {
+        return sendJson(res, 200, {
+          ok: false,
+          forbidden: true,
+          error: 'เฉพาะแอดมินหลักเท่านั้นที่สามารถแก้ไขการตั้งค่าระบบได้'
+        });
+      }
       const body = await readJsonBody(req);
       const changes = [];
       if (typeof body.lineChannelAccessToken === 'string' && body.lineChannelAccessToken.trim()) {
@@ -1105,6 +1169,10 @@ async function handleApi(req, res, url) {
       if (typeof body.adminPin === 'string' && body.adminPin.trim().length >= 4) {
         db.setSetting('admin_pin', body.adminPin.trim());
         changes.push('เปลี่ยนรหัส PIN แอดมิน');
+      }
+      if (typeof body.gateStaffPin === 'string' && body.gateStaffPin.trim().length >= 4) {
+        db.setSetting('gate_staff_pin', body.gateStaffPin.trim());
+        changes.push('เปลี่ยนรหัส PIN เจ้าหน้าที่หน้าประตู (Gate Staff PIN)');
       }
       if (changes.length) {
         db.addAuditLog({

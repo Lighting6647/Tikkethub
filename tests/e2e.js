@@ -203,6 +203,18 @@ async function run() {
   await adminPage.screenshot({ path: path.join(SHOTS, 'gate-checkin-tampered-qr.png') });
   await adminPage.click('#closeScannerBtn');
 
+  // Verify Live Gate Throughput & Queue Monitor (#openGateMonitorBtn -> #gateMonitorModal)
+  await adminPage.click('#openGateMonitorBtn');
+  await adminPage.waitForSelector('#gateMonitorModal.active');
+  await adminPage.waitForFunction(() => {
+    const content = document.getElementById('gateMonitorContent');
+    const lanes = document.getElementById('gateMonitorLanesGrid');
+    return content && lanes && lanes.textContent.includes('ประตู Gate A') && content.textContent.includes('ธนภัทร');
+  });
+  assert.match(await adminPage.textContent('#gateMonitorContent'), /1 \/ 1\s*ใบ/);
+  await adminPage.locator('#gateMonitorModal .modal-box').screenshot({ path: path.join(SHOTS, 'gate-throughput-monitor.png') });
+  await adminPage.click('#closeGateMonitorBtn');
+
   // Test Bulk Order Selection & Bulk Action Bar (#selectAllOrdersCheckbox + #bulkApproveBtn)
   await adminPage.check('#selectAllOrdersCheckbox');
   await adminPage.waitForFunction(() => {
