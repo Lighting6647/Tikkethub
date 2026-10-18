@@ -592,6 +592,72 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  // Offline Gate Check-in Roster Cache
+  if (method === 'GET' && pathname === '/api/checkin/offline-roster') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const approvedOrders = db.listOrders({ status: 'approved', includeSlipData: false });
+    const roster = approvedOrders.map((o) => ({
+      ref: o.ref,
+      qrPayload: o.qrPayload,
+      qrSignature: o.qrSignature,
+      title: o.title,
+      zone: o.zone,
+      qty: o.qty,
+      holderName: o.holderName,
+      holderPhone: o.holderPhone,
+      holderIdCard: o.holderIdCard || '',
+      checkedInAt: o.checkedInAt || 0,
+      checkedInBy: o.checkedInBy || ''
+    }));
+    return sendJson(res, 200, {
+      ok: true,
+      timestamp: Date.now(),
+      count: roster.length,
+      roster
+    });
+  }
+
+  // Offline Check-ins Batch Sync
+  if (method === 'POST' && pathname === '/api/checkin/sync') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const body = await readJsonBody(req);
+    const checkins = Array.isArray(body.checkins) ? body.checkins : [];
+    const results = [];
+    let syncedCount = 0;
+
+    for (const item of checkins) {
+      const code = item.code || item.ref || '';
+      const staffName = item.staffName || 'Gate Staff (Offline Sync)';
+      const resCheck = db.checkInOrder(code, staffName);
+      if (resCheck.ok) syncedCount += 1;
+      results.push({
+        ref: (resCheck.order && resCheck.order.ref) || code,
+        ok: resCheck.ok,
+        code: resCheck.code,
+        message: resCheck.message
+      });
+    }
+
+    if (checkins.length > 0) {
+      db.addAuditLog({
+        action: 'OFFLINE_GATE_SYNC',
+        detail: `ซิงก์ข้อมูลเช็กอินจากโหมดออฟไลน์ สำเร็จ ${syncedCount}/${checkins.length} รายการ`,
+        actor: 'GateOfflineEngine'
+      });
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      total: checkins.length,
+      syncedCount,
+      results
+    });
+  }
+
   // Bulk Slip Approval, Batch Gate Check-in & Bulk Reject API
   if (method === 'POST' && pathname === '/api/admin/orders/bulk-action') {
     if (!isAdminAuthenticated(req)) {

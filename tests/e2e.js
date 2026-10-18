@@ -156,7 +156,26 @@ async function run() {
   await adminPage.waitForSelector('#gateScannerModal.active');
   assert.ok(await adminPage.locator('#cameraDeviceSelect').count(), 'Camera device select rendered');
   assert.ok(await adminPage.locator('#btnSwitchCamera').count(), 'Switch camera button rendered');
+  assert.ok(await adminPage.locator('#btnToggleTorch').count(), 'Flashlight torch toggle rendered');
+  assert.ok(await adminPage.locator('#btnToggleGateVoice').count(), 'Thai gate voice feedback toggle rendered');
+  assert.ok(await adminPage.locator('#gateOnlineBadge').count(), 'Gate online status badge rendered');
+  assert.ok(await adminPage.locator('#btnDownloadOfflineRoster').count(), 'Download offline roster button rendered');
   assert.ok(await adminPage.locator('#scannerVideo').count(), 'Scanner video element rendered');
+
+  // Test toggling torch & Thai voice
+  await adminPage.click('#btnToggleTorch');
+  await adminPage.click('#btnToggleGateVoice');
+  assert.match(await adminPage.textContent('#btnToggleGateVoice'), /เสียงพูด: ปิด/);
+  await adminPage.click('#btnToggleGateVoice');
+  assert.match(await adminPage.textContent('#btnToggleGateVoice'), /เสียงพูด: เปิด/);
+
+  // Test downloading offline roster cache
+  await adminPage.click('#btnDownloadOfflineRoster');
+  await adminPage.waitForFunction(() => {
+    const el = document.getElementById('gateOfflineRosterCount');
+    return el && el.textContent.includes('1 รายการ');
+  });
+
   await adminPage.waitForFunction(() => {
     const box = document.getElementById('scanResultBox');
     return box && !box.hidden && box.textContent.includes('เช็กอินสำเร็จ');

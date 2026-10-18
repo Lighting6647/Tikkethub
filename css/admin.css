@@ -352,6 +352,37 @@
   text-align: center;
 }
 
+.scanner-offline-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.badge-status-online {
+  font-size: 11px;
+  font-weight: 700;
+  color: #68D391;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-status-offline {
+  font-size: 11px;
+  font-weight: 700;
+  color: #F5A623;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  animation: pulseDot 1.5s infinite;
+}
+
 .quick-scan-chips {
   display: flex;
   flex-wrap: wrap;

@@ -279,7 +279,13 @@
                 <option value="">กำลังค้นหากล้องที่เชื่อมต่อ...</option>
               </select>
             </div>
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn-outline" id="btnToggleTorch" title="เปิด/ปิดไฟฉายส่องบัตรในที่มืด" style="padding:6px 10px; font-size:12px;">
+                🔦 ไฟฉาย: ปิด
+              </button>
+              <button type="button" class="btn-outline" id="btnToggleGateVoice" title="เปิด/ปิดเสียงพูดสังเคราะห์แจ้งผลภาษาไทย" style="padding:6px 10px; font-size:12px;">
+                🔊 เสียงพูด: เปิด
+              </button>
               <button type="button" class="btn-outline" id="btnSwitchCamera" title="สลับกล้องหน้า/หลัง" style="padding:6px 10px; font-size:12px;">
                 🔄 สลับกล้อง
               </button>
@@ -305,6 +311,22 @@
             </div>
             <div class="camera-off-placeholder" id="cameraOffPlaceholder" hidden>
               <span>📷 กล้องปิดอยู่ · สามารถพิมพ์รหัสหรือใช้เครื่องยิงบาร์โค้ดได้</span>
+            </div>
+          </div>
+
+          <!-- Offline Gate Mode & Roster Sync Status -->
+          <div class="scanner-offline-toolbar" id="scannerOfflineToolbar">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span class="badge-status-online" id="gateOnlineBadge">🟢 ออนไลน์ (Real-time)</span>
+              <span class="text-muted" id="gateOfflineRosterCount" style="font-size:11px;">แคชตรวจบัตรในเครื่อง: 0 รายการ</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="btn-outline" id="btnDownloadOfflineRoster" title="ดาวน์โหลดฐานข้อมูลบัตรเข้าเครื่องเพื่อสแกนออฟไลน์" style="font-size:11px; padding:3px 8px;">
+                📥 อัปเดตแคชออฟไลน์
+              </button>
+              <button type="button" class="btn-primary" id="btnSyncOfflineQueue" title="ส่งข้อมูลสแกนออฟไลน์ขึ้นเซิร์ฟเวอร์" style="font-size:11px; padding:3px 10px;" hidden>
+                🔄 ซิงก์ที่รอส่ง (<span id="syncQueueCount">0</span>)
+              </button>
             </div>
           </div>
         </div>

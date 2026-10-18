@@ -441,8 +441,45 @@
     }
   }
 
+  // 1. Flashlight / Torch Controller
+  let torchActive = false;
+
+  async function toggleTorch() {
+    const btn = $('btnToggleTorch');
+    if (!activeCameraStream) {
+      window.UI.toast('กรุณาเปิดกล้องก่อนใช้งานไฟฉาย', 'info');
+      return;
+    }
+    const track = activeCameraStream.getVideoTracks()[0];
+    if (!track) return;
+    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+    if (!capabilities.torch) {
+      window.UI.toast('กล้องหรือเบราว์เซอร์ของอุปกรณ์นี้ไม่รองรับการควบคุมไฟฉาย', 'info');
+      return;
+    }
+    try {
+      torchActive = !torchActive;
+      await track.applyConstraints({ advanced: [{ torch: torchActive }] });
+      if (btn) {
+        btn.textContent = torchActive ? '🔦 ไฟฉาย: เปิด' : '🔦 ไฟฉาย: ปิด';
+        btn.style.color = torchActive ? '#F5A623' : '';
+        btn.style.borderColor = torchActive ? '#F5A623' : '';
+      }
+      window.UI.toast(torchActive ? 'เปิดไฟฉายแล้ว' : 'ปิดไฟฉายแล้ว');
+    } catch (err) {
+      window.UI.toast(`ไม่สามารถปรับไฟฉายได้: ${err.message}`, 'error');
+    }
+  }
+
   function stopCameraScanner() {
     isCameraScanningActive = false;
+    torchActive = false;
+    const btnTorch = $('btnToggleTorch');
+    if (btnTorch) {
+      btnTorch.textContent = '🔦 ไฟฉาย: ปิด';
+      btnTorch.style.color = '';
+      btnTorch.style.borderColor = '';
+    }
     if (qrScannerFrameLoop) {
       cancelAnimationFrame(qrScannerFrameLoop);
       qrScannerFrameLoop = null;
@@ -490,6 +527,259 @@
     }
   }
 
+  // 2. Thai Voice Feedback & Web Audio Sound Packs
+  let gateVoiceEnabled = true;
+
+  function toggleGateVoice() {
+    gateVoiceEnabled = !gateVoiceEnabled;
+    const btn = $('btnToggleGateVoice');
+    if (btn) {
+      btn.textContent = gateVoiceEnabled ? '🔊 เสียงพูด: เปิด' : '🔇 เสียงพูด: ปิด';
+      btn.style.color = gateVoiceEnabled ? '#68D391' : 'var(--color-muted)';
+    }
+    window.UI.toast(gateVoiceEnabled ? 'เปิดเสียงพูดสังเคราะห์แจ้งผลภาษาไทยแล้ว' : 'ปิดเสียงพูดแล้ว');
+  }
+
+  function speakGateResult(text) {
+    if (!gateVoiceEnabled || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'th-TH';
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const thaiVoice = voices.find((v) => v.lang === 'th-TH' || (v.lang && v.lang.startsWith('th')));
+      if (thaiVoice) utterance.voice = thaiVoice;
+      window.speechSynthesis.speak(utterance);
+    } catch {}
+  }
+
+  function playGateSound(type) {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      if (type === 'pass') {
+        const playTone = (freq, start, dur) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + start);
+          gain.gain.setValueAtTime(0.28, now + start);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + start);
+          osc.stop(now + start + dur);
+        };
+        playTone(659.25, 0, 0.18);
+        playTone(987.77, 0.12, 0.4);
+      } else if (type === 'duplicate') {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = 'sawtooth';
+        osc2.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(160, now);
+        osc2.frequency.setValueAtTime(165, now);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.35);
+        osc2.stop(now + 0.35);
+      } else if (type === 'invalid') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(750, now);
+        osc.frequency.linearRampToValueAtTime(950, now + 0.15);
+        osc.frequency.linearRampToValueAtTime(750, now + 0.3);
+        osc.frequency.linearRampToValueAtTime(950, now + 0.45);
+        gain.gain.setValueAtTime(0.32, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+    } catch {}
+  }
+
+  // 3. Offline Gate Check-in Engine (Cache, Local Validation & Outbox Sync)
+  let offlineRosterCache = [];
+  let offlineCheckinQueue = [];
+
+  function loadOfflineStorage() {
+    try {
+      const rawRoster = localStorage.getItem('tt_offline_roster');
+      offlineRosterCache = rawRoster ? JSON.parse(rawRoster) : [];
+      const rawQueue = localStorage.getItem('tt_offline_queue');
+      offlineCheckinQueue = rawQueue ? JSON.parse(rawQueue) : [];
+    } catch {
+      offlineRosterCache = [];
+      offlineCheckinQueue = [];
+    }
+    updateOfflineUi();
+  }
+
+  function saveOfflineStorage() {
+    try {
+      localStorage.setItem('tt_offline_roster', JSON.stringify(offlineRosterCache));
+      localStorage.setItem('tt_offline_queue', JSON.stringify(offlineCheckinQueue));
+    } catch {}
+    updateOfflineUi();
+  }
+
+  function updateOfflineUi() {
+    const isOnline = navigator.onLine !== false;
+    const badge = $('gateOnlineBadge');
+    if (badge) {
+      badge.className = isOnline ? 'badge-status-online' : 'badge-status-offline';
+      badge.textContent = isOnline ? '🟢 ออนไลน์ (Real-time)' : '📡 โหมดออฟไลน์ (Offline Mode)';
+    }
+    const countEl = $('gateOfflineRosterCount');
+    if (countEl) {
+      countEl.textContent = `แคชตรวจบัตรในเครื่อง: ${offlineRosterCache.length} รายการ`;
+    }
+    const syncBtn = $('btnSyncOfflineQueue');
+    const syncCount = $('syncQueueCount');
+    if (syncBtn && syncCount) {
+      syncCount.textContent = String(offlineCheckinQueue.length);
+      syncBtn.hidden = offlineCheckinQueue.length === 0;
+    }
+  }
+
+  async function downloadOfflineRoster() {
+    const btn = $('btnDownloadOfflineRoster');
+    if (btn) btn.disabled = true;
+    try {
+      window.UI.toast('กำลังดาวน์โหลดข้อมูลบัตรเพื่อเตรียมสแกนออฟไลน์...');
+      const res = await fetch('/api/checkin/offline-roster', { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'ดาวน์โหลดไม่สำเร็จ');
+      offlineRosterCache = data.roster || [];
+      saveOfflineStorage();
+      window.UI.toast(`บันทึกแคชบัตรสำหรับสแกนออฟไลน์แล้ว (${offlineRosterCache.length} รายการ)`);
+    } catch (err) {
+      window.UI.toast(`เกิดข้อผิดพลาดในการโหลดแคช: ${err.message}`, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function syncOfflineQueue() {
+    if (!offlineCheckinQueue.length) {
+      window.UI.toast('ไม่มีรายการเช็กอินค้างในคิวออฟไลน์');
+      return;
+    }
+    if (navigator.onLine === false) {
+      window.UI.toast('ยังไม่มีการเชื่อมต่ออินเทอร์เน็ต กรุณารอต่อเน็ตก่อนซิงก์', 'error');
+      return;
+    }
+    const btn = $('btnSyncOfflineQueue');
+    if (btn) btn.disabled = true;
+    try {
+      window.UI.toast(`กำลังซิงก์รายการเช็กอินออฟไลน์ ${offlineCheckinQueue.length} รายการขึ้นเซิร์ฟเวอร์...`);
+      const res = await fetch('/api/checkin/sync', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ checkins: offlineCheckinQueue })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'ซิงก์ไม่สำเร็จ');
+      const synced = data.syncedCount || 0;
+      offlineCheckinQueue = [];
+      saveOfflineStorage();
+      window.UI.toast(`ซิงก์ข้อมูลขึ้นเซิร์ฟเวอร์สำเร็จเรียบร้อย (${synced} รายการ)`);
+      await Promise.all([loadStats(), loadOrders()]);
+    } catch (err) {
+      window.UI.toast(`ซิงก์ไม่สำเร็จ: ${err.message}`, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function verifyCheckInOffline(rawCode, staffName) {
+    const trimmed = String(rawCode || '').trim();
+    const parts = trimmed.split('|');
+    let ref = '';
+    if (parts.length >= 2 && parts[0] === 'THAITICKET') {
+      ref = parts[1].trim().toUpperCase();
+    } else {
+      const m = trimmed.match(/[A-Z0-9]{4,8}-[A-Z0-9]{3,6}/i);
+      ref = m ? m[0].toUpperCase() : trimmed.toUpperCase();
+    }
+
+    const existing = offlineRosterCache.find((o) => o.ref === ref);
+    if (!existing) {
+      playGateSound('invalid');
+      speakGateResult('ไม่พบบัตรนี้ในแคชออฟไลน์ค่ะ');
+      return {
+        ok: false,
+        code: 'NOT_FOUND_OFFLINE',
+        message: `ไม่พบรหัสบัตร "${ref}" ในแคชออฟไลน์ (กรุณากดอัปเดตแคชออฟไลน์เมื่อมีเน็ต)`
+      };
+    }
+
+    // Verify HMAC-SHA256 signature if present
+    const sigPart = parts.find((p) => String(p).toUpperCase().startsWith('SIG:'));
+    if (sigPart && existing.qrSignature) {
+      const providedSig = String(sigPart).slice(4).trim().toUpperCase();
+      if (providedSig !== existing.qrSignature.toUpperCase()) {
+        playGateSound('invalid');
+        speakGateResult('ตรวจพบบัตรปลอมแปลง ลายเซ็นไม่ถูกต้องค่ะ');
+        return {
+          ok: false,
+          code: 'INVALID_SIGNATURE',
+          message: `เตือนภัยความมั่นคง! ตรวจพบลายเซ็นดิจิทัล (HMAC-SHA256) ไม่ตรงกับต้นฉบับของบัตร ${existing.ref}`,
+          order: existing
+        };
+      }
+    }
+
+    // Check duplicate in offline cache or queue
+    const inQueue = offlineCheckinQueue.find((q) => q.ref === existing.ref);
+    if (existing.checkedInAt > 0 || inQueue) {
+      playGateSound('duplicate');
+      speakGateResult('เตือนภัยค่ะ บัตรนี้ถูกสแกนเข้างานไปแล้ว');
+      const timeStr = new Date(existing.checkedInAt || (inQueue && inQueue.timestamp) || Date.now()).toLocaleString('th-TH');
+      return {
+        ok: false,
+        code: 'ALREADY_CHECKED_IN',
+        message: `เตือนภัย! บัตร ${existing.ref} ถูกสแกนเข้างานไปแล้วเมื่อ ${timeStr}`,
+        order: existing
+      };
+    }
+
+    // Mark as checked-in locally & queue for sync
+    existing.checkedInAt = Date.now();
+    existing.checkedInBy = staffName;
+    offlineCheckinQueue.push({
+      code: rawCode,
+      ref: existing.ref,
+      staffName,
+      timestamp: Date.now()
+    });
+    saveOfflineStorage();
+
+    playGateSound('pass');
+    speakGateResult(`ผ่านค่ะ โซน ${existing.zone} จำนวน ${existing.qty} ใบ`);
+
+    return {
+      ok: true,
+      code: 'CHECKED_IN_OFFLINE',
+      message: `เช็กอินสำเร็จ (โหมดออฟไลน์) — บันทึกลงเครื่องและรอซิงก์ (${existing.ref})`,
+      order: existing
+    };
+  }
+
   function startQrFrameDetection() {
     if (!isCameraScanningActive) return;
     const video = $('scannerVideo');
@@ -519,7 +809,6 @@
       } catch {}
     }
 
-    // Canvas Frame Sampling fallback loop
     if (isCameraScanningActive) {
       qrScannerFrameLoop = requestAnimationFrame(startQrFrameDetection);
     }
@@ -529,14 +818,12 @@
     if (!code) return;
     const trimmed = String(code).trim();
     const now = Date.now();
-    // Debounce 2.5 seconds to prevent double scanning the same QR code in camera view
     if (trimmed === lastCameraScanCode && now - lastCameraScanTimestamp < 2500) {
       return;
     }
     lastCameraScanCode = trimmed;
     lastCameraScanTimestamp = now;
 
-    // Viewfinder green glow animation
     const aimBox = document.querySelector('.scanner-aim-box');
     if (aimBox) {
       aimBox.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 20px #68D391';
@@ -553,6 +840,7 @@
 
   function openScannerModal(prefillRef) {
     renderQuickScanChips();
+    loadOfflineStorage();
     if (prefillRef && $('scanCodeInput')) {
       const targetOrder = ordersCache.find((o) => o.ref === prefillRef);
       $('scanCodeInput').value = (targetOrder && targetOrder.qrPayload) ? targetOrder.qrPayload : `THAITICKET|${prefillRef}`;
@@ -562,7 +850,6 @@
       submitCheckIn();
     } else {
       if ($('scanCodeInput')) $('scanCodeInput').focus();
-      // Auto-start camera scanner on open
       initCameraDevicesList().then(() => {
         startCameraScanner();
       });
@@ -583,16 +870,67 @@
     submitCheckIn();
   }
 
+  function renderScanResultBox(data) {
+    const resultBox = $('scanResultBox');
+    if (!resultBox) return;
+    const esc = window.UI.escapeHtml;
+    resultBox.hidden = false;
+
+    if (data.ok && (data.code === 'CHECKED_IN' || data.code === 'CHECKED_IN_OFFLINE')) {
+      const o = data.order;
+      const isOffline = data.code === 'CHECKED_IN_OFFLINE';
+      resultBox.className = 'scan-result-box is-pass';
+      resultBox.innerHTML = `
+        <div style="font-size:16px; font-weight:700; color:var(--color-accent); margin-bottom:6px;">
+          ✅ เช็กอินสำเร็จ — อนุญาตให้เข้างาน (${esc(o.ref)}) ${isOffline ? '<span class="badge-status-offline" style="font-size:12px;">(โหมดออฟไลน์)</span>' : ''}
+        </div>
+        <div style="font-size:13px; color:#fff;">
+          <strong>${esc(o.title || '')}</strong> · โซน ${esc(o.zone || '')} (${o.qty || 1} ใบ)<br>
+          ผู้ถือบัตร: <strong>${esc(o.holderName || '')} (${esc(o.holderPhone || '')})</strong> · ปชช./Passport: <strong>${esc(o.holderIdCard || '-')}</strong><br>
+          🔐 ลายเซ็นดิจิทัล HMAC-SHA256: <strong style="color:#68D391;">SIG:${esc(data.qrSignature || o.qrSignature || 'VERIFIED')} (ยืนยันบัตรแท้)</strong><br>
+          บันทึกเวลาเข้างาน: ${esc(new Date(o.checkedInAt || Date.now()).toLocaleString('th-TH'))} โดย ${esc(o.checkedInBy || 'Gate')}
+        </div>
+      `;
+      window.UI.toast(`เช็กอินบัตร ${o.ref} เข้างานสำเร็จ ${isOffline ? '(ออฟไลน์)' : ''}`);
+    } else {
+      const o = data.order;
+      const msg = data.message || data.error || 'ไม่สามารถเช็กอินได้';
+      resultBox.className = 'scan-result-box is-duplicate';
+      resultBox.innerHTML = `
+        <div style="font-size:16px; font-weight:700; color:#FF6B6B; margin-bottom:6px;">
+          ⛔ ปฏิเสธการเข้างาน (${esc(data.code || 'ERROR')})
+        </div>
+        <div style="font-size:13px; color:#fff;">
+          ${esc(msg)}
+          ${
+            o
+              ? `<br><span class="text-muted">ผู้ถือบัตร: ${esc(o.holderName)} (${esc(o.holderPhone)}) · ปชช.: ${esc(o.holderIdCard || '-')} · โซน ${esc(o.zone)} (${o.qty} ใบ)</span>`
+              : ''
+          }
+        </div>
+      `;
+      window.UI.toast(msg, 'error');
+    }
+  }
+
   async function submitCheckIn() {
     const code = ($('scanCodeInput').value || '').trim();
     const staffName = ($('scanStaffInput').value || '').trim() || 'Gate A';
-    const resultBox = $('scanResultBox');
     if (!code) {
       window.UI.toast('กรุณากรอกรหัส QR Code หรือรหัสการจอง', 'error');
       return;
     }
 
     $('submitScanBtn').disabled = true;
+
+    // Offline mode direct execution
+    if (navigator.onLine === false) {
+      const offlineRes = verifyCheckInOffline(code, staffName);
+      renderScanResultBox(offlineRes);
+      $('submitScanBtn').disabled = false;
+      return;
+    }
+
     try {
       const res = await fetch('/api/checkin', {
         method: 'POST',
@@ -606,45 +944,32 @@
         return;
       }
 
-      const esc = window.UI.escapeHtml;
-      resultBox.hidden = false;
       if (data.ok && data.code === 'CHECKED_IN') {
+        playGateSound('pass');
         const o = data.order;
-        resultBox.className = 'scan-result-box is-pass';
-        resultBox.innerHTML = `
-          <div style="font-size:16px; font-weight:700; color:var(--color-accent); margin-bottom:6px;">
-            ✅ เช็กอินสำเร็จ — อนุญาตให้เข้างาน (${esc(o.ref)})
-          </div>
-          <div style="font-size:13px; color:#fff;">
-            <strong>${esc(o.title)}</strong> · โซน ${esc(o.zone)} (${o.qty} ใบ)<br>
-            ผู้ถือบัตร: <strong>${esc(o.holderName)} (${esc(o.holderPhone)})</strong> · ปชช./Passport: <strong>${esc(o.holderIdCard || '-')}</strong><br>
-            🔐 ลายเซ็นดิจิทัล HMAC-SHA256: <strong style="color:#68D391;">SIG:${esc(data.qrSignature || o.qrSignature || 'VERIFIED')} (ยืนยันบัตรแท้)</strong><br>
-            บันทึกเวลาเข้างาน: ${esc(new Date(o.checkedInAt).toLocaleString('th-TH'))} โดย ${esc(o.checkedInBy)}
-          </div>
-        `;
-        window.UI.toast(`เช็กอินบัตร ${o.ref} เข้างานสำเร็จ`);
-        await Promise.all([loadStats(), loadOrders()]);
+        speakGateResult(`ผ่านค่ะ โซน ${o.zone} จำนวน ${o.qty} ใบ`);
+      } else if (data.code === 'ALREADY_CHECKED_IN') {
+        playGateSound('duplicate');
+        speakGateResult('เตือนภัยค่ะ บัตรนี้ถูกสแกนเข้างานไปแล้ว');
+      } else if (data.code === 'INVALID_SIGNATURE') {
+        playGateSound('invalid');
+        speakGateResult('ตรวจพบบัตรปลอมแปลง ลายเซ็นไม่ถูกต้องค่ะ');
       } else {
-        const o = data.order;
-        const msg = data.message || data.error || 'ไม่สามารถเช็กอินได้';
-        resultBox.className = 'scan-result-box is-duplicate';
-        resultBox.innerHTML = `
-          <div style="font-size:16px; font-weight:700; color:#FF6B6B; margin-bottom:6px;">
-            ⛔ ปฏิเสธการเข้างาน (${esc(data.code || 'ERROR')})
-          </div>
-          <div style="font-size:13px; color:#fff;">
-            ${esc(msg)}
-            ${
-              o
-                ? `<br><span class="text-muted">ผู้ถือบัตร: ${esc(o.holderName)} (${esc(o.holderPhone)}) · ปชช.: ${esc(o.holderIdCard || '-')} · โซน ${esc(o.zone)} (${o.qty} ใบ)</span>`
-                : ''
-            }
-          </div>
-        `;
-        window.UI.toast(msg, 'error');
+        playGateSound('duplicate');
+        speakGateResult('ไม่สามารถเข้างานได้ค่ะ');
+      }
+
+      renderScanResultBox(data);
+      if (data.ok) {
+        await Promise.all([loadStats(), loadOrders()]);
       }
     } catch (err) {
-      window.UI.toast(err.message, 'error');
+      if (offlineRosterCache.length > 0) {
+        const offlineRes = verifyCheckInOffline(code, staffName);
+        renderScanResultBox(offlineRes);
+      } else {
+        window.UI.toast(`เกิดข้อผิดพลาดในการเชื่อมต่อ: ${err.message}`, 'error');
+      }
     } finally {
       $('submitScanBtn').disabled = false;
     }
@@ -1989,6 +2314,23 @@
     if ($('btnToggleCameraFeed')) {
       $('btnToggleCameraFeed').addEventListener('click', toggleCameraFeed);
     }
+    if ($('btnToggleTorch')) {
+      $('btnToggleTorch').addEventListener('click', toggleTorch);
+    }
+    if ($('btnToggleGateVoice')) {
+      $('btnToggleGateVoice').addEventListener('click', toggleGateVoice);
+    }
+    if ($('btnDownloadOfflineRoster')) {
+      $('btnDownloadOfflineRoster').addEventListener('click', downloadOfflineRoster);
+    }
+    if ($('btnSyncOfflineQueue')) {
+      $('btnSyncOfflineQueue').addEventListener('click', syncOfflineQueue);
+    }
+    window.addEventListener('online', () => {
+      updateOfflineUi();
+      syncOfflineQueue();
+    });
+    window.addEventListener('offline', updateOfflineUi);
     const scannerModalEl = $('gateScannerModal');
     if (scannerModalEl) {
       const observer = new MutationObserver(() => {
@@ -2142,5 +2484,6 @@
     updateNotifyBtnUi();
     checkAdminSession();
     startLivePolling();
+    loadOfflineStorage();
   });
 })();
