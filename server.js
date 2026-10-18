@@ -592,6 +592,87 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  // Bulk Slip Approval, Batch Gate Check-in & Bulk Reject API
+  if (method === 'POST' && pathname === '/api/admin/orders/bulk-action') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true, error: 'กรุณาเข้าสู่ระบบแอดมินก่อนดำเนินการ' });
+    }
+    const body = await readJsonBody(req);
+    const refs = Array.isArray(body.refs)
+      ? body.refs.map((r) => String(r || '').trim().toUpperCase()).filter(Boolean)
+      : [];
+    const action = String(body.action || 'approve').trim().toLowerCase();
+    const staffName = String(body.staffName || 'Gate A (Bulk)').trim();
+    const reason = String(body.reason || 'ไม่ผ่านการตรวจสอบแบบกลุ่ม').trim();
+
+    if (!refs.length) {
+      return sendJson(res, 200, { ok: false, error: 'กรุณาเลือกรายการคำสั่งซื้ออย่างน้อย 1 รายการ' });
+    }
+
+    const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
+    const results = [];
+    let successCount = 0;
+
+    for (const ref of refs) {
+      const existing = db.getOrder(ref);
+      if (!existing) {
+        results.push({ ref, ok: false, error: 'ไม่พบรายการ' });
+        continue;
+      }
+      if (action === 'approve') {
+        const lineResult = await sendLineTicketPush(existing, token);
+        const updated = db.updateOrderStatus(ref, {
+          status: 'approved',
+          rejectReason: '',
+          lineSent: lineResult.sentMode,
+          lineLog: lineResult
+        });
+        successCount += 1;
+        results.push({ ref, ok: true, status: updated.status });
+      } else if (action === 'checkin') {
+        if (existing.status !== 'approved') {
+          results.push({ ref, ok: false, error: 'ยังไม่อนุมัติสลิป' });
+          continue;
+        }
+        const checkRes = db.checkInOrder(existing.qrPayload || existing.ref, staffName);
+        if (checkRes.ok) {
+          successCount += 1;
+          results.push({ ref, ok: true, checkedInAt: checkRes.order.checkedInAt });
+        } else {
+          results.push({ ref, ok: false, error: checkRes.message });
+        }
+      } else if (action === 'reject') {
+        const updated = db.updateOrderStatus(ref, {
+          status: 'rejected',
+          rejectReason: reason,
+          lineSent: 0,
+          lineLog: null
+        });
+        successCount += 1;
+        results.push({ ref, ok: true, status: updated.status });
+      }
+    }
+
+    if (action === 'reject' && successCount > 0) {
+      broadcastSeatSync('bulk_order_rejected');
+    }
+
+    db.addAuditLog({
+      action: action === 'approve' ? 'BULK_APPROVE_SLIP' : action === 'checkin' ? 'BULK_GATE_CHECKIN' : 'BULK_REJECT_SLIP',
+      targetRef: refs.slice(0, 4).join(', ') + (refs.length > 4 ? ` (+${refs.length - 4})` : ''),
+      detail: `ดำเนินการแบบกลุ่ม (${action.toUpperCase()}) สำเร็จ ${successCount}/${refs.length} รายการ`,
+      actor: 'Admin'
+    });
+
+    return sendJson(res, 200, {
+      ok: true,
+      action,
+      totalRequested: refs.length,
+      successCount,
+      results
+    });
+  }
+
   // Single order operations
   const orderMatch = pathname.match(/^\/api\/orders\/([A-Z0-9-]+)(?:\/(approve|reject|send-line))?$/);
   if (orderMatch) {

@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>บัตรคอนเสิร์ต | Thai Ticket Hub</title>
   <!-- Google Fonts: Noto Sans Thai -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -539,19 +539,101 @@
       gap: var(--space-16);
     }
 
-    @media (max-width: 768px) {
+    /* Safe Area & Mobile / Tablet Responsive Layouts */
+    .header {
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+
+    .container {
+      padding-left: max(var(--space-20), env(safe-area-inset-left, var(--space-20)));
+      padding-right: max(var(--space-20), env(safe-area-inset-right, var(--space-20)));
+    }
+
+    /* iPad / Tablet (768px - 1024px) */
+    @media (min-width: 768px) and (max-width: 1024px) {
+      .events-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-20);
+      }
+      .hero-wrapper {
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: var(--space-24);
+      }
+    }
+
+    /* iPhone & Mobile (< 768px) */
+    @media (max-width: 767px) {
       .hero-wrapper {
         grid-template-columns: 1fr;
+        gap: var(--space-20);
+      }
+      .hero {
+        padding: var(--space-20) 0;
+      }
+      .hero-content h1 {
+        font-size: 22px;
+        line-height: 1.35;
+      }
+      .hero-poster {
+        aspect-ratio: 16/9;
+        max-height: 220px;
+        width: 100%;
+      }
+      .hero-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: var(--space-8);
+      }
+      .hero-actions button {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 20px;
+        min-height: 44px;
       }
       .nav-bar {
         flex-wrap: wrap;
         height: auto;
-        padding: var(--space-12) 0;
+        padding: var(--space-8) 0 var(--space-12);
+        gap: var(--space-8);
+      }
+      .brand {
+        font-size: 16px;
+      }
+      .nav-actions {
+        gap: 6px;
+      }
+      .nav-actions .btn-outline,
+      .nav-actions .cart-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        min-height: 36px;
       }
       .search-container {
         order: 3;
         max-width: 100%;
         width: 100%;
+      }
+      .events-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-16);
+      }
+      .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal-box {
+        max-width: 100%;
+        max-height: calc(100dvh - 24px);
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+      }
+      .summary-card {
+        padding: var(--space-12) var(--space-16) max(var(--space-12), env(safe-area-inset-bottom, var(--space-12)));
+      }
+      .toast {
+        bottom: max(16px, env(safe-area-inset-bottom, 16px));
+        right: 16px;
+        left: 16px;
+        max-width: calc(100% - 32px);
       }
     }
   </style>

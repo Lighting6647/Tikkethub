@@ -159,6 +159,7 @@ async function run() {
     return box && !box.hidden && box.textContent.includes('เช็กอินสำเร็จ');
   });
   assert.match(await adminPage.textContent('#scanResultBox'), /เช็กอินสำเร็จ — อนุญาตให้เข้างาน/);
+  assert.match(await adminPage.textContent('#scanResultBox'), /HMAC-SHA256/);
   await adminPage.screenshot({ path: path.join(SHOTS, 'gate-checkin-pass.png') });
 
   // Scan the exact same ticket a second time -> must block duplicate entry!
@@ -169,14 +170,35 @@ async function run() {
   });
   assert.match(await adminPage.textContent('#scanResultBox'), /ถูกสแกนเข้างานไปแล้ว/);
   await adminPage.screenshot({ path: path.join(SHOTS, 'gate-checkin-duplicate.png') });
+
+  // Test HMAC-SHA256 anti-counterfeit QR verification: tampered QR must be blocked with INVALID_SIGNATURE
+  await adminPage.click('#testTamperedQrBtn');
+  await adminPage.waitForFunction(() => {
+    const box = document.getElementById('scanResultBox');
+    return box && box.textContent.includes('INVALID_SIGNATURE');
+  });
+  assert.match(await adminPage.textContent('#scanResultBox'), /ลายเซ็นดิจิทัล \(HMAC-SHA256\)/);
+  await adminPage.screenshot({ path: path.join(SHOTS, 'gate-checkin-tampered-qr.png') });
   await adminPage.click('#closeScannerBtn');
 
-  // Verify Admin Audit Log records all actions
+  // Test Bulk Order Selection & Bulk Action Bar (#selectAllOrdersCheckbox + #bulkApproveBtn)
+  await adminPage.check('#selectAllOrdersCheckbox');
+  await adminPage.waitForFunction(() => {
+    const el = document.getElementById('selectedOrdersCount');
+    return el && el.textContent.includes('เลือก 1 รายการ');
+  });
+  await adminPage.click('#bulkApproveBtn');
+  await adminPage.waitForFunction(() => {
+    const el = document.getElementById('selectedOrdersCount');
+    return el && el.textContent.includes('เลือก 0 รายการ');
+  });
+
+  // Verify Admin Audit Log records all actions including BULK_APPROVE_SLIP
   await adminPage.click('#openAuditLogBtn');
   await adminPage.waitForSelector('#auditLogModal.active');
   await adminPage.waitForFunction(() => {
     const el = document.getElementById('auditLogList');
-    return el && el.textContent.includes('APPROVE_SLIP') && el.textContent.includes('GATE_CHECKIN');
+    return el && el.textContent.includes('APPROVE_SLIP') && el.textContent.includes('GATE_CHECKIN') && el.textContent.includes('BULK_APPROVE_SLIP');
   });
   assert.match(await adminPage.textContent('#auditLogList'), /UPDATE_SETTINGS/);
   await adminPage.locator('#auditLogModal .modal-box').screenshot({ path: path.join(SHOTS, 'admin-audit-log.png') });
@@ -306,8 +328,8 @@ async function run() {
   await adminPage.locator('#analyticsModal .modal-box').screenshot({ path: path.join(SHOTS, 'promoter-analytics-heatmap.png') });
   await adminPage.click('#closeAnalyticsModalBtn');
 
-  // 9. Responsive check across mobile, tablet, desktop on both pages
-  for (const w of [375, 430, 768, 1280]) {
+  // 9. Responsive check across iPhone (375px, 390px, 430px), iPad (768px, 820px, 1024px), desktop (1280px)
+  for (const w of [375, 390, 430, 768, 820, 1024, 1280]) {
     await page.setViewportSize({ width: w, height: 860 });
     const overflowCustomer = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflowCustomer <= 0, `customer no horizontal overflow at ${w}px`);
@@ -323,6 +345,18 @@ async function run() {
     });
     assert.ok(headerContained, `admin navbar buttons stay inside header at ${w}px`);
   }
+
+  // Capture responsive visual screenshots for iPhone & iPad
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: path.join(SHOTS, 'iphone-customer-view.png'), fullPage: false });
+  await adminPage.setViewportSize({ width: 390, height: 844 });
+  await adminPage.screenshot({ path: path.join(SHOTS, 'iphone-admin-view.png'), fullPage: false });
+
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await page.screenshot({ path: path.join(SHOTS, 'ipad-customer-view.png'), fullPage: false });
+  await adminPage.setViewportSize({ width: 820, height: 1180 });
+  await adminPage.screenshot({ path: path.join(SHOTS, 'ipad-admin-view.png'), fullPage: false });
+
   await adminPage.setViewportSize({ width: 1280, height: 900 });
   await adminPage.screenshot({ path: path.join(SHOTS, 'admin-navbar-fixed.png') });
 

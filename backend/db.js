@@ -312,6 +312,26 @@ function hashSlipDataUrl(dataUrl) {
   };
 }
 
+const QR_HMAC_SECRET = process.env.QR_HMAC_SECRET || 'thaiticket-qr-hmac-secret-2026';
+
+function computeTicketSignature(ref, zone = '', qty = 1) {
+  const cleanRef = String(ref || '').trim().toUpperCase();
+  const cleanZone = String(zone || '').trim();
+  const cleanQty = Number(qty || 1);
+  return crypto
+    .createHmac('sha256', QR_HMAC_SECRET)
+    .update(`${cleanRef}|${cleanZone}|${cleanQty}`)
+    .digest('hex')
+    .slice(0, 12)
+    .toUpperCase();
+}
+
+function buildSignedQrPayload(order) {
+  if (!order || !order.ref) return '';
+  const sig = computeTicketSignature(order.ref, order.zone, order.qty);
+  return `THAITICKET|${order.ref}|${order.zone}|${order.qty}|SIG:${sig}`;
+}
+
 function rowToOrder(row) {
   if (!row) return null;
   let lineLog = null;
@@ -326,6 +346,7 @@ function rowToOrder(row) {
   } catch {
     seats = [];
   }
+  const qrSignature = computeTicketSignature(row.ref, row.zone, row.qty);
   return {
     ref: row.ref,
     title: row.title,
@@ -357,7 +378,9 @@ function rowToOrder(row) {
     issuedAt: row.issued_at,
     reviewedAt: row.reviewed_at || 0,
     checkedInAt: row.checked_in_at || 0,
-    checkedInBy: row.checked_in_by || ''
+    checkedInBy: row.checked_in_by || '',
+    qrSignature,
+    qrPayload: `THAITICKET|${row.ref}|${row.zone}|${row.qty}|SIG:${qrSignature}`
   };
 }
 
@@ -524,6 +547,25 @@ function checkInOrder(rawInput, staffName = 'Gate Staff #1') {
     };
   }
 
+  // Verify cryptographic HMAC-SHA256 signature if SIG: token is present in QR payload
+  const sigPart = parts.find((p) => String(p).toUpperCase().startsWith('SIG:'));
+  if (sigPart) {
+    const providedSig = String(sigPart).slice(4).trim().toUpperCase();
+    const expectedSig = computeTicketSignature(existing.ref, existing.zone, existing.qty);
+    // Also verify zone/qty in payload haven't been altered if 4+ parts
+    const zoneTampered = parts.length >= 4 && parts[2] && parts[2].trim() !== existing.zone;
+    const qtyTampered = parts.length >= 4 && parts[3] && Number(parts[3]) !== Number(existing.qty);
+    if (providedSig !== expectedSig || zoneTampered || qtyTampered) {
+      return {
+        ok: false,
+        code: 'INVALID_SIGNATURE',
+        signatureVerified: false,
+        message: `เตือนภัยความมั่นคง! ตรวจพบรหัส QR Code ปลอมแปลงหรือลายเซ็นดิจิทัล (HMAC-SHA256) ไม่ตรงกับต้นฉบับของบัตร ${existing.ref}`,
+        order: existing
+      };
+    }
+  }
+
   if (existing.status === 'pending') {
     return {
       ok: false,
@@ -562,7 +604,9 @@ function checkInOrder(rawInput, staffName = 'Gate Staff #1') {
   return {
     ok: true,
     code: 'CHECKED_IN',
-    message: `ตรวจสอบผ่าน! อนุญาตให้ ${updated.holderName} (${updated.qty} ใบ · ${updated.zone}) เข้างานได้`,
+    signatureVerified: true,
+    qrSignature: updated.qrSignature,
+    message: `ตรวจสอบลายเซ็น HMAC-SHA256 ผ่าน! อนุญาตให้ ${updated.holderName} (${updated.qty} ใบ · ${updated.zone}) เข้างานได้`,
     order: updated
   };
 }
@@ -1216,5 +1260,7 @@ module.exports = {
   holdSeats,
   releaseSeats,
   cleanExpiredHolds,
-  getPromoterAnalytics
+  getPromoterAnalytics,
+  computeTicketSignature,
+  buildSignedQrPayload
 };

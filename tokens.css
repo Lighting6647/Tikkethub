@@ -51,6 +51,12 @@
   /* Elevation */
   --shadow-subtle: 0px 1px 3px 0px rgba(0, 0, 0, 0.15);
   --shadow-elevated: 0px 4px 12px 0px rgba(0, 0, 0, 0.35);
+
+  /* iOS Safe Area & Dynamic Viewport Variables */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 /* Base Styles */
@@ -58,6 +64,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -248,4 +255,23 @@ a:hover {
 
 .text-muted {
   color: var(--color-muted);
+}
+
+/* Interactive Touch States & iOS Ergonomics */
+button, a, input, select, textarea, .zone-btn, .qty-btn, .seat-btn {
+  touch-action: manipulation;
+}
+
+/* iOS Safari: Prevent automatic zoom on focus by enforcing >= 16px on mobile/tablets */
+@media (max-width: 834px) {
+  .input-field,
+  .holder-input,
+  input[type="text"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }

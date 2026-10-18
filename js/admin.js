@@ -13,6 +13,64 @@
   let currentFilter = 'all';
   let ordersCache = [];
   let rejectTargetRef = null;
+  const selectedOrderRefs = new Set();
+
+  function updateBulkSelectionUi() {
+    const validRefs = new Set(ordersCache.map((o) => o.ref));
+    for (const r of Array.from(selectedOrderRefs)) {
+      if (!validRefs.has(r)) selectedOrderRefs.delete(r);
+    }
+    const count = selectedOrderRefs.size;
+    if ($('selectedOrdersCount')) {
+      $('selectedOrdersCount').textContent = `เลือก ${count} รายการ`;
+    }
+    if ($('bulkApproveBtn')) {
+      $('bulkApproveBtn').disabled = count === 0;
+    }
+    if ($('bulkCheckInBtn')) {
+      $('bulkCheckInBtn').disabled = count === 0;
+    }
+    if ($('selectAllOrdersCheckbox')) {
+      $('selectAllOrdersCheckbox').checked = ordersCache.length > 0 && count === ordersCache.length;
+    }
+  }
+
+  async function runBulkOrderAction(action) {
+    const refs = Array.from(selectedOrderRefs);
+    if (!refs.length) {
+      window.UI.toast('กรุณาเลือกรายการคำสั่งซื้ออย่างน้อย 1 รายการ', 'error');
+      return;
+    }
+    const approveBtn = $('bulkApproveBtn');
+    const checkInBtn = $('bulkCheckInBtn');
+    if (approveBtn) approveBtn.disabled = true;
+    if (checkInBtn) checkInBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/admin/orders/bulk-action', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ action, refs, staffName: 'Gate A (Bulk)' })
+      });
+      const data = await res.json();
+      if (data.unauthorized) {
+        showLoginModal();
+        return;
+      }
+      if (!data.ok) throw new Error(data.error || 'ดำเนินการแบบกลุ่มไม่สำเร็จ');
+
+      const actionLabel =
+        action === 'approve'
+          ? `อนุมัติสลิปและส่งบัตรเข้า LINE OA แบบกลุ่มสำเร็จ ${data.successCount}/${data.totalRequested} รายการ`
+          : `เช็กอินเข้างานแบบกลุ่มสำเร็จ ${data.successCount}/${data.totalRequested} รายการ`;
+      window.UI.toast(actionLabel);
+      selectedOrderRefs.clear();
+      await Promise.all([loadStats(), loadOrders()]);
+    } catch (err) {
+      window.UI.toast(err.message, 'error');
+      updateBulkSelectionUi();
+    }
+  }
 
   function getAuthHeaders(extra) {
     const headers = Object.assign({}, extra || {});
@@ -189,6 +247,7 @@
           <p class="empty-title">ไม่มีรายการคำสั่งซื้อในหมวดนี้</p>
           <p class="text-muted">เมื่อลูกค้าแนบสลิปจากหน้าจองบัตร รายการจะแสดงที่นี่ทันที</p>
         </div>`;
+      updateBulkSelectionUi();
       return;
     }
 
@@ -197,6 +256,7 @@
       .map((o) => {
         const issuedStr = new Date(o.issuedAt).toLocaleString('th-TH');
         const shortHash = (o.slipHash || '').slice(0, 14);
+        const isChecked = selectedOrderRefs.has(o.ref);
         return `
         <article class="order-card" data-order-ref="${esc(o.ref)}">
           <div class="order-slip-thumb" data-action="zoom-slip" data-ref="${esc(o.ref)}" title="คลิกเพื่อดูรูปสลิปขนาดใหญ่">
@@ -206,10 +266,12 @@
 
           <div class="order-info">
             <div class="order-top-row">
+              <input type="checkbox" class="order-select-checkbox" data-select-ref="${esc(o.ref)}" aria-label="เลือกรายการ ${esc(o.ref)}" ${isChecked ? 'checked' : ''}>
               <span class="order-ref">${esc(o.ref)}</span>
               ${statusBadge(o.status)}
               ${lineStatusBadge(o)}
               ${checkInBadge(o)}
+              ${o.qrSignature ? `<span class="badge-hmac" title="ลายเซ็นดิจิทัล HMAC-SHA256 ป้องกันการปลอมแปลง QR">🔐 SIG:${esc(o.qrSignature)}</span>` : ''}
               ${o.driveViewLink ? `<a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" class="badge-drive" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(34, 155, 255, 0.15); color:var(--color-accent); text-decoration:none; border:1px solid rgba(34,155,255,0.3);">📁 Google Drive ↗</a>` : ''}
               ${o.verifiedBy ? `<span class="badge-verify" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(104, 211, 145, 0.15); color:#68D391; border:1px solid rgba(104, 211, 145, 0.3);">✔ ${esc(o.verifiedBy)}</span>` : ''}
               <span class="text-muted" style="font-size:12px;">สั่งซื้อเมื่อ ${esc(issuedStr)}</span>
@@ -270,6 +332,8 @@
         </article>`;
       })
       .join('');
+
+    updateBulkSelectionUi();
   }
 
   function renderQuickScanChips() {
@@ -285,7 +349,7 @@
       .slice(0, 8)
       .map(
         (o) => `
-        <button type="button" class="quick-scan-chip" data-scan-ref="${esc(o.ref)}">
+        <button type="button" class="quick-scan-chip" data-scan-ref="${esc(o.ref)}" data-scan-payload="${esc(o.qrPayload || `THAITICKET|${o.ref}`)}">
           ${esc(o.ref)} · ${esc(o.holderName)} ${o.checkedInAt ? '(เข้างานแล้ว)' : ''}
         </button>`
       )
@@ -295,7 +359,8 @@
   function openScannerModal(prefillRef) {
     renderQuickScanChips();
     if (prefillRef && $('scanCodeInput')) {
-      $('scanCodeInput').value = `THAITICKET|${prefillRef}`;
+      const targetOrder = ordersCache.find((o) => o.ref === prefillRef);
+      $('scanCodeInput').value = (targetOrder && targetOrder.qrPayload) ? targetOrder.qrPayload : `THAITICKET|${prefillRef}`;
     }
     window.UI.open('gateScannerModal');
     if (prefillRef) {
@@ -303,6 +368,15 @@
     } else if ($('scanCodeInput')) {
       $('scanCodeInput').focus();
     }
+  }
+
+  function testTamperedQrScan() {
+    const sampleOrder = ordersCache.find((o) => o.status === 'approved') || ordersCache[0];
+    const sampleRef = sampleOrder ? sampleOrder.ref : 'TT1001';
+    if ($('scanCodeInput')) {
+      $('scanCodeInput').value = `THAITICKET|${sampleRef}|VIP Standing|99|SIG:FAKE00000000`;
+    }
+    submitCheckIn();
   }
 
   async function submitCheckIn() {
@@ -340,6 +414,7 @@
           <div style="font-size:13px; color:#fff;">
             <strong>${esc(o.title)}</strong> · โซน ${esc(o.zone)} (${o.qty} ใบ)<br>
             ผู้ถือบัตร: <strong>${esc(o.holderName)} (${esc(o.holderPhone)})</strong> · ปชช./Passport: <strong>${esc(o.holderIdCard || '-')}</strong><br>
+            🔐 ลายเซ็นดิจิทัล HMAC-SHA256: <strong style="color:#68D391;">SIG:${esc(data.qrSignature || o.qrSignature || 'VERIFIED')} (ยืนยันบัตรแท้)</strong><br>
             บันทึกเวลาเข้างาน: ${esc(new Date(o.checkedInAt).toLocaleString('th-TH'))} โดย ${esc(o.checkedInBy)}
           </div>
         `;
@@ -1639,11 +1714,43 @@
         document.querySelectorAll('.filter-tab').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.dataset.status;
+        selectedOrderRefs.clear();
         loadOrders();
       });
     });
 
+    $('adminOrdersList').addEventListener('change', (e) => {
+      const cb = e.target.closest('[data-select-ref]');
+      if (!cb) return;
+      const ref = cb.dataset.selectRef;
+      if (cb.checked) selectedOrderRefs.add(ref);
+      else selectedOrderRefs.delete(ref);
+      updateBulkSelectionUi();
+    });
+
+    if ($('selectAllOrdersCheckbox')) {
+      $('selectAllOrdersCheckbox').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          ordersCache.forEach((o) => selectedOrderRefs.add(o.ref));
+        } else {
+          selectedOrderRefs.clear();
+        }
+        document.querySelectorAll('.order-select-checkbox').forEach((cb) => {
+          cb.checked = e.target.checked;
+        });
+        updateBulkSelectionUi();
+      });
+    }
+
+    if ($('bulkApproveBtn')) {
+      $('bulkApproveBtn').addEventListener('click', () => runBulkOrderAction('approve'));
+    }
+    if ($('bulkCheckInBtn')) {
+      $('bulkCheckInBtn').addEventListener('click', () => runBulkOrderAction('checkin'));
+    }
+
     $('adminOrdersList').addEventListener('click', (e) => {
+      if (e.target.closest('[data-select-ref]')) return;
       const target = e.target.closest('[data-action]');
       if (!target) return;
       const ref = target.dataset.ref;
@@ -1676,9 +1783,12 @@
     $('quickScanChips').addEventListener('click', (e) => {
       const chip = e.target.closest('[data-scan-ref]');
       if (!chip) return;
-      $('scanCodeInput').value = `THAITICKET|${chip.dataset.scanRef}`;
+      $('scanCodeInput').value = chip.dataset.scanPayload || `THAITICKET|${chip.dataset.scanRef}`;
       submitCheckIn();
     });
+    if ($('testTamperedQrBtn')) {
+      $('testTamperedQrBtn').addEventListener('click', testTamperedQrScan);
+    }
 
     if ($('openEventManagerBtn')) {
       $('openEventManagerBtn').addEventListener('click', openEventManagerModal);

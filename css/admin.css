@@ -289,18 +289,128 @@
   border-radius: var(--radius-btn);
 }
 
-@media (max-width: 768px) {
+/* ==========================================================================
+   iPhone & iPad Responsive Architecture for Admin Dashboard
+   ========================================================================== */
+
+/* iPad & Tablet (641px - 1024px) */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .order-card {
+    grid-template-columns: 140px 1fr auto;
+    padding: var(--space-16);
+    gap: var(--space-16);
+  }
+}
+
+/* iPhone & Compact Mobile (<= 640px) */
+@media (max-width: 640px) {
+  .admin-header-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-12) 0;
+    gap: var(--space-12);
+  }
+  .admin-header-bar h1 {
+    font-size: 18px;
+    line-height: 1.35;
+  }
+  .admin-header-bar p {
+    font-size: 12px;
+  }
+
+  /* Admin Header Actions on Mobile */
+  .admin-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  .admin-actions .btn-primary,
+  .admin-actions .btn-outline,
+  .admin-actions .btn-default {
+    padding: 7px 11px;
+    font-size: 11px;
+    min-height: 36px;
+  }
+
+  /* 2x2 KPI Grid for Balanced Symmetry on iPhone */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .kpi-card {
+    padding: 12px 14px;
+    gap: 2px;
+  }
+  .kpi-label {
+    font-size: 11px;
+  }
+  .kpi-value {
+    font-size: 20px;
+  }
+
+  /* Filter Tabs with Smooth Horizontal Touch Scroll */
+  .admin-filter-bar {
+    margin-bottom: 12px;
+  }
+  .filter-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    width: 100%;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .filter-tab {
+    white-space: nowrap;
+    padding: 6px 14px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Order Cards Stacked on iPhone */
   .order-card {
     grid-template-columns: 1fr;
+    padding: 14px;
+    gap: 14px;
   }
   .order-slip-thumb {
     width: 100%;
-    height: 200px;
+    height: 180px;
   }
   .order-actions {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .order-actions button,
+  .order-actions a {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  /* Heatmap & Analytics on iPhone */
+  .settlement-signoff-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
+
+/* Extra Compact Screens (iPhone SE / 375px) */
+@media (max-width: 380px) {
+  .order-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 /* Smartphone Mockup Frame for LINE Flex Preview */
 .phone-mockup-wrapper {
@@ -685,4 +795,50 @@
     overflow: visible !important;
   }
 }
+
+/* Bulk Slip Approval & Batch Check-in Actions Bar */
+.bulk-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-btn);
+  padding: 6px 10px;
+}
+
+.bulk-select-all-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.bulk-select-all-label input[type="checkbox"],
+.order-select-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+.badge-hmac {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(34, 155, 255, 0.14);
+  color: var(--color-accent);
+  border: 1px solid rgba(34, 155, 255, 0.35);
+}
+
 
