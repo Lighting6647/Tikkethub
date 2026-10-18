@@ -356,6 +356,201 @@
       .join('');
   }
 
+  // Camera Barcode/QR Scanner Engine with Multi-Camera Selector
+  let activeCameraStream = null;
+  let availableCameraDevices = [];
+  let currentCameraDeviceIndex = 0;
+  let isCameraScanningActive = false;
+  let qrScannerFrameLoop = null;
+  let lastCameraScanCode = '';
+  let lastCameraScanTimestamp = 0;
+
+  async function initCameraDevicesList() {
+    const select = $('cameraDeviceSelect');
+    if (!select) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      select.innerHTML = '<option value="">เบราว์เซอร์ไม่รองรับ MediaDevices API</option>';
+      return;
+    }
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      availableCameraDevices = devices.filter((d) => d.kind === 'videoinput');
+      if (!availableCameraDevices.length) {
+        select.innerHTML = '<option value="">ไม่พบอุปกรณ์กล้องที่เชื่อมต่อ</option>';
+        return;
+      }
+      select.innerHTML = availableCameraDevices
+        .map((dev, idx) => {
+          let label = dev.label || `กล้อง #${idx + 1}`;
+          if (/back|rear|environment/i.test(label)) label = `📷 ${label} (กล้องหลัง)`;
+          else if (/front|user|facetime/i.test(label)) label = `🤳 ${label} (กล้องหน้า)`;
+          else label = `🎥 ${label}`;
+          return `<option value="${dev.deviceId}">${label}</option>`;
+        })
+        .join('');
+    } catch {
+      select.innerHTML = '<option value="">กรุณาอนุญาตการเข้าถึงกล้อง</option>';
+    }
+  }
+
+  async function startCameraScanner(targetDeviceId) {
+    stopCameraScanner();
+    const video = $('scannerVideo');
+    const placeholder = $('cameraOffPlaceholder');
+    const hint = $('scannerStatusHint');
+    const btnToggle = $('btnToggleCameraFeed');
+    if (!video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+    if (placeholder) placeholder.hidden = true;
+    if (btnToggle) btnToggle.textContent = '⏹️ ปิดกล้อง';
+    if (hint) hint.textContent = 'กำลังเชื่อมต่อกล้อง...';
+
+    try {
+      const constraints = {
+        video: targetDeviceId
+          ? { deviceId: { exact: targetDeviceId } }
+          : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      activeCameraStream = stream;
+      video.srcObject = stream;
+      await video.play().catch(() => {});
+
+      // Refresh devices list once permission is granted (to get actual labels)
+      await initCameraDevicesList();
+      const currentTrack = stream.getVideoTracks()[0];
+      if (currentTrack) {
+        const settings = currentTrack.getSettings ? currentTrack.getSettings() : {};
+        if (settings.deviceId && $('cameraDeviceSelect')) {
+          $('cameraDeviceSelect').value = settings.deviceId;
+          const idx = availableCameraDevices.findIndex((d) => d.deviceId === settings.deviceId);
+          if (idx >= 0) currentCameraDeviceIndex = idx;
+        }
+      }
+
+      isCameraScanningActive = true;
+      if (hint) hint.textContent = 'ส่อง QR Code บนบัตรเข้างานให้อยู่ในกรอบ';
+      startQrFrameDetection();
+    } catch (err) {
+      if (placeholder) {
+        placeholder.hidden = false;
+        placeholder.innerHTML = `<span>⚠️ ไม่สามารถเปิดกล้องได้: ${window.UI.escapeHtml(err.message)}<br><small style="color:var(--color-muted);">สามารถพิมพ์รหัสเพื่อเช็กอินได้ตามปกติ</small></span>`;
+      }
+      if (btnToggle) btnToggle.textContent = '▶️ เปิดกล้อง';
+      if (hint) hint.textContent = 'กล้องไม่พร้อมใช้งาน';
+    }
+  }
+
+  function stopCameraScanner() {
+    isCameraScanningActive = false;
+    if (qrScannerFrameLoop) {
+      cancelAnimationFrame(qrScannerFrameLoop);
+      qrScannerFrameLoop = null;
+    }
+    if (activeCameraStream) {
+      activeCameraStream.getTracks().forEach((t) => t.stop());
+      activeCameraStream = null;
+    }
+    const video = $('scannerVideo');
+    if (video) {
+      video.srcObject = null;
+    }
+    const placeholder = $('cameraOffPlaceholder');
+    const btnToggle = $('btnToggleCameraFeed');
+    if (placeholder) placeholder.hidden = false;
+    if (btnToggle) btnToggle.textContent = '▶️ เปิดกล้อง';
+  }
+
+  function toggleCameraFeed() {
+    if (activeCameraStream && isCameraScanningActive) {
+      stopCameraScanner();
+      window.UI.toast('ปิดการใช้งานกล้องแล้ว');
+    } else {
+      const select = $('cameraDeviceSelect');
+      const devId = select ? select.value : '';
+      startCameraScanner(devId);
+      window.UI.toast('เปิดกล้องสแกนบัตรแล้ว');
+    }
+  }
+
+  async function switchCameraDevice() {
+    if (!availableCameraDevices.length) {
+      await initCameraDevicesList();
+    }
+    if (availableCameraDevices.length < 2) {
+      window.UI.toast('มีกล้องเชื่อมต่อเพียงตัวเดียว', 'info');
+      return;
+    }
+    currentCameraDeviceIndex = (currentCameraDeviceIndex + 1) % availableCameraDevices.length;
+    const nextDevice = availableCameraDevices[currentCameraDeviceIndex];
+    if (nextDevice && $('cameraDeviceSelect')) {
+      $('cameraDeviceSelect').value = nextDevice.deviceId;
+      await startCameraScanner(nextDevice.deviceId);
+      window.UI.toast(`สลับไปยัง ${nextDevice.label || 'กล้องตัวถัดไป'}`);
+    }
+  }
+
+  function startQrFrameDetection() {
+    if (!isCameraScanningActive) return;
+    const video = $('scannerVideo');
+    if (!video || video.readyState < 2) {
+      qrScannerFrameLoop = requestAnimationFrame(startQrFrameDetection);
+      return;
+    }
+
+    if ('BarcodeDetector' in window) {
+      try {
+        const detector = new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39'] });
+        detector
+          .detect(video)
+          .then((barcodes) => {
+            if (barcodes && barcodes.length > 0) {
+              const raw = barcodes[0].rawValue;
+              handleDetectedQrCode(raw);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (isCameraScanningActive) {
+              qrScannerFrameLoop = requestAnimationFrame(startQrFrameDetection);
+            }
+          });
+        return;
+      } catch {}
+    }
+
+    // Canvas Frame Sampling fallback loop
+    if (isCameraScanningActive) {
+      qrScannerFrameLoop = requestAnimationFrame(startQrFrameDetection);
+    }
+  }
+
+  function handleDetectedQrCode(code) {
+    if (!code) return;
+    const trimmed = String(code).trim();
+    const now = Date.now();
+    // Debounce 2.5 seconds to prevent double scanning the same QR code in camera view
+    if (trimmed === lastCameraScanCode && now - lastCameraScanTimestamp < 2500) {
+      return;
+    }
+    lastCameraScanCode = trimmed;
+    lastCameraScanTimestamp = now;
+
+    // Viewfinder green glow animation
+    const aimBox = document.querySelector('.scanner-aim-box');
+    if (aimBox) {
+      aimBox.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 20px #68D391';
+      setTimeout(() => {
+        aimBox.style.boxShadow = '';
+      }, 800);
+    }
+
+    if ($('scanCodeInput')) {
+      $('scanCodeInput').value = trimmed;
+    }
+    submitCheckIn();
+  }
+
   function openScannerModal(prefillRef) {
     renderQuickScanChips();
     if (prefillRef && $('scanCodeInput')) {
@@ -365,9 +560,18 @@
     window.UI.open('gateScannerModal');
     if (prefillRef) {
       submitCheckIn();
-    } else if ($('scanCodeInput')) {
-      $('scanCodeInput').focus();
+    } else {
+      if ($('scanCodeInput')) $('scanCodeInput').focus();
+      // Auto-start camera scanner on open
+      initCameraDevicesList().then(() => {
+        startCameraScanner();
+      });
     }
+  }
+
+  function closeScannerModal() {
+    stopCameraScanner();
+    window.UI.close('gateScannerModal');
   }
 
   function testTamperedQrScan() {
@@ -1775,7 +1979,25 @@
     }
 
     $('openScannerBtn').addEventListener('click', () => openScannerModal());
-    $('closeScannerBtn').addEventListener('click', () => window.UI.close('gateScannerModal'));
+    $('closeScannerBtn').addEventListener('click', closeScannerModal);
+    if ($('cameraDeviceSelect')) {
+      $('cameraDeviceSelect').addEventListener('change', (e) => startCameraScanner(e.target.value));
+    }
+    if ($('btnSwitchCamera')) {
+      $('btnSwitchCamera').addEventListener('click', switchCameraDevice);
+    }
+    if ($('btnToggleCameraFeed')) {
+      $('btnToggleCameraFeed').addEventListener('click', toggleCameraFeed);
+    }
+    const scannerModalEl = $('gateScannerModal');
+    if (scannerModalEl) {
+      const observer = new MutationObserver(() => {
+        if (!scannerModalEl.classList.contains('active')) {
+          stopCameraScanner();
+        }
+      });
+      observer.observe(scannerModalEl, { attributes: true, attributeFilter: ['class'] });
+    }
     $('submitScanBtn').addEventListener('click', submitCheckIn);
     $('scanCodeInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submitCheckIn();

@@ -151,9 +151,12 @@ async function run() {
   await adminPage.waitForFunction(() => document.getElementById('kpiPending').textContent === '0');
   await adminPage.screenshot({ path: path.join(SHOTS, 'admin-approved.png') });
 
-  // 7. Test Gate Check-in QR Scanner (First scan = PASS, Second scan = BLOCKED DUPLICATE)
+  // 7. Test Gate Check-in QR Scanner & Camera Device Selector (First scan = PASS, Second scan = BLOCKED DUPLICATE)
   await adminPage.click('button[data-action="scan-ticket"]');
   await adminPage.waitForSelector('#gateScannerModal.active');
+  assert.ok(await adminPage.locator('#cameraDeviceSelect').count(), 'Camera device select rendered');
+  assert.ok(await adminPage.locator('#btnSwitchCamera').count(), 'Switch camera button rendered');
+  assert.ok(await adminPage.locator('#scannerVideo').count(), 'Scanner video element rendered');
   await adminPage.waitForFunction(() => {
     const box = document.getElementById('scanResultBox');
     return box && !box.hidden && box.textContent.includes('เช็กอินสำเร็จ');

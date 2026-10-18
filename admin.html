@@ -260,19 +260,59 @@
     </div>
   </div>
 
-  <!-- Gate Check-in QR Scanner Modal -->
+  <!-- Gate Check-in QR Scanner Modal with Camera Selector -->
   <div class="modal-backdrop" id="gateScannerModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="gateScannerTitle">
-    <div class="modal-box" style="max-width:580px;">
+    <div class="modal-box" style="max-width:620px;">
       <div class="modal-header">
         <h3 id="gateScannerTitle" style="font-weight:700;">📷 จุดสแกนบัตรเข้างาน & ตรวจลายเซ็น HMAC-SHA256</h3>
         <button class="modal-close" id="closeScannerBtn" aria-label="ปิด">&times;</button>
       </div>
       <div class="modal-content">
-        <p class="text-muted">สแกนด้วยเครื่องยิงบาร์โค้ด/QR Code หรือกรอกรหัส <code>THAITICKET|TT...|SIG:...</code> เพื่อตรวจลายเซ็นคริปโตกราฟิก HMAC-SHA256 และตัดสิทธิ์เข้างาน</p>
-        <div class="holder-grid">
+        <!-- Live Camera Viewfinder with Camera Device Selector -->
+        <div class="camera-scanner-card">
+          <div class="camera-select-bar">
+            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+              <label for="cameraDeviceSelect" style="font-size:12px; font-weight:600; white-space:nowrap; color:var(--color-muted);">
+                📷 เลือกกล้อง:
+              </label>
+              <select id="cameraDeviceSelect" class="input-field camera-select-input" aria-label="เลือกกล้องสำหรับสแกนบัตร">
+                <option value="">กำลังค้นหากล้องที่เชื่อมต่อ...</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn-outline" id="btnSwitchCamera" title="สลับกล้องหน้า/หลัง" style="padding:6px 10px; font-size:12px;">
+                🔄 สลับกล้อง
+              </button>
+              <button type="button" class="btn-outline" id="btnToggleCameraFeed" title="เปิด/ปิดกล้อง" style="padding:6px 10px; font-size:12px;">
+                ⏹️ ปิดกล้อง
+              </button>
+            </div>
+          </div>
+
+          <div class="camera-viewfinder-wrap" id="cameraViewfinderWrap">
+            <video id="scannerVideo" autoplay muted playsinline webkit-playsinline></video>
+            <div class="scanner-overlay" id="scannerOverlay">
+              <div class="scanner-aim-box">
+                <div class="aim-corner tl"></div>
+                <div class="aim-corner tr"></div>
+                <div class="aim-corner bl"></div>
+                <div class="aim-corner br"></div>
+                <div class="scanner-laser"></div>
+              </div>
+              <div class="scanner-status-hint" id="scannerStatusHint">
+                ส่อง QR Code บนบัตรเข้างานให้อยู่ในกรอบ
+              </div>
+            </div>
+            <div class="camera-off-placeholder" id="cameraOffPlaceholder" hidden>
+              <span>📷 กล้องปิดอยู่ · สามารถพิมพ์รหัสหรือใช้เครื่องยิงบาร์โค้ดได้</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="holder-grid" style="margin-top:2px;">
           <div>
-            <label class="field-label" for="scanCodeInput">รหัส QR Code (พร้อมลายเซ็น SIG) หรือ รหัสการจอง *</label>
-            <input type="text" id="scanCodeInput" class="input-field holder-input" placeholder="เช่น THAITICKET|TT...|SIG:...">
+            <label class="field-label" for="scanCodeInput">รหัส QR Code (สแกนอัตโนมัติ หรือ กรอกเอง) *</label>
+            <input type="text" id="scanCodeInput" class="input-field holder-input" placeholder="ส่องกล้อง หรือ พิมพ์ THAITICKET|TT...|SIG:...">
           </div>
           <div>
             <label class="field-label" for="scanStaffInput">จุดตรวจ / ชื่อเจ้าหน้าที่</label>
