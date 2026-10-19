@@ -394,6 +394,15 @@ async function run() {
   await adminPage.setViewportSize({ width: 1280, height: 900 });
   await adminPage.screenshot({ path: path.join(SHOTS, 'admin-navbar-fixed.png') });
 
+  // 10. Verify 1-Page User Manual HTML & PDF endpoints
+  assert.ok(await page.locator('#userManualNavLink').count(), 'Customer navbar has User Manual PDF link');
+  assert.ok(await adminPage.locator('#adminManualLink').count(), 'Admin navbar has User Manual PDF link');
+  const manualPdfRes = await fetch(`${BASE_URL}/user-manual.pdf`);
+  assert.equal(manualPdfRes.status, 200, 'user-manual.pdf returns HTTP 200');
+  assert.match(manualPdfRes.headers.get('content-type') || '', /application\/pdf/);
+  const manualPdfBytes = Buffer.from(await manualPdfRes.arrayBuffer());
+  assert.equal(manualPdfBytes.subarray(0, 5).toString('ascii'), '%PDF-', 'Valid PDF binary header');
+
   assert.deepEqual(errors, [], 'zero console errors');
   await browser.close();
   if (serverProcess) {
