@@ -590,6 +590,23 @@ async function handleApi(req, res, url) {
     }
   }
 
+  // Auto-recover / sync orders from browser localStorage ('บัตรของฉัน') to SQLite DB
+  if (method === 'POST' && pathname === '/api/orders/recover') {
+    const body = await readJsonBody(req);
+    const tickets = Array.isArray(body.tickets) ? body.tickets : [];
+    const status = body.status || 'all';
+    const includeSlip = body.includeSlip !== false;
+    const result = db.recoverOrdersFromClient(tickets);
+    const fullOrders = db.listOrders({ status, includeSlipData: includeSlip });
+    const stats = db.getStats();
+    return sendJson(res, 200, {
+      ok: true,
+      recoveredCount: result.recoveredCount,
+      orders: fullOrders,
+      stats
+    });
+  }
+
   // List orders
   if (method === 'GET' && pathname === '/api/orders') {
     const status = url.searchParams.get('status') || 'all';
@@ -610,6 +627,9 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true, message: 'กรุณาเข้าสู่ระบบแอดมิน/สตาฟก่อนสแกนบัตร' });
     }
     const body = await readJsonBody(req);
+    if (Array.isArray(body.tickets) && body.tickets.length) {
+      db.recoverOrdersFromClient(body.tickets);
+    }
     const staffName = body.staffName || 'Gate Staff #1';
     const result = db.checkInOrder(body.code || body.ref || '', staffName);
     db.addAuditLog({
@@ -701,6 +721,9 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true, error: 'กรุณาเข้าสู่ระบบแอดมินก่อนดำเนินการ' });
     }
     const body = await readJsonBody(req);
+    if (Array.isArray(body.tickets) && body.tickets.length) {
+      db.recoverOrdersFromClient(body.tickets);
+    }
     const refs = Array.isArray(body.refs)
       ? body.refs.map((r) => String(r || '').trim().toUpperCase()).filter(Boolean)
       : [];
@@ -738,7 +761,7 @@ async function handleApi(req, res, url) {
           lineLog: lineResult
         });
         successCount += 1;
-        results.push({ ref, ok: true, status: updated.status });
+        results.push({ ref, ok: true, status: updated.status, order: updated });
       } else if (action === 'checkin') {
         if (existing.status !== 'approved') {
           results.push({ ref, ok: false, error: 'ยังไม่อนุมัติสลิป' });
@@ -747,7 +770,7 @@ async function handleApi(req, res, url) {
         const checkRes = db.checkInOrder(existing.qrPayload || existing.ref, staffName);
         if (checkRes.ok) {
           successCount += 1;
-          results.push({ ref, ok: true, checkedInAt: checkRes.order.checkedInAt });
+          results.push({ ref, ok: true, checkedInAt: checkRes.order.checkedInAt, order: checkRes.order });
         } else {
           results.push({ ref, ok: false, error: checkRes.message });
         }
@@ -759,7 +782,7 @@ async function handleApi(req, res, url) {
           lineLog: null
         });
         successCount += 1;
-        results.push({ ref, ok: true, status: updated.status });
+        results.push({ ref, ok: true, status: updated.status, order: updated });
       }
     }
 
@@ -788,6 +811,10 @@ async function handleApi(req, res, url) {
   if (orderMatch) {
     const ref = orderMatch[1];
     const action = orderMatch[2];
+    const body = method === 'POST' ? await readJsonBody(req) : {};
+    if (body && (body.orderSnapshot || Array.isArray(body.tickets))) {
+      db.recoverOrdersFromClient(Array.isArray(body.tickets) ? body.tickets : [body.orderSnapshot]);
+    }
     const existing = db.getOrder(ref);
     if (!existing) {
       return sendJson(res, 404, { error: 'ไม่พบรายการจองนี้ในระบบ' });
@@ -828,7 +855,6 @@ async function handleApi(req, res, url) {
     }
 
     if (method === 'POST' && action === 'reject') {
-      const body = await readJsonBody(req);
       const reason = String(body.reason || 'สลิปไม่ถูกต้องหรือยอดเงินไม่ตรง').trim();
       const updated = db.updateOrderStatus(ref, {
         status: 'rejected',

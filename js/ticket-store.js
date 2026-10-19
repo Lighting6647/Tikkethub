@@ -28,8 +28,10 @@
   function upsert(ticket) {
     const list = readAll();
     const copy = { ...ticket };
-    // Avoid storing large base64 slip image in localStorage
-    delete copy.slipData;
+    // Avoid storing overly large base64 slip image in localStorage (>220KB)
+    if (copy.slipData && copy.slipData.length > 220000) {
+      delete copy.slipData;
+    }
     const idx = list.findIndex((t) => t.ref === copy.ref);
     if (idx > -1) list[idx] = { ...list[idx], ...copy };
     else list.push(copy);
@@ -45,8 +47,27 @@
       const res = await fetch(`/api/orders?refs=${encodeURIComponent(refs)}&includeSlip=false`);
       if (!res.ok) return local;
       const data = await res.json();
-      if (Array.isArray(data.orders)) {
-        data.orders.forEach((srv) => upsert(srv));
+      const srvOrders = Array.isArray(data.orders) ? data.orders : [];
+      srvOrders.forEach((srv) => upsert(srv));
+
+      // Auto-recover any local tickets missing from the server database so Admin always sees them
+      const srvRefSet = new Set(srvOrders.map((o) => String(o.ref).toUpperCase()));
+      const missingOnServer = local.filter((t) => t && t.ref && !srvRefSet.has(String(t.ref).toUpperCase()));
+      if (missingOnServer.length > 0) {
+        const recRes = await fetch('/api/orders/recover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tickets: missingOnServer })
+        });
+        if (recRes.ok) {
+          const recData = await recRes.json();
+          if (Array.isArray(recData.orders)) {
+            const localRefSet = new Set(local.map((l) => String(l.ref).toUpperCase()));
+            recData.orders
+              .filter((srv) => localRefSet.has(String(srv.ref).toUpperCase()))
+              .forEach((srv) => upsert(srv));
+          }
+        }
       }
     } catch {
       /* offline fallback to local data */

@@ -182,3 +182,37 @@ test('Live Gate Throughput Monitor & Gate Staff Role PIN: computes per-gate thro
   assert.equal(monitor.recentScans[0].ref, oVip.ref);
 });
 
+test('Client-to-Server Order Recovery: recovers localStorage tickets missing from SQLite DB', () => {
+  db.clearAllForTest();
+  assert.equal(db.listOrders().length, 0);
+
+  const localTickets = [
+    {
+      ref: 'TTRECOV-001',
+      title: 'ECHOES OF ASIA WORLD TOUR 2026',
+      date: '14 - 15 พ.ย. 2026',
+      venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
+      zone: 'VIP Standing',
+      qty: 2,
+      unitPrice: 6500,
+      total: 13000,
+      holderName: 'ธนภัทร วงศ์สวัสดิ์',
+      holderPhone: '089-123-4567',
+      holderIdCard: '1-1004-12345-67-3',
+      status: 'pending',
+      issuedAt: Date.now()
+    }
+  ];
+
+  const res = db.recoverOrdersFromClient(localTickets);
+  assert.equal(res.recoveredCount, 1);
+  assert.equal(db.listOrders().length, 1);
+
+  const recovered = db.getOrder('TTRECOV-001');
+  assert.ok(recovered);
+  assert.equal(recovered.qty, 2);
+  assert.equal(recovered.holderName, 'ธนภัทร วงศ์สวัสดิ์');
+  assert.ok(recovered.slipData.startsWith('data:image/svg+xml;base64,'));
+});
+
+

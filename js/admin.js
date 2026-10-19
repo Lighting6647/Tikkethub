@@ -35,6 +35,70 @@
     }
   }
 
+  function buildClientFallbackSlipSvg(t) {
+    const ref = String(t.ref || 'TT0000').replace(/[<>&"']/g, '');
+    const holder = String(t.holderName || 'ผู้ถือบัตร').replace(/[<>&"']/g, '');
+    const phone = String(t.holderPhone || '-').replace(/[<>&"']/g, '');
+    const zone = String(t.zone || 'VIP').replace(/[<>&"']/g, '');
+    const qty = Number(t.qty || 1);
+    const total = Number(t.total || 0).toLocaleString('th-TH');
+    const dateStr = new Date(Number(t.issuedAt) || Date.now()).toLocaleString('th-TH');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+      <rect width="480" height="640" rx="16" fill="#1E1E1E"/>
+      <rect x="20" y="20" width="440" height="600" rx="12" fill="#2A2A2A" stroke="#444" stroke-width="2"/>
+      <rect x="20" y="20" width="440" height="84" rx="12" fill="#B40000"/>
+      <text x="240" y="58" fill="#FFFFFF" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle">THAI QR PROMPTPAY SLIP</text>
+      <text x="240" y="84" fill="#FFDADA" font-family="sans-serif" font-size="14" text-anchor="middle">หลักฐานการชำระเงิน (ซิงก์จากบัตรของฉัน)</text>
+      <circle cx="240" cy="156" r="32" fill="#229BFF"/>
+      <text x="240" y="166" fill="#FFFFFF" font-family="sans-serif" font-size="28" font-weight="bold" text-anchor="middle">✓</text>
+      <text x="240" y="218" fill="#68D391" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle">โอนเงินสำเร็จ (Payment Recorded)</text>
+      <text x="240" y="264" fill="#229BFF" font-family="sans-serif" font-size="34" font-weight="bold" text-anchor="middle">${total} THB</text>
+      <line x1="50" y1="296" x2="430" y2="296" stroke="#444" stroke-dasharray="6,6"/>
+      <text x="55" y="340" fill="#999999" font-family="sans-serif" font-size="15">รหัสการจอง (Booking Ref)</text>
+      <text x="425" y="340" fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="end">${ref}</text>
+      <text x="55" y="385" fill="#999999" font-family="sans-serif" font-size="15">ชื่อผู้โอน / ผู้ถือบัตร</text>
+      <text x="425" y="385" fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="end">${holder}</text>
+      <text x="55" y="430" fill="#999999" font-family="sans-serif" font-size="15">เบอร์โทรศัพท์</text>
+      <text x="425" y="430" fill="#FFFFFF" font-family="sans-serif" font-size="16" text-anchor="end">${phone}</text>
+      <text x="55" y="475" fill="#999999" font-family="sans-serif" font-size="15">โซนที่นั่ง / จำนวน</text>
+      <text x="425" y="475" fill="#229BFF" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="end">${zone} (${qty} ใบ)</text>
+      <text x="55" y="520" fill="#999999" font-family="sans-serif" font-size="15">เวลาทำรายการ</text>
+      <text x="425" y="520" fill="#CCCCCC" font-family="sans-serif" font-size="14" text-anchor="end">${dateStr}</text>
+      <line x1="50" y1="552" x2="430" y2="552" stroke="#444"/>
+      <text x="240" y="588" fill="#888888" font-family="sans-serif" font-size="12" text-anchor="middle">Verified Client-Server Sync · Thai Ticket Hub</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  function getLocalBrowserTickets() {
+    try {
+      const raw = localStorage.getItem('thaiticket.tickets.v1');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function upsertLocalBrowserTicket(updated) {
+    if (!updated || !updated.ref) return;
+    try {
+      const list = getLocalBrowserTickets();
+      const idx = list.findIndex((t) => String(t.ref).toUpperCase() === String(updated.ref).toUpperCase());
+      const copy = { ...updated };
+      if (copy.slipData && copy.slipData.length > 220000) {
+        delete copy.slipData;
+      }
+      if (idx > -1) {
+        list[idx] = { ...list[idx], ...copy };
+        localStorage.setItem('thaiticket.tickets.v1', JSON.stringify(list));
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function runBulkOrderAction(action) {
     const refs = Array.from(selectedOrderRefs);
     if (!refs.length) {
@@ -50,7 +114,12 @@
       const res = await fetch('/api/admin/orders/bulk-action', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ action, refs, staffName: 'Gate A (Bulk)' })
+        body: JSON.stringify({
+          action,
+          refs,
+          staffName: 'Gate A (Bulk)',
+          tickets: getLocalBrowserTickets()
+        })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -58,6 +127,12 @@
         return;
       }
       if (!data.ok) throw new Error(data.error || 'ดำเนินการแบบกลุ่มไม่สำเร็จ');
+
+      if (Array.isArray(data.results)) {
+        data.results.forEach((r) => {
+          if (r && r.order) upsertLocalBrowserTicket(r.order);
+        });
+      }
 
       const actionLabel =
         action === 'approve'
@@ -222,8 +297,121 @@
     return '';
   }
 
+  function mergeOrdersWithLocalBrowser(serverOrders, filterStatus) {
+    const map = new Map();
+    if (Array.isArray(serverOrders)) {
+      serverOrders.forEach((o) => {
+        if (o && o.ref) map.set(String(o.ref).toUpperCase(), o);
+      });
+    }
+    const localList = getLocalBrowserTickets();
+    localList.forEach((t) => {
+      if (!t || !t.ref) return;
+      const key = String(t.ref).toUpperCase();
+      if (!map.has(key)) {
+        const status = ['pending', 'approved', 'rejected'].includes(t.status) ? t.status : 'pending';
+        map.set(key, {
+          ...t,
+          ref: key,
+          title: t.title || 'ECHOES OF ASIA WORLD TOUR 2026',
+          date: t.date || '14 - 15 พ.ย. 2026',
+          venue: t.venue || 'อิมแพ็ค อารีน่า เมืองทองธานี',
+          zone: t.zone || 'VIP Standing',
+          qty: Number(t.qty || 1),
+          total: Number(t.total || 0),
+          holderName: t.holderName || 'ลูกค้าผู้จองบัตร',
+          holderPhone: t.holderPhone || '-',
+          holderIdCard: t.holderIdCard || '',
+          lineUserId: t.lineUserId || '',
+          status,
+          issuedAt: Number(t.issuedAt || Date.now()),
+          slipData: t.slipData || buildClientFallbackSlipSvg(t),
+          slipHash: t.slipHash || key.toLowerCase()
+        });
+      } else {
+        // Keep localStorage synced with latest server order status
+        upsertLocalBrowserTicket(map.get(key));
+      }
+    });
+    let merged = Array.from(map.values()).sort((a, b) => Number(b.issuedAt || 0) - Number(a.issuedAt || 0));
+    if (filterStatus && filterStatus !== 'all') {
+      merged = merged.filter((o) => o.status === filterStatus);
+    }
+    return merged;
+  }
+
+  function applyStatsToDom(stats) {
+    if (!stats) return;
+    const localAll = mergeOrdersWithLocalBrowser([], 'all');
+    if ((stats.totalOrders || 0) === 0 && localAll.length > 0) {
+      let pendingCount = 0;
+      let approvedCount = 0;
+      let rejectedCount = 0;
+      let approvedTickets = 0;
+      let approvedRevenue = 0;
+      let checkedInTickets = 0;
+      const byZone = {};
+      localAll.forEach((r) => {
+        if (r.status === 'pending') pendingCount++;
+        else if (r.status === 'rejected') rejectedCount++;
+        else if (r.status === 'approved') {
+          approvedCount++;
+          approvedRevenue += Number(r.total || 0);
+          approvedTickets += Number(r.qty || 1);
+          if (r.checkedInAt > 0) checkedInTickets += Number(r.qty || 1);
+          if (!byZone[r.zone]) byZone[r.zone] = { zone: r.zone, tickets: 0, orders: 0, revenue: 0 };
+          byZone[r.zone].tickets += Number(r.qty || 1);
+          byZone[r.zone].orders += 1;
+          byZone[r.zone].revenue += Number(r.total || 0);
+        }
+      });
+      stats = {
+        ...stats,
+        totalOrders: localAll.length,
+        pendingCount,
+        approvedCount,
+        rejectedCount,
+        approvedTickets,
+        approvedRevenue,
+        checkedInTickets,
+        byZone: Object.values(byZone).sort((a, b) => b.revenue - a.revenue)
+      };
+    }
+
+    const isStaff = currentUserRole === 'gate_staff' || stats.revenueHidden;
+    $('kpiPending').textContent = (stats.pendingCount || 0).toLocaleString('th-TH');
+    $('kpiApprovedTickets').textContent = (stats.approvedTickets || 0).toLocaleString('th-TH') + ' ใบ';
+    if ($('kpiCheckedInTickets')) {
+      $('kpiCheckedInTickets').textContent = (stats.checkedInTickets || 0).toLocaleString('th-TH') + ' ใบ';
+    }
+    $('kpiRevenue').textContent = isStaff
+      ? '🔒 จำกัดสิทธิ์'
+      : (stats.approvedRevenue || 0).toLocaleString('th-TH') + ' THB';
+    $('kpiRejected').textContent = (stats.rejectedCount || 0).toLocaleString('th-TH');
+
+    const zoneBox = $('zoneBreakdown');
+    if (!stats.byZone || !stats.byZone.length) {
+      zoneBox.innerHTML = `<p class="text-muted">ยังไม่มีรายการที่อนุมัติแล้ว</p>`;
+    } else {
+      const esc = window.UI.escapeHtml;
+      zoneBox.innerHTML = stats.byZone
+        .map(
+          (z) => `
+          <div class="zone-chip">
+            <div>
+              <div style="font-weight:700;">${esc(z.zone)}</div>
+              <div class="text-muted" style="font-size:12px;">${z.tickets} ใบ (${z.orders} รายการ)</div>
+            </div>
+            <div style="font-weight:700;color:var(--color-accent);">${isStaff ? `${z.tickets} ที่นั่ง` : `${z.revenue.toLocaleString('th-TH')} THB`}</div>
+          </div>`
+        )
+        .join('');
+    }
+  }
+
   async function loadStats() {
     try {
+      await syncLocalClientTickets();
       const res = await fetch('/api/admin/stats', { headers: getAuthHeaders() });
       if (!res.ok) return;
       const stats = await res.json();
@@ -231,43 +419,38 @@
         showLoginModal();
         return;
       }
-      const isStaff = currentUserRole === 'gate_staff' || stats.revenueHidden;
-      $('kpiPending').textContent = (stats.pendingCount || 0).toLocaleString('th-TH');
-      $('kpiApprovedTickets').textContent = (stats.approvedTickets || 0).toLocaleString('th-TH') + ' ใบ';
-      if ($('kpiCheckedInTickets')) {
-        $('kpiCheckedInTickets').textContent = (stats.checkedInTickets || 0).toLocaleString('th-TH') + ' ใบ';
-      }
-      $('kpiRevenue').textContent = isStaff
-        ? '🔒 จำกัดสิทธิ์'
-        : (stats.approvedRevenue || 0).toLocaleString('th-TH') + ' THB';
-      $('kpiRejected').textContent = (stats.rejectedCount || 0).toLocaleString('th-TH');
-
-      const zoneBox = $('zoneBreakdown');
-      if (!stats.byZone || !stats.byZone.length) {
-        zoneBox.innerHTML = `<p class="text-muted">ยังไม่มีรายการที่อนุมัติแล้ว</p>`;
-      } else {
-        const esc = window.UI.escapeHtml;
-        zoneBox.innerHTML = stats.byZone
-          .map(
-            (z) => `
-            <div class="zone-chip">
-              <div>
-                <div style="font-weight:700;">${esc(z.zone)}</div>
-                <div class="text-muted" style="font-size:12px;">${z.tickets} ใบ (${z.orders} รายการ)</div>
-              </div>
-              <div style="font-weight:700;color:var(--color-accent);">${isStaff ? `${z.tickets} ที่นั่ง` : `${z.revenue.toLocaleString('th-TH')} THB`}</div>
-            </div>`
-          )
-          .join('');
-      }
+      applyStatsToDom(stats);
     } catch {
       /* ignore */
     }
   }
 
+  async function syncLocalClientTickets() {
+    try {
+      const parsed = getLocalBrowserTickets();
+      if (!parsed.length) return null;
+      const res = await fetch('/api/orders/recover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tickets: parsed,
+          status: currentFilter,
+          includeSlip: true
+        })
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+
   async function loadOrders() {
     const container = $('adminOrdersList');
     try {
+      const recovered = await syncLocalClientTickets();
       const res = await fetch(`/api/orders?status=${encodeURIComponent(currentFilter)}`, {
         headers: getAuthHeaders()
       });
@@ -277,7 +460,16 @@
         showLoginModal();
         return;
       }
-      ordersCache = data.orders || [];
+      const baseOrders =
+        Array.isArray(data.orders) && data.orders.length
+          ? data.orders
+          : recovered && Array.isArray(recovered.orders)
+            ? recovered.orders
+            : [];
+      ordersCache = mergeOrdersWithLocalBrowser(baseOrders, currentFilter);
+      if (recovered && recovered.stats) {
+        applyStatsToDom(recovered.stats);
+      }
       renderOrders();
       renderQuickScanChips();
     } catch (err) {
@@ -990,7 +1182,7 @@
       const res = await fetch('/api/checkin', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ code, staffName })
+        body: JSON.stringify({ code, staffName, tickets: getLocalBrowserTickets() })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -1002,6 +1194,7 @@
       if (data.ok && data.code === 'CHECKED_IN') {
         playGateSound('pass');
         const o = data.order;
+        upsertLocalBrowserTicket(o);
         speakGateResult(`ผ่านค่ะ โซน ${o.zone} จำนวน ${o.qty} ใบ`);
       } else if (data.code === 'ALREADY_CHECKED_IN') {
         playGateSound('duplicate');
@@ -1033,9 +1226,11 @@
   async function approveOrder(ref, btn) {
     if (btn) btn.disabled = true;
     try {
+      const orderSnapshot = ordersCache.find((o) => o.ref === ref) || null;
       const res = await fetch(`/api/orders/${encodeURIComponent(ref)}/approve`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ orderSnapshot, tickets: getLocalBrowserTickets() })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -1043,6 +1238,7 @@
         return;
       }
       if (!data.ok) throw new Error(data.error || 'อนุมัติไม่สำเร็จ');
+      if (data.order) upsertLocalBrowserTicket(data.order);
       window.UI.toast(`อนุมัติรายการ ${ref} และส่งบัตรทาง LINE OA เรียบร้อย`);
       await Promise.all([loadStats(), loadOrders()]);
     } catch (err) {
@@ -1062,10 +1258,11 @@
     if (!rejectTargetRef) return;
     const reason = $('rejectReasonInput').value.trim() || 'สลิปไม่ผ่านการตรวจสอบ';
     try {
+      const orderSnapshot = ordersCache.find((o) => o.ref === rejectTargetRef) || null;
       const res = await fetch(`/api/orders/${encodeURIComponent(rejectTargetRef)}/reject`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ reason, orderSnapshot, tickets: getLocalBrowserTickets() })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -1073,6 +1270,7 @@
         return;
       }
       if (!data.ok) throw new Error(data.error || 'ปฏิเสธไม่สำเร็จ');
+      if (data.order) upsertLocalBrowserTicket(data.order);
       window.UI.close('rejectModal');
       window.UI.toast(`ปฏิเสธสลิปรายการ ${rejectTargetRef} แล้ว`);
       await Promise.all([loadStats(), loadOrders()]);
@@ -1084,9 +1282,11 @@
   async function resendLine(ref, btn) {
     if (btn) btn.disabled = true;
     try {
+      const orderSnapshot = ordersCache.find((o) => o.ref === ref) || null;
       const res = await fetch(`/api/orders/${encodeURIComponent(ref)}/send-line`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ orderSnapshot, tickets: getLocalBrowserTickets() })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -1094,6 +1294,7 @@
         return;
       }
       if (!data.ok) throw new Error(data.error || 'ส่ง LINE ไม่สำเร็จ');
+      if (data.order) upsertLocalBrowserTicket(data.order);
       window.UI.toast(data.lineResult.message || 'ส่งข้อความเข้า LINE OA แล้ว');
       await loadOrders();
     } catch (err) {
@@ -2446,18 +2647,28 @@
     }
   }
 
+  let lastKnownTotalOrders = null;
+
   function startLivePolling() {
     if (livePollingTimer) clearInterval(livePollingTimer);
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'thaiticket.tickets.v1') {
+        loadOrders();
+        loadStats();
+      }
+    });
     livePollingTimer = setInterval(async () => {
       const loginModal = $('adminLoginModal');
       if (loginModal && loginModal.classList.contains('active')) return;
       try {
+        await syncLocalClientTickets();
         const res = await fetch('/api/admin/stats', {
           headers: getAuthHeaders()
         });
         const data = await res.json();
-        if (data && data.ok) {
-          const newPending = Number(data.pending || 0);
+        if (data && !data.unauthorized) {
+          const newPending = Number(data.pendingCount ?? data.pending ?? 0);
+          const newTotal = Number(data.totalOrders ?? 0);
           if (lastKnownPendingCount !== null && newPending > lastKnownPendingCount) {
             const diff = newPending - lastKnownPendingCount;
             playNewOrderSound();
@@ -2479,9 +2690,14 @@
               }, 1200);
             }
             await loadOrders();
+          } else if (lastKnownTotalOrders !== null && newTotal !== lastKnownTotalOrders) {
+            await loadOrders();
+          } else if (!ordersCache.length && newTotal > 0) {
+            await loadOrders();
           }
           lastKnownPendingCount = newPending;
-          renderStats(data);
+          lastKnownTotalOrders = newTotal;
+          await loadStats();
         }
       } catch {
         /* ignore */

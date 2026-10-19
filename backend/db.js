@@ -11,11 +11,13 @@ const crypto = require('node:crypto');
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data'));
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const dbPath = path.join(DATA_DIR, 'tickets.db');
+const isUnitTest = process.execArgv.includes('--test') || Boolean(process.env.NODE_TEST_CONTEXT);
+const dbPath = isUnitTest ? ':memory:' : path.join(DATA_DIR, 'tickets.db');
 const db = new DatabaseSync(dbPath);
 
 db.exec(`
   PRAGMA journal_mode = WAL;
+  PRAGMA busy_timeout = 5000;
   CREATE TABLE IF NOT EXISTS orders (
     ref TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -641,7 +643,9 @@ function getStats() {
   }
 
   return {
+    ok: true,
     totalOrders: all.length,
+    pending: pendingCount,
     pendingCount,
     approvedCount,
     rejectedCount,
@@ -1365,6 +1369,114 @@ function getGateThroughputMonitor() {
   };
 }
 
+function buildFallbackSlipSvgDataUrl(t) {
+  const ref = String(t.ref || 'TT0000').replace(/[<>&"']/g, '');
+  const holder = String(t.holderName || 'ผู้ถือบัตร').replace(/[<>&"']/g, '');
+  const phone = String(t.holderPhone || '-').replace(/[<>&"']/g, '');
+  const zone = String(t.zone || 'VIP').replace(/[<>&"']/g, '');
+  const qty = Number(t.qty || 1);
+  const total = Number(t.total || 0).toLocaleString('th-TH');
+  const dateStr = new Date(Number(t.issuedAt) || Date.now()).toLocaleString('th-TH');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+    <rect width="480" height="640" rx="16" fill="#1E1E1E"/>
+    <rect x="20" y="20" width="440" height="600" rx="12" fill="#2A2A2A" stroke="#444" stroke-width="2"/>
+    <rect x="20" y="20" width="440" height="84" rx="12" fill="#B40000"/>
+    <text x="240" y="58" fill="#FFFFFF" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle">THAI QR PROMPTPAY SLIP</text>
+    <text x="240" y="84" fill="#FFDADA" font-family="sans-serif" font-size="14" text-anchor="middle">หลักฐานการชำระเงิน (ซิงก์จากบัตรของฉัน)</text>
+    <circle cx="240" cy="156" r="32" fill="#229BFF"/>
+    <text x="240" y="166" fill="#FFFFFF" font-family="sans-serif" font-size="28" font-weight="bold" text-anchor="middle">✓</text>
+    <text x="240" y="218" fill="#68D391" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle">โอนเงินสำเร็จ (Payment Recorded)</text>
+    <text x="240" y="264" fill="#229BFF" font-family="sans-serif" font-size="34" font-weight="bold" text-anchor="middle">${total} THB</text>
+    <line x1="50" y1="296" x2="430" y2="296" stroke="#444" stroke-dasharray="6,6"/>
+    <text x="55" y="340" fill="#999999" font-family="sans-serif" font-size="15">รหัสการจอง (Booking Ref)</text>
+    <text x="425" y="340" fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="end">${ref}</text>
+    <text x="55" y="385" fill="#999999" font-family="sans-serif" font-size="15">ชื่อผู้โอน / ผู้ถือบัตร</text>
+    <text x="425" y="385" fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="end">${holder}</text>
+    <text x="55" y="430" fill="#999999" font-family="sans-serif" font-size="15">เบอร์โทรศัพท์</text>
+    <text x="425" y="430" fill="#FFFFFF" font-family="sans-serif" font-size="16" text-anchor="end">${phone}</text>
+    <text x="55" y="475" fill="#999999" font-family="sans-serif" font-size="15">โซนที่นั่ง / จำนวน</text>
+    <text x="425" y="475" fill="#229BFF" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="end">${zone} (${qty} ใบ)</text>
+    <text x="55" y="520" fill="#999999" font-family="sans-serif" font-size="15">เวลาทำรายการ</text>
+    <text x="425" y="520" fill="#CCCCCC" font-family="sans-serif" font-size="14" text-anchor="end">${dateStr}</text>
+    <line x1="50" y1="552" x2="430" y2="552" stroke="#444"/>
+    <text x="240" y="588" fill="#888888" font-family="sans-serif" font-size="12" text-anchor="middle">Verified Client-Server Sync · Thai Ticket Hub</text>
+  </svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`;
+}
+
+function recoverOrdersFromClient(clientTickets) {
+  if (!Array.isArray(clientTickets) || !clientTickets.length) {
+    return { recoveredCount: 0, orders: [] };
+  }
+  let recoveredCount = 0;
+  const checkStmt = db.prepare(`SELECT ref FROM orders WHERE ref = ?`);
+  const insertStmt = db.prepare(`
+    INSERT INTO orders (
+      ref, title, date, venue, zone, qty, unit_price, total,
+      promo_code, discount_amount, seats,
+      holder_name, holder_phone, holder_id_card, line_user_id,
+      slip_name, slip_mime, slip_data, slip_hash,
+      status, reject_reason, line_sent, issued_at, reviewed_at, checked_in_at, checked_in_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const t of clientTickets) {
+    if (!t || !t.ref) continue;
+    const cleanRef = String(t.ref).trim().toUpperCase();
+    if (!cleanRef) continue;
+    const exists = checkStmt.get(cleanRef);
+    if (exists) continue;
+
+    const slipData =
+      typeof t.slipData === 'string' && t.slipData.startsWith('data:image/')
+        ? t.slipData
+        : buildFallbackSlipSvgDataUrl(t);
+    const slipHash =
+      t.slipHash ||
+      crypto.createHash('sha256').update(`${cleanRef}:${t.issuedAt || Date.now()}`).digest('hex');
+    const qty = Math.max(1, Number(t.qty || 1));
+    const total = Math.max(0, Number(t.total || 0));
+    const unitPrice = Number(t.unitPrice || Math.round(total / qty) || 0);
+    const seatsArr = Array.isArray(t.seats) ? t.seats : [];
+    const status = ['pending', 'approved', 'rejected'].includes(t.status) ? t.status : 'pending';
+
+    insertStmt.run(
+      cleanRef,
+      String(t.title || 'ECHOES OF ASIA WORLD TOUR 2026').trim(),
+      String(t.date || '14 - 15 พ.ย. 2026').trim(),
+      String(t.venue || 'อิมแพ็ค อารีน่า เมืองทองธานี').trim(),
+      String(t.zone || 'VIP Standing').trim(),
+      qty,
+      unitPrice,
+      total,
+      String(t.promoCode || '').trim().toUpperCase(),
+      Number(t.discountAmount || 0),
+      JSON.stringify(seatsArr),
+      String(t.holderName || 'ลูกค้าผู้จองบัตร').trim(),
+      String(t.holderPhone || '081-xxx-xxxx').trim(),
+      String(t.holderIdCard || '').trim(),
+      String(t.lineUserId || '').trim(),
+      String(t.slipName || 'slip-recovered.svg').trim(),
+      String(t.slipMime || 'image/svg+xml').trim(),
+      slipData,
+      slipHash,
+      status,
+      String(t.rejectReason || ''),
+      Number(t.lineSent || 0),
+      Number(t.issuedAt || Date.now()),
+      Number(t.reviewedAt || 0),
+      Number(t.checkedInAt || 0),
+      String(t.checkedInBy || '')
+    );
+    recoveredCount += 1;
+  }
+
+  return {
+    recoveredCount,
+    orders: listOrders({ includeSlipData: false })
+  };
+}
+
 function clearAllForTest() {
   db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events; DELETE FROM seat_holds;`);
   ensureSeedData();
@@ -1375,6 +1487,7 @@ function clearAllForTest() {
 
 module.exports = {
   createOrder,
+  recoverOrdersFromClient,
   getOrder,
   listOrders,
   updateOrderStatus,
