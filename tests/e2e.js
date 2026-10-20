@@ -313,7 +313,7 @@ async function run() {
   await page.locator('#payQrBox').screenshot({ path: path.join(SHOTS, 'promptpay-updated.png') });
   await page.click('#payCancelBtn');
 
-  // 8.5 Test Event & Zone Quota Manager + 1-Click Database Backup in Admin
+  // 8.5 Test Event & Zone Quota Manager (Edit + Add + Delete button) + 1-Click Database Backup in Admin
   await adminPage.click('#openEventManagerBtn');
   await adminPage.waitForSelector('#eventManagerModal.active');
   await adminPage.waitForFunction(() => {
@@ -321,11 +321,27 @@ async function run() {
     return el && el.textContent.includes('ECHOES OF ASIA');
   });
   await adminPage.click('[data-edit-event-id="1"]');
+  assert.equal(await adminPage.locator('#deleteEventBtn').isHidden(), false, 'Delete event button visible when editing');
   await adminPage.fill('#evQuotaVip', '75');
   await adminPage.click('#saveEventBtn');
   await adminPage.waitForFunction(() => {
     const el = document.getElementById('adminEventsList');
     return el && el.textContent.includes('/75');
+  });
+  // Create a temporary event and test the Delete button
+  await adminPage.fill('#evTitleInput', 'TEMP DELETE TEST CONCERT');
+  await adminPage.fill('#evVenueInput', 'Impact Challenger');
+  await adminPage.fill('#evDateInput', '31 ธ.ค. 2026');
+  await adminPage.click('#saveEventBtn');
+  await adminPage.waitForFunction(() => {
+    const el = document.getElementById('adminEventsList');
+    return el && el.textContent.includes('TEMP DELETE TEST CONCERT');
+  });
+  const tempDelBtn = adminPage.locator('#adminEventsList [data-delete-event-id]').last();
+  await tempDelBtn.click();
+  await adminPage.waitForFunction(() => {
+    const el = document.getElementById('adminEventsList');
+    return el && !el.textContent.includes('TEMP DELETE TEST CONCERT');
   });
   await adminPage.locator('#eventManagerModal .modal-box').screenshot({ path: path.join(SHOTS, 'event-manager.png') });
   await adminPage.click('#closeEventManagerBtn');

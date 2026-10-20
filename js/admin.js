@@ -30,6 +30,9 @@
     if ($('bulkCheckInBtn')) {
       $('bulkCheckInBtn').disabled = count === 0;
     }
+    if ($('bulkDeleteBtn')) {
+      $('bulkDeleteBtn').disabled = count === 0;
+    }
     if ($('selectAllOrdersCheckbox')) {
       $('selectAllOrdersCheckbox').checked = ordersCache.length > 0 && count === ordersCache.length;
     }
@@ -70,14 +73,49 @@
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
+  function getDeletedOrderRefs() {
+    try {
+      const raw = localStorage.getItem('thaiticket.deletedOrderRefs.v1');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
   function getLocalBrowserTickets() {
     try {
       const raw = localStorage.getItem('thaiticket.tickets.v1');
       if (!raw) return [];
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      const deletedSet = new Set(getDeletedOrderRefs().map((r) => String(r).toUpperCase()));
+      return Array.isArray(parsed)
+        ? parsed.filter((t) => t && t.ref && !deletedSet.has(String(t.ref).toUpperCase()))
+        : [];
     } catch {
       return [];
+    }
+  }
+
+  function removeLocalBrowserTickets(refsToRemove) {
+    if (!Array.isArray(refsToRemove) || !refsToRemove.length) return;
+    const removeSet = new Set(refsToRemove.map((r) => String(r || '').trim().toUpperCase()).filter(Boolean));
+    try {
+      const deleted = new Set(getDeletedOrderRefs().map((r) => String(r).toUpperCase()));
+      removeSet.forEach((r) => deleted.add(r));
+      localStorage.setItem('thaiticket.deletedOrderRefs.v1', JSON.stringify(Array.from(deleted)));
+    } catch {
+      /* ignore */
+    }
+    try {
+      const raw = localStorage.getItem('thaiticket.tickets.v1');
+      if (!raw) return;
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) return;
+      const filtered = list.filter((t) => !t || !t.ref || !removeSet.has(String(t.ref).toUpperCase()));
+      localStorage.setItem('thaiticket.tickets.v1', JSON.stringify(filtered));
+    } catch {
+      /* ignore */
     }
   }
 
@@ -107,8 +145,10 @@
     }
     const approveBtn = $('bulkApproveBtn');
     const checkInBtn = $('bulkCheckInBtn');
+    const deleteBtn = $('bulkDeleteBtn');
     if (approveBtn) approveBtn.disabled = true;
     if (checkInBtn) checkInBtn.disabled = true;
+    if (deleteBtn) deleteBtn.disabled = true;
 
     try {
       const res = await fetch('/api/admin/orders/bulk-action', {
@@ -118,7 +158,7 @@
           action,
           refs,
           staffName: 'Gate A (Bulk)',
-          tickets: getLocalBrowserTickets()
+          tickets: action === 'delete' ? [] : getLocalBrowserTickets()
         })
       });
       const data = await res.json();
@@ -128,7 +168,9 @@
       }
       if (!data.ok) throw new Error(data.error || 'ดำเนินการแบบกลุ่มไม่สำเร็จ');
 
-      if (Array.isArray(data.results)) {
+      if (action === 'delete') {
+        removeLocalBrowserTickets(refs);
+      } else if (Array.isArray(data.results)) {
         data.results.forEach((r) => {
           if (r && r.order) upsertLocalBrowserTicket(r.order);
         });
@@ -137,7 +179,9 @@
       const actionLabel =
         action === 'approve'
           ? `อนุมัติสลิปและส่งบัตรเข้า LINE OA แบบกลุ่มสำเร็จ ${data.successCount}/${data.totalRequested} รายการ`
-          : `เช็กอินเข้างานแบบกลุ่มสำเร็จ ${data.successCount}/${data.totalRequested} รายการ`;
+          : action === 'delete'
+            ? `ลบคำสั่งซื้อที่เลือกสำเร็จ ${data.successCount}/${data.totalRequested} รายการ`
+            : `เช็กอินเข้างานแบบกลุ่มสำเร็จ ${data.successCount}/${data.totalRequested} รายการ`;
       window.UI.toast(actionLabel);
       selectedOrderRefs.clear();
       await Promise.all([loadStats(), loadOrders()]);
@@ -298,16 +342,20 @@
   }
 
   function mergeOrdersWithLocalBrowser(serverOrders, filterStatus) {
+    const deletedSet = new Set(getDeletedOrderRefs().map((r) => String(r).toUpperCase()));
     const map = new Map();
     if (Array.isArray(serverOrders)) {
       serverOrders.forEach((o) => {
-        if (o && o.ref) map.set(String(o.ref).toUpperCase(), o);
+        if (o && o.ref && !deletedSet.has(String(o.ref).toUpperCase())) {
+          map.set(String(o.ref).toUpperCase(), o);
+        }
       });
     }
     const localList = getLocalBrowserTickets();
     localList.forEach((t) => {
       if (!t || !t.ref) return;
       const key = String(t.ref).toUpperCase();
+      if (deletedSet.has(key)) return;
       if (!map.has(key)) {
         const status = ['pending', 'approved', 'rejected'].includes(t.status) ? t.status : 'pending';
         map.set(key, {
@@ -564,15 +612,18 @@
                   ? `
                 <button class="btn-primary" data-action="approve" data-ref="${esc(o.ref)}">อนุมัติ & ส่งบัตร LINE</button>
                 <button class="btn-outline" data-action="reject" data-ref="${esc(o.ref)}">ปฏิเสธสลิป</button>
+                <button class="btn-outline" data-action="delete" data-ref="${esc(o.ref)}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบรายการ</button>
               `
                   : o.status === 'approved'
                     ? `
                 <button class="btn-primary" data-action="scan-ticket" data-ref="${esc(o.ref)}">${o.checkedInAt ? 'ตรวจสถานะเข้างาน' : 'สแกนเช็กอินเข้างาน'}</button>
                 <button class="btn-default" data-action="preview-line" data-ref="${esc(o.ref)}">ดูข้อความ LINE OA</button>
                 <button class="btn-outline" data-action="resend-line" data-ref="${esc(o.ref)}">ส่งเข้า LINE ซ้ำ</button>
+                <button class="btn-outline" data-action="delete" data-ref="${esc(o.ref)}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบรายการ</button>
               `
                     : `
                 <button class="btn-primary" data-action="approve" data-ref="${esc(o.ref)}">อนุมัติใหม่อีกครั้ง</button>
+                <button class="btn-outline" data-action="delete" data-ref="${esc(o.ref)}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบรายการ</button>
               `
             }
           </div>
@@ -1300,6 +1351,32 @@
     } catch (err) {
       window.UI.toast(err.message, 'error');
     } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function deleteOrder(ref, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(ref)}/delete`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ ref })
+      });
+      const data = await res.json();
+      if (data.unauthorized) {
+        showLoginModal();
+        return;
+      }
+      if (!data.ok) throw new Error(data.error || 'ลบรายการไม่สำเร็จ');
+      removeLocalBrowserTickets([ref]);
+      selectedOrderRefs.delete(ref);
+      ordersCache = ordersCache.filter((o) => o.ref !== ref);
+      renderOrders();
+      window.UI.toast(`ลบคำสั่งซื้อ ${ref} ออกจากระบบเรียบร้อยแล้ว`);
+      await Promise.all([loadStats(), loadOrders()]);
+    } catch (err) {
+      window.UI.toast(err.message, 'error');
       if (btn) btn.disabled = false;
     }
   }
@@ -2422,6 +2499,44 @@
 
   let adminEventsCache = [];
 
+  function getDeletedEventIds() {
+    try {
+      const raw = localStorage.getItem('thaiticket.deletedEventIds.v1');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(Number).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function markDeletedEventId(id) {
+    const numId = Number(id);
+    if (!numId) return;
+    try {
+      const set = new Set(getDeletedEventIds());
+      set.add(numId);
+      localStorage.setItem('thaiticket.deletedEventIds.v1', JSON.stringify(Array.from(set)));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function unmarkDeletedEventId(id) {
+    const numId = Number(id);
+    if (!numId) return;
+    try {
+      const filtered = getDeletedEventIds().filter((x) => x !== numId);
+      localStorage.setItem('thaiticket.deletedEventIds.v1', JSON.stringify(filtered));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function filterDeletedEvents(events) {
+    const deletedSet = new Set(getDeletedEventIds());
+    return (Array.isArray(events) ? events : []).filter((ev) => ev && !deletedSet.has(Number(ev.id)));
+  }
+
   function resetEventForm() {
     $('evIdInput').value = '';
     $('evTitleInput').value = '';
@@ -2433,6 +2548,7 @@
     $('evQuotaB').value = '120';
     $('evQuotaC').value = '150';
     $('evFormModeTitle').textContent = '+ เพิ่มคอนเสิร์ตใหม่ / แก้ไขโควตาที่นั่ง';
+    if ($('deleteEventBtn')) $('deleteEventBtn').hidden = true;
   }
 
   function renderAdminEvents() {
@@ -2446,15 +2562,18 @@
     box.innerHTML = adminEventsCache
       .map(
         (ev) => `
-        <div class="zone-chip" style="cursor:pointer;" data-edit-event-id="${ev.id}">
-          <div>
+        <div class="zone-chip" style="cursor:pointer; gap:10px;" data-edit-event-id="${ev.id}">
+          <div style="flex:1;">
             <div style="font-weight:700; color:#fff;">${esc(ev.title)}</div>
             <div class="text-muted" style="font-size:12px;">${esc(ev.date)} · ${esc(ev.venue)}</div>
             <div style="font-size:11px; color:var(--color-accent); margin-top:2px;">
               คงเหลือรวม ${ev.remainingTotal}/${ev.totalQuota} ที่นั่ง (VIP:${ev.remainingVip}/${ev.quotaVip} · A:${ev.remainingA}/${ev.quotaA} · B:${ev.remainingB}/${ev.quotaB} · C:${ev.remainingC}/${ev.quotaC})
             </div>
           </div>
-          <span class="btn-outline btn-sm">แก้ไขโควตา</span>
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            <button type="button" class="btn-outline btn-sm" data-edit-event-btn="${ev.id}">แก้ไขโควตา</button>
+            <button type="button" class="btn-outline btn-sm" data-delete-event-id="${ev.id}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบ</button>
+          </div>
         </div>`
       )
       .join('');
@@ -2467,7 +2586,7 @@
       const res = await fetch('/api/events', { cache: 'no-store' });
       const data = await res.json();
       if (data && data.ok) {
-        adminEventsCache = data.events || [];
+        adminEventsCache = filterDeletedEvents(data.events || []);
         renderAdminEvents();
       }
     } catch {
@@ -2505,7 +2624,13 @@
         return;
       }
       if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
-      adminEventsCache = data.events || [];
+      if (id) unmarkDeletedEventId(id);
+      adminEventsCache = filterDeletedEvents(data.events || []);
+      try {
+        localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(adminEventsCache));
+      } catch {
+        /* ignore */
+      }
       renderAdminEvents();
       resetEventForm();
       window.UI.toast('บันทึกข้อมูลคอนเสิร์ตและโควตาที่นั่งเรียบร้อยแล้ว');
@@ -2513,6 +2638,48 @@
       window.UI.toast(err.message, 'error');
     } finally {
       $('saveEventBtn').disabled = false;
+    }
+  }
+
+  async function deleteAdminEvent(targetId) {
+    const id = Number(targetId || ($('evIdInput') && $('evIdInput').value));
+    if (!id) {
+      window.UI.toast('กรุณาเลือกคอนเสิร์ตที่ต้องการลบ', 'error');
+      return;
+    }
+    const targetEv = adminEventsCache.find((x) => Number(x.id) === id);
+    const titleLabel = targetEv ? targetEv.title : `#${id}`;
+    if ($('deleteEventBtn')) $('deleteEventBtn').disabled = true;
+
+    try {
+      const res = await fetch('/api/admin/events/delete', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.unauthorized) {
+        window.UI.close('eventManagerModal');
+        showLoginModal();
+        return;
+      }
+      if (!data.ok) throw new Error(data.error || 'ลบคอนเสิร์ตไม่สำเร็จ');
+      markDeletedEventId(id);
+      adminEventsCache = filterDeletedEvents(data.events || adminEventsCache.filter((x) => Number(x.id) !== id));
+      try {
+        localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(adminEventsCache));
+      } catch {
+        /* ignore */
+      }
+      renderAdminEvents();
+      if (Number($('evIdInput').value) === id) {
+        resetEventForm();
+      }
+      window.UI.toast(`ลบคอนเสิร์ต "${titleLabel}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      window.UI.toast(err.message, 'error');
+    } finally {
+      if ($('deleteEventBtn')) $('deleteEventBtn').disabled = false;
     }
   }
 
@@ -2745,6 +2912,9 @@
     if ($('bulkCheckInBtn')) {
       $('bulkCheckInBtn').addEventListener('click', () => runBulkOrderAction('checkin'));
     }
+    if ($('bulkDeleteBtn')) {
+      $('bulkDeleteBtn').addEventListener('click', () => runBulkOrderAction('delete'));
+    }
 
     $('adminOrdersList').addEventListener('click', (e) => {
       if (e.target.closest('[data-select-ref]')) return;
@@ -2757,6 +2927,7 @@
 
       if (action === 'approve') approveOrder(ref, target);
       else if (action === 'reject') openRejectModal(ref);
+      else if (action === 'delete') deleteOrder(ref, target);
       else if (action === 'zoom-slip') openSlipZoom(order);
       else if (action === 'preview-line') openLinePreview(order);
       else if (action === 'resend-line') resendLine(ref, target);
@@ -2870,8 +3041,17 @@
     if ($('saveEventBtn')) {
       $('saveEventBtn').addEventListener('click', saveAdminEvent);
     }
+    if ($('deleteEventBtn')) {
+      $('deleteEventBtn').addEventListener('click', () => deleteAdminEvent());
+    }
     if ($('adminEventsList')) {
       $('adminEventsList').addEventListener('click', (e) => {
+        const delBtn = e.target.closest('[data-delete-event-id]');
+        if (delBtn) {
+          e.stopPropagation();
+          deleteAdminEvent(Number(delBtn.dataset.deleteEventId));
+          return;
+        }
         const card = e.target.closest('[data-edit-event-id]');
         if (!card) return;
         const ev = adminEventsCache.find((x) => x.id === Number(card.dataset.editEventId));
@@ -2886,6 +3066,7 @@
         $('evQuotaB').value = String(ev.quotaB);
         $('evQuotaC').value = String(ev.quotaC);
         $('evFormModeTitle').textContent = `กำลังแก้ไขคอนเสิร์ต #${ev.id}: ${ev.title}`;
+        if ($('deleteEventBtn')) $('deleteEventBtn').hidden = false;
       });
     }
 

@@ -735,6 +735,56 @@ function saveEvent(input) {
   return listEventsWithQuota();
 }
 
+function deleteEvent(id) {
+  const numId = Number(id);
+  if (!Number.isFinite(numId) || numId <= 0) {
+    return { ok: false, error: 'รหัสคอนเสิร์ตไม่ถูกต้อง', events: listEventsWithQuota() };
+  }
+  const existing = db.prepare(`SELECT * FROM events WHERE id = ?`).get(numId);
+  db.prepare(`DELETE FROM events WHERE id = ?`).run(numId);
+  try {
+    const raw = getSetting('deleted_event_ids', '[]');
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && !arr.includes(numId)) {
+      arr.push(numId);
+      setSetting('deleted_event_ids', JSON.stringify(arr));
+    }
+  } catch {
+    setSetting('deleted_event_ids', JSON.stringify([numId]));
+  }
+  return {
+    ok: true,
+    deletedId: numId,
+    deletedTitle: existing ? existing.title : `คอนเสิร์ต #${numId}`,
+    events: listEventsWithQuota()
+  };
+}
+
+function deleteOrder(ref) {
+  const cleanRef = String(ref || '').trim().toUpperCase();
+  if (!cleanRef) {
+    return { ok: false, error: 'รหัสคำสั่งซื้อไม่ถูกต้อง' };
+  }
+  const existing = getOrder(cleanRef);
+  db.prepare(`DELETE FROM orders WHERE ref = ?`).run(cleanRef);
+  try {
+    const raw = getSetting('deleted_order_refs', '[]');
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && !arr.includes(cleanRef)) {
+      arr.push(cleanRef);
+      setSetting('deleted_order_refs', JSON.stringify(arr));
+    }
+  } catch {
+    setSetting('deleted_order_refs', JSON.stringify([cleanRef]));
+  }
+  return {
+    ok: true,
+    deletedRef: cleanRef,
+    deletedOrder: existing || null
+  };
+}
+
+
 // Promo Code System
 function listPromoCodes() {
   return db
@@ -1408,6 +1458,12 @@ function recoverOrdersFromClient(clientTickets) {
   if (!Array.isArray(clientTickets) || !clientTickets.length) {
     return { recoveredCount: 0, orders: [] };
   }
+  let deletedRefs = [];
+  try {
+    deletedRefs = JSON.parse(getSetting('deleted_order_refs', '[]')) || [];
+  } catch {
+    deletedRefs = [];
+  }
   let recoveredCount = 0;
   const checkStmt = db.prepare(`SELECT ref FROM orders WHERE ref = ?`);
   const insertStmt = db.prepare(`
@@ -1423,7 +1479,7 @@ function recoverOrdersFromClient(clientTickets) {
   for (const t of clientTickets) {
     if (!t || !t.ref) continue;
     const cleanRef = String(t.ref).trim().toUpperCase();
-    if (!cleanRef) continue;
+    if (!cleanRef || deletedRefs.includes(cleanRef)) continue;
     const exists = checkStmt.get(cleanRef);
     if (exists) continue;
 
@@ -1479,6 +1535,8 @@ function recoverOrdersFromClient(clientTickets) {
 
 function clearAllForTest() {
   db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events; DELETE FROM seat_holds;`);
+  setSetting('deleted_event_ids', '[]');
+  setSetting('deleted_order_refs', '[]');
   ensureSeedData();
   setSetting('slip_auto_approve_enabled', 'false');
   setSetting('admin_pin', '123456');
@@ -1488,6 +1546,7 @@ function clearAllForTest() {
 module.exports = {
   createOrder,
   recoverOrdersFromClient,
+  deleteOrder,
   getOrder,
   listOrders,
   updateOrderStatus,
@@ -1496,6 +1555,7 @@ module.exports = {
   getStats,
   listEventsWithQuota,
   saveEvent,
+  deleteEvent,
   listPromoCodes,
   validatePromoCode,
   exportBackupSnapshot,
@@ -1517,3 +1577,4 @@ module.exports = {
   computeTicketSignature,
   buildSignedQrPayload
 };
+

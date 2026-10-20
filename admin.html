@@ -237,6 +237,9 @@
           <button type="button" class="btn-default" id="bulkCheckInBtn" disabled style="padding:6px 12px; font-size:12px;">
             📷 เช็กอินเข้างานที่เลือก
           </button>
+          <button type="button" class="btn-outline" id="bulkDeleteBtn" data-admin-only="true" disabled style="padding:6px 12px; font-size:12px; border-color:rgba(255,107,107,0.45); color:#FF6B6B;">
+            🗑️ ลบที่เลือก
+          </button>
         </div>
       </div>
 
@@ -609,11 +612,14 @@
               <input type="number" id="evQuotaC" class="input-field holder-input" value="150" min="1">
             </div>
           </div>
-          <button type="button" class="btn-primary btn-block" id="saveEventBtn" style="margin-top:12px;">บันทึกข้อมูลคอนเสิร์ตและโควตาที่นั่ง</button>
+          <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+            <button type="button" class="btn-primary" id="saveEventBtn" style="flex:1;">บันทึกข้อมูลคอนเสิร์ตและโควตาที่นั่ง</button>
+            <button type="button" class="btn-outline" id="deleteEventBtn" hidden style="border-color:rgba(255,107,107,0.5); color:#FF6B6B; padding:10px 16px;">🗑️ ลบคอนเสิร์ตนี้</button>
+          </div>
         </div>
 
         <div>
-          <span class="text-muted" style="font-size:12px;">คลิกเลือกรายการด้านล่างเพื่อแก้ไขโควตาหรือรายละเอียด:</span>
+          <span class="text-muted" style="font-size:12px;">คลิกเลือกรายการด้านล่างเพื่อแก้ไขโควตา หรือกดปุ่ม 🗑️ ลบ เพื่อลบรอบการแสดง:</span>
           <div id="adminEventsList" style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:6px;"></div>
         </div>
       </div>

@@ -728,11 +728,11 @@ async function handleApi(req, res, url) {
       ? body.refs.map((r) => String(r || '').trim().toUpperCase()).filter(Boolean)
       : [];
     const action = String(body.action || 'approve').trim().toLowerCase();
-    if ((action === 'approve' || action === 'reject') && !isFullAdmin(req)) {
+    if ((action === 'approve' || action === 'reject' || action === 'delete') && !isFullAdmin(req)) {
       return sendJson(res, 200, {
         ok: false,
         forbidden: true,
-        error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรไม่สามารถอนุมัติหรือปฏิเสธสลิปโอนเงินได้'
+        error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรไม่สามารถอนุมัติ ปฏิเสธ หรือลบรายการได้'
       });
     }
     const staffName = String(body.staffName || 'Gate A (Bulk)').trim();
@@ -747,6 +747,16 @@ async function handleApi(req, res, url) {
     let successCount = 0;
 
     for (const ref of refs) {
+      if (action === 'delete') {
+        const delRes = db.deleteOrder(ref);
+        if (delRes.ok) {
+          successCount += 1;
+          results.push({ ref, ok: true, deleted: true });
+        } else {
+          results.push({ ref, ok: false, error: delRes.error || 'ลบไม่สำเร็จ' });
+        }
+        continue;
+      }
       const existing = db.getOrder(ref);
       if (!existing) {
         results.push({ ref, ok: false, error: 'ไม่พบรายการ' });
@@ -786,12 +796,19 @@ async function handleApi(req, res, url) {
       }
     }
 
-    if (action === 'reject' && successCount > 0) {
-      broadcastSeatSync('bulk_order_rejected');
+    if ((action === 'reject' || action === 'delete') && successCount > 0) {
+      broadcastSeatSync(action === 'delete' ? 'bulk_order_deleted' : 'bulk_order_rejected');
     }
 
     db.addAuditLog({
-      action: action === 'approve' ? 'BULK_APPROVE_SLIP' : action === 'checkin' ? 'BULK_GATE_CHECKIN' : 'BULK_REJECT_SLIP',
+      action:
+        action === 'approve'
+          ? 'BULK_APPROVE_SLIP'
+          : action === 'checkin'
+            ? 'BULK_GATE_CHECKIN'
+            : action === 'delete'
+              ? 'BULK_DELETE_ORDER'
+              : 'BULK_REJECT_SLIP',
       targetRef: refs.slice(0, 4).join(', ') + (refs.length > 4 ? ` (+${refs.length - 4})` : ''),
       detail: `ดำเนินการแบบกลุ่ม (${action.toUpperCase()}) สำเร็จ ${successCount}/${refs.length} รายการ`,
       actor: 'Admin'
@@ -807,16 +824,16 @@ async function handleApi(req, res, url) {
   }
 
   // Single order operations
-  const orderMatch = pathname.match(/^\/api\/orders\/([A-Z0-9-]+)(?:\/(approve|reject|send-line))?$/);
+  const orderMatch = pathname.match(/^\/api\/orders\/([A-Z0-9-]+)(?:\/(approve|reject|send-line|delete))?$/);
   if (orderMatch) {
     const ref = orderMatch[1];
-    const action = orderMatch[2];
+    const action = orderMatch[2] || (method === 'DELETE' ? 'delete' : undefined);
     const body = method === 'POST' ? await readJsonBody(req) : {};
-    if (body && (body.orderSnapshot || Array.isArray(body.tickets))) {
+    if (action !== 'delete' && body && (body.orderSnapshot || Array.isArray(body.tickets))) {
       db.recoverOrdersFromClient(Array.isArray(body.tickets) ? body.tickets : [body.orderSnapshot]);
     }
     const existing = db.getOrder(ref);
-    if (!existing) {
+    if (!existing && action !== 'delete') {
       return sendJson(res, 404, { error: 'ไม่พบรายการจองนี้ในระบบ' });
     }
 
@@ -828,12 +845,24 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true, error: 'กรุณาเข้าสู่ระบบแอดมินก่อนดำเนินการ' });
     }
 
-    if ((action === 'approve' || action === 'reject') && !isFullAdmin(req)) {
+    if ((action === 'approve' || action === 'reject' || action === 'delete') && !isFullAdmin(req)) {
       return sendJson(res, 200, {
         ok: false,
         forbidden: true,
-        error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรไม่สามารถอนุมัติหรือปฏิเสธสลิปโอนเงินได้'
+        error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรไม่สามารถอนุมัติ ปฏิเสธ หรือลบรายการได้'
       });
+    }
+
+    if ((method === 'POST' || method === 'DELETE') && action === 'delete') {
+      const delRes = db.deleteOrder(ref);
+      broadcastSeatSync('order_deleted');
+      db.addAuditLog({
+        action: 'DELETE_ORDER',
+        targetRef: ref,
+        detail: `ลบคำสั่งซื้อ ${ref}${existing ? ` ของ ${existing.holderName} (${existing.zone})` : ''}`,
+        actor: 'Admin'
+      });
+      return sendJson(res, 200, { ok: true, deletedRef: ref });
     }
 
     if (method === 'POST' && action === 'approve') {
@@ -981,6 +1010,38 @@ async function handleApi(req, res, url) {
     });
     return sendJson(res, 200, { ok: true, events });
   }
+
+  // Admin Delete Event
+  const eventDeleteMatch = pathname.match(/^\/api\/admin\/events\/(\d+)$/);
+  if (
+    (method === 'POST' && pathname === '/api/admin/events/delete') ||
+    (method === 'DELETE' && eventDeleteMatch)
+  ) {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    if (!isFullAdmin(req)) {
+      return sendJson(res, 200, {
+        ok: false,
+        forbidden: true,
+        error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรไม่สามารถลบรอบการแสดงได้'
+      });
+    }
+    const body = method === 'POST' ? await readJsonBody(req) : {};
+    const targetId = eventDeleteMatch ? Number(eventDeleteMatch[1]) : Number(body.id);
+    const result = db.deleteEvent(targetId);
+    if (!result.ok) {
+      return sendJson(res, 200, { ok: false, error: result.error || 'ลบคอนเสิร์ตไม่สำเร็จ' });
+    }
+    db.addAuditLog({
+      action: 'DELETE_EVENT',
+      targetRef: `EVENT#${targetId}`,
+      detail: `ลบรอบการแสดง "${result.deletedTitle}" (#${targetId}) ออกจากระบบ`,
+      actor: 'Admin'
+    });
+    return sendJson(res, 200, result);
+  }
+
 
   // Admin 1-Click Database Backup JSON
   if (method === 'GET' && pathname === '/api/admin/backup.json') {

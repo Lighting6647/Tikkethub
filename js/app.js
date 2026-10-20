@@ -21,16 +21,30 @@ let activePromo = null;
 const ICON_CAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>';
 const ICON_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>';
 
+function filterClientEvents(list) {
+  let deletedIds = [];
+  try {
+    const raw = localStorage.getItem('thaiticket.deletedEventIds.v1');
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed)) deletedIds = parsed.map(Number).filter(Boolean);
+  } catch {
+    deletedIds = [];
+  }
+  const deletedSet = new Set(deletedIds);
+  return (Array.isArray(list) ? list : []).filter((ev) => ev && !deletedSet.has(Number(ev.id)));
+}
+
 async function syncEventsFromServer() {
   try {
     const res = await fetch('/api/events', { cache: 'no-store' });
     const data = await res.json();
     if (data && data.ok && Array.isArray(data.events) && data.events.length) {
-      eventsData = data.events;
+      eventsData = filterClientEvents(data.events);
       renderEvents();
     }
   } catch {
-    /* fallback to default eventsData */
+    eventsData = filterClientEvents(eventsData);
+    renderEvents();
   }
 }
 
@@ -38,7 +52,8 @@ function renderEvents() {
   const esc = UI.escapeHtml;
   const container = document.getElementById('eventsContainer');
   const q = searchQuery.toLowerCase();
-  const filtered = eventsData.filter(
+  const activeEvents = filterClientEvents(eventsData);
+  const filtered = activeEvents.filter(
     (ev) => (currentCategory === 'all' || ev.category === currentCategory) &&
       (ev.title.toLowerCase().includes(q) || ev.venue.toLowerCase().includes(q))
   );
