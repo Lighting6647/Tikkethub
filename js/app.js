@@ -1,11 +1,11 @@
 /** Event listing, live zone quota sync, promo code calculation, and ticket holder validation. */
 let eventsData = [
-  { id: 1, title: 'ECHOES OF ASIA WORLD TOUR 2026', category: 'world', date: '14 - 15 พ.ย. 2026', venue: 'อิมแพ็ค อารีน่า เมืองทองธานี', priceRange: '1,800 - 6,500 THB', badge: 'เปิดจำหน่าย', isAccent: true, gradient: 'linear-gradient(135deg, #4d1313, #1f1f1f)', remainingTotal: 420 },
-  { id: 2, title: 'K-POP FESTIVAL LIVE IN BKK 2026', category: 'kpop', date: '28 พ.ย. 2026', venue: 'ราชมังคลากีฬาสถาน', priceRange: '2,200 - 7,000 THB', badge: 'บัตรเหลือน้อย', isAccent: true, gradient: 'linear-gradient(135deg, #1b3852, #181818)', remainingTotal: 360 },
-  { id: 3, title: 'THAI ROCK REVOLUTION 2026', category: 'thai', date: '5 ธ.ค. 2026', venue: 'ไบเทค บางนา (Hall 100)', priceRange: '1,200 - 3,500 THB', badge: 'จำหน่ายแล้ว 70%', isAccent: false, gradient: 'linear-gradient(135deg, #3d1c1c, #1f1f1f)', remainingTotal: 395 },
-  { id: 4, title: 'BIG MOUNTAIN INDIE CAMP 2026', category: 'fest', date: '12 - 13 ธ.ค. 2026', venue: 'The Ocean เขาใหญ่', priceRange: '1,500 - 2,800 THB', badge: 'EARLY BIRD', isAccent: true, gradient: 'linear-gradient(135deg, #19403a, #1a1a1a)', remainingTotal: 530 },
-  { id: 5, title: 'PARK HYUNG-SIK ASIAN FAN MEETING', category: 'fanmeeting', date: '19 ธ.ค. 2026', venue: 'พารากอน ฮอลล์, สยามพารากอน', priceRange: '2,500 - 5,900 THB', badge: 'VIP สิทธิพิเศษ', isAccent: false, gradient: 'linear-gradient(135deg, #2b1f3d, #1c1c1c)', remainingTotal: 310 },
-  { id: 6, title: 'SYNTHWAVE & RETRO NIGHT BKK', category: 'world', date: '26 ธ.ค. 2026', venue: 'Union Hall, ยูเนี่ยน มอลล์', priceRange: '1,600 - 3,200 THB', badge: 'เปิดจำหน่าย', isAccent: true, gradient: 'linear-gradient(135deg, #44143a, #1a1a1a)', remainingTotal: 340 }
+  { id: 1, title: 'ECHOES OF ASIA WORLD TOUR 2026', category: 'world', date: '14 - 15 พ.ย. 2026', venue: 'อิมแพ็ค อารีน่า เมืองทองธานี', priceRange: '1,800 - 6,500 THB', badge: 'เปิดจำหน่าย', isAccent: true, gradient: 'linear-gradient(135deg, #4d1313, #1f1f1f)', image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=1200&q=80', remainingTotal: 420 },
+  { id: 2, title: 'K-POP FESTIVAL LIVE IN BKK 2026', category: 'kpop', date: '28 พ.ย. 2026', venue: 'ราชมังคลากีฬาสถาน', priceRange: '2,200 - 7,000 THB', badge: 'บัตรเหลือน้อย', isAccent: true, gradient: 'linear-gradient(135deg, #1b3852, #181818)', image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=80', remainingTotal: 360 },
+  { id: 3, title: 'THAI ROCK REVOLUTION 2026', category: 'thai', date: '5 ธ.ค. 2026', venue: 'ไบเทค บางนา (Hall 100)', priceRange: '1,200 - 3,500 THB', badge: 'จำหน่ายแล้ว 70%', isAccent: false, gradient: 'linear-gradient(135deg, #3d1c1c, #1f1f1f)', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1000&q=80', remainingTotal: 395 },
+  { id: 4, title: 'BIG MOUNTAIN INDIE CAMP 2026', category: 'fest', date: '12 - 13 ธ.ค. 2026', venue: 'The Ocean เขาใหญ่', priceRange: '1,500 - 2,800 THB', badge: 'EARLY BIRD', isAccent: true, gradient: 'linear-gradient(135deg, #19403a, #1a1a1a)', image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=1000&q=80', remainingTotal: 530 },
+  { id: 5, title: 'PARK HYUNG-SIK ASIAN FAN MEETING', category: 'fanmeeting', date: '19 ธ.ค. 2026', venue: 'พารากอน ฮอลล์, สยามพารากอน', priceRange: '2,500 - 5,900 THB', badge: 'VIP สิทธิพิเศษ', isAccent: false, gradient: 'linear-gradient(135deg, #2b1f3d, #1c1c1c)', image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1000&q=80', remainingTotal: 310 },
+  { id: 6, title: 'SYNTHWAVE & RETRO NIGHT BKK', category: 'world', date: '26 ธ.ค. 2026', venue: 'Union Hall, ยูเนี่ยน มอลล์', priceRange: '1,600 - 3,200 THB', badge: 'เปิดจำหน่าย', isAccent: true, gradient: 'linear-gradient(135deg, #44143a, #1a1a1a)', image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1000&q=80', remainingTotal: 340 }
 ];
 
 const MAX_QTY = 4;
@@ -63,9 +63,13 @@ function renderEvents() {
     return;
   }
 
-  container.innerHTML = filtered.map((ev) => `
-    <div class="card event-card">
-      <div class="event-card-image" style="background:${ev.gradient};">
+  container.innerHTML = filtered.map((ev) => {
+    const bgStyle = ev.image
+      ? `background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url('${esc(ev.image)}') center / cover no-repeat;`
+      : `background:${ev.gradient};`;
+    return `
+    <div class="card event-card" data-event-id="${ev.id}">
+      <div class="event-card-image" style="${bgStyle}">
         <div class="event-card-cover">${esc(ev.title)}</div>
         <div class="event-badge-tag"><span class="${ev.isAccent ? 'badge-accent' : 'badge-primary'}">${esc(ev.badge)}</span></div>
       </div>
@@ -84,7 +88,12 @@ function renderEvents() {
           <button class="btn-primary" data-event-id="${ev.id}">ซื้อบัตร</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  if (window.GSAPThemeStudio && typeof window.GSAPThemeStudio.setupTiltCards === 'function') {
+    window.GSAPThemeStudio.setupTiltCards();
+  }
 }
 
 function filterCategory(cat, btn) {

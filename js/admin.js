@@ -3497,6 +3497,32 @@
         updateSlipTransform();
       });
     }
+    async function handleDriveJsonFileUpload(e) {
+      const file = e.target && e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (parsed.client_email && $('settingDriveEmailInput')) {
+          $('settingDriveEmailInput').value = parsed.client_email;
+        }
+        if (parsed.private_key && $('settingDriveKeyInput')) {
+          $('settingDriveKeyInput').value = parsed.private_key;
+        }
+        if (!parsed.client_email && !parsed.private_key) {
+          throw new Error('ไม่พบ client_email หรือ private_key ในไฟล์');
+        }
+        window.UI.toast(`นำเข้าคีย์สำเร็จ! เชื่อมโยงบัญชี ${parsed.client_email || 'Service Account'} แล้ว`);
+      } catch (err) {
+        window.UI.toast('ไฟล์ JSON ไม่ถูกต้อง หรือโครงสร้างคีย์ไม่ตรงกับ Google Cloud Service Account', 'error');
+      } finally {
+        e.target.value = '';
+      }
+    }
+
+    if ($('settingDriveJsonFileInput')) {
+      $('settingDriveJsonFileInput').addEventListener('change', handleDriveJsonFileUpload);
+    }
     if ($('btnTestDrive')) {
       $('btnTestDrive').addEventListener('click', testDriveConnection);
     }

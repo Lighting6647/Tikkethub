@@ -11,6 +11,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23B40000'/%3E%3Ctext x='16' y='22' font-size='16' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="css/checkout.css">
+  <link rel="stylesheet" href="css/gsap-themes.css">
   <style>
     /* Layout & Page Structure */
     .header {
@@ -713,6 +714,31 @@
     </nav>
   </header>
 
+  <!-- GSAP Theme Studio Bar (3 Production Design Styles) -->
+  <aside class="theme-studio-bar" aria-label="ตัวเลือกรูปแบบหน้าเว็บ CSS + GSAP">
+    <div class="container theme-studio-inner">
+      <div class="theme-studio-badge">
+        <span class="theme-studio-pulse"></span>
+        <span>GSAP DESIGN SYSTEM:</span>
+      </div>
+      <div class="theme-switcher-group" role="tablist">
+        <button type="button" class="theme-btn active" data-theme-btn="classic" role="tab" aria-selected="true" title="สไตล์คลาสสิก แสงเวทีสีแดงเข้ม อารีน่าระดับโลก">
+          🎬 สไตล์ 1: Crimson Arena
+        </button>
+        <button type="button" class="theme-btn" data-theme-btn="cyber" role="tab" aria-selected="false" title="สไตล์โมเดิร์นไซเบอร์ นีออน และ Live Equalizer 24 แท่ง">
+          ⚡ สไตล์ 2: Cyber Equalizer
+        </button>
+        <button type="button" class="theme-btn" data-theme-btn="vip" role="tab" aria-selected="false" title="สไตล์พรีเมียม ซิมโฟนีฮอลล์ สีทองแชมเปญ และแสงลอย">
+          ✨ สไตล์ 3: Editorial Gold
+        </button>
+      </div>
+      <button type="button" class="theme-replay-btn" id="themeReplayBtn" title="เล่นอนิเมชันเปิดตัวหน้าเว็บด้วย GSAP อีกครั้ง">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+        เล่นอนิเมชันใหม่
+      </button>
+    </div>
+  </aside>
+
   <!-- Hero Highlight Section: Uses #333333 -> #000000 Gradient -->
   <section class="hero">
     <div class="container">
@@ -763,23 +789,9 @@
         </div>
 
         <div class="hero-poster">
-          <svg width="100%" height="100%" viewBox="0 0 600 340" style="background:#111;">
-            <defs>
-              <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#B40000" stop-opacity="0.8"/>
-                <stop offset="50%" stop-color="#111111" stop-opacity="0.9"/>
-                <stop offset="100%" stop-color="#229BFF" stop-opacity="0.6"/>
-              </linearGradient>
-            </defs>
-            <rect width="600" height="340" fill="url(#g1)" />
-            <circle cx="450" cy="170" r="120" fill="none" stroke="#229BFF" stroke-width="2" opacity="0.3"/>
-            <circle cx="450" cy="170" r="80" fill="none" stroke="#FFFFFF" stroke-width="1" opacity="0.2"/>
-            <text x="40" y="160" fill="#FFFFFF" font-size="28" font-family="'Noto Sans Thai', sans-serif" font-weight="700">ECHOES OF ASIA</text>
-            <text x="40" y="200" fill="#229BFF" font-size="16" font-family="'Noto Sans Thai', sans-serif" font-weight="600">LIVE IN BANGKOK 2026</text>
-            <text x="40" y="235" fill="#CCCCCC" font-size="13" font-family="'Noto Sans Thai', sans-serif">IMPACT ARENA · 14-15 NOV</text>
-          </svg>
+          <img src="https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=1200&q=80" alt="บรรยากาศคอนเสิร์ต ECHOES OF ASIA WORLD TOUR 2026 ที่อิมแพ็ค อารีน่า" loading="eager" decoding="async">
           <div class="poster-overlay">
-            <span class="badge-primary">HOT TICKET</span>
+            <span class="badge-primary">HOT TICKET · ARENA STAGE</span>
           </div>
         </div>
       </div>
@@ -1135,6 +1147,8 @@
   <script src="js/ticket-renderer.js"></script>
   <script src="js/ticket-viewer.js"></script>
   <script src="js/checkout.js"></script>
+  <script src="js/vendor/gsap.min.js"></script>
+  <script src="js/gsap-themes.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

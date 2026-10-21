@@ -533,9 +533,31 @@
 
         <!-- Google Drive Cloud Storage Settings -->
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <strong style="color:var(--color-accent); font-size:13px;">📁 ที่เก็บสลิป Google Drive (Cloud Storage)</strong>
-            <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:3px 8px;">🔌 ทดสอบเชื่อมต่อ Drive</button>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong style="color:var(--color-accent); font-size:13px;">📁 ที่เก็บสลิป Google Drive (Cloud Storage)</strong>
+              <span style="font-size:11px; background:rgba(34,155,255,0.15); color:#229BFF; padding:2px 6px; border-radius:4px;">ไม่บังคับใส่ (Optional)</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <label for="settingDriveJsonFileInput" class="btn-outline" style="font-size:11px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="เลือกไฟล์ .json ที่ดาวน์โหลดจาก Google Cloud Console เพื่อกรอกให้อัตโนมัติ">
+                📂 นำเข้าจากไฟล์ .json
+              </label>
+              <input type="file" id="settingDriveJsonFileInput" accept=".json,application/json" style="display:none;">
+              <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:3px 8px;">🔌 ทดสอบเชื่อมต่อ Drive</button>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; margin-bottom:8px; font-size:12px; color:var(--color-muted); line-height:1.5;">
+            ℹ️ <strong>หมายเหตุ:</strong> หากเว้นว่างไว้ ระบบจะจัดเก็บสลิปการโอนเงินลงในฐานข้อมูล SQLite และ LocalStorage ของระบบอย่างสมบูรณ์แบบโดยไม่ต้องพึ่งพา Google Drive ครับ
+            <details style="margin-top:6px; cursor:pointer;">
+              <summary style="color:#229BFF; font-weight:600;">❓ ดูวิธีรับ Private Key จาก Google Cloud Console (คลิกเพื่อดูขั้นตอน)</summary>
+              <ol style="margin:6px 0 0 16px; padding:0; line-height:1.6; color:#DDD;">
+                <li>เข้าสู่ <strong>Google Cloud Console</strong> (<a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener" style="color:#229BFF;">console.cloud.google.com</a>) แล้วสร้างหรือเลือกโปรเจกต์</li>
+                <li>ไปที่เมนู <strong>IAM &amp; Admin &gt; Service Accounts</strong> แล้วกด <strong>Create Service Account</strong></li>
+                <li>คลิกที่ Service Account ที่สร้าง &gt; ไปที่แท็บ <strong>Keys &gt; Add Key &gt; Create new key &gt; เลือก JSON</strong> แล้วดาวน์โหลดไฟล์ลงเครื่อง</li>
+                <li>กดปุ่ม <strong>"📂 นำเข้าจากไฟล์ .json"</strong> ด้านบนนี้ เพื่อเลือกไฟล์ที่โหลดมา ระบบจะดึง Client Email และ Private Key กรอกลงช่องให้อัตโนมัติทันที</li>
+                <li><em>(สำคัญ)</em> แชร์โฟลเดอร์ Google Drive ของคุณให้กับอีเมล Client Email ที่ได้ โดยให้สิทธิ์ <strong>Editor</strong></li>
+              </ol>
+            </details>
           </div>
           <div>
             <label class="field-label" for="settingDriveFolderInput">Google Drive Folder ID (โฟลเดอร์สำหรับเก็บสลิป)</label>

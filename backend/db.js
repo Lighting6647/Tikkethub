@@ -139,6 +139,11 @@ if (!orderColumns.includes('re_entry_attempts')) {
   db.exec(`ALTER TABLE orders ADD COLUMN re_entry_attempts INTEGER DEFAULT 0;`);
 }
 
+const eventColumns = db.prepare(`PRAGMA table_info(events)`).all().map((c) => c.name);
+if (!eventColumns.includes('image')) {
+  db.exec(`ALTER TABLE events ADD COLUMN image TEXT DEFAULT '';`);
+}
+
 const DEFAULT_EVENTS = [
   {
     id: 1,
@@ -150,6 +155,7 @@ const DEFAULT_EVENTS = [
     badge: 'เปิดจำหน่าย',
     isAccent: 1,
     gradient: 'linear-gradient(135deg, #4d1313, #1f1f1f)',
+    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=1200&q=80',
     quotaVip: 50,
     quotaA: 100,
     quotaB: 120,
@@ -165,6 +171,7 @@ const DEFAULT_EVENTS = [
     badge: 'บัตรเหลือน้อย',
     isAccent: 1,
     gradient: 'linear-gradient(135deg, #1b3852, #181818)',
+    image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=80',
     quotaVip: 40,
     quotaA: 80,
     quotaB: 100,
@@ -180,6 +187,7 @@ const DEFAULT_EVENTS = [
     badge: 'จำหน่ายแล้ว 70%',
     isAccent: 0,
     gradient: 'linear-gradient(135deg, #3d1c1c, #1f1f1f)',
+    image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1000&q=80',
     quotaVip: 45,
     quotaA: 90,
     quotaB: 110,
@@ -195,6 +203,7 @@ const DEFAULT_EVENTS = [
     badge: 'EARLY BIRD',
     isAccent: 1,
     gradient: 'linear-gradient(135deg, #19403a, #1a1a1a)',
+    image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=1000&q=80',
     quotaVip: 60,
     quotaA: 120,
     quotaB: 150,
@@ -210,6 +219,7 @@ const DEFAULT_EVENTS = [
     badge: 'VIP สิทธิพิเศษ',
     isAccent: 0,
     gradient: 'linear-gradient(135deg, #2b1f3d, #1c1c1c)',
+    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1000&q=80',
     quotaVip: 30,
     quotaA: 70,
     quotaB: 90,
@@ -225,6 +235,7 @@ const DEFAULT_EVENTS = [
     badge: 'เปิดจำหน่าย',
     isAccent: 1,
     gradient: 'linear-gradient(135deg, #44143a, #1a1a1a)',
+    image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1000&q=80',
     quotaVip: 40,
     quotaA: 80,
     quotaB: 100,
@@ -263,8 +274,8 @@ function ensureSeedData() {
   const evCount = db.prepare(`SELECT COUNT(*) AS cnt FROM events`).get().cnt;
   if (evCount === 0) {
     const ins = db.prepare(`
-      INSERT INTO events (id, title, category, date, venue, price_range, badge, is_accent, gradient, quota_vip, quota_a, quota_b, quota_c)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO events (id, title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const ev of DEFAULT_EVENTS) {
       ins.run(
@@ -277,11 +288,20 @@ function ensureSeedData() {
         ev.badge,
         ev.isAccent,
         ev.gradient,
+        ev.image || '',
         ev.quotaVip,
         ev.quotaA,
         ev.quotaB,
         ev.quotaC
       );
+    }
+  } else {
+    // Backfill images for default events if empty
+    const updateImg = db.prepare(`UPDATE events SET image = ? WHERE id = ? AND (image IS NULL OR image = '')`);
+    for (const ev of DEFAULT_EVENTS) {
+      if (ev.image) {
+        updateImg.run(ev.image, ev.id);
+      }
     }
   }
 
@@ -703,6 +723,7 @@ function listEventsWithQuota() {
       badge: r.badge,
       isAccent: Boolean(r.is_accent),
       gradient: r.gradient,
+      image: r.image || '',
       quotaVip: r.quota_vip,
       quotaA: r.quota_a,
       quotaB: r.quota_b,
@@ -726,6 +747,7 @@ function saveEvent(input) {
   const badge = String(input.badge || 'เปิดจำหน่าย').trim();
   const isAccent = input.isAccent === false || input.isAccent === 0 ? 0 : 1;
   const gradient = String(input.gradient || 'linear-gradient(135deg, #4d1313, #1f1f1f)').trim();
+  const image = String(input.image || '').trim();
   const quotaVip = Math.max(1, Number(input.quotaVip || 50));
   const quotaA = Math.max(1, Number(input.quotaA || 100));
   const quotaB = Math.max(1, Number(input.quotaB || 120));
@@ -734,15 +756,15 @@ function saveEvent(input) {
   if (input.id) {
     db.prepare(`
       UPDATE events
-      SET title = ?, category = ?, date = ?, venue = ?, price_range = ?, badge = ?, is_accent = ?, gradient = ?,
+      SET title = ?, category = ?, date = ?, venue = ?, price_range = ?, badge = ?, is_accent = ?, gradient = ?, image = ?,
           quota_vip = ?, quota_a = ?, quota_b = ?, quota_c = ?
       WHERE id = ?
-    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, quotaVip, quotaA, quotaB, quotaC, Number(input.id));
+    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC, Number(input.id));
   } else {
     db.prepare(`
-      INSERT INTO events (title, category, date, venue, price_range, badge, is_accent, gradient, quota_vip, quota_a, quota_b, quota_c)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, quotaVip, quotaA, quotaB, quotaC);
+      INSERT INTO events (title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC);
   }
   return listEventsWithQuota();
 }
