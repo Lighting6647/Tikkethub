@@ -1,0 +1,418 @@
+/**
+ * 3-Style Web Design System + GSAP Motion Studio
+ * Style 1 (arena):    🎬 Crimson Arena Stage (ThaiTicket Classic Dark - #B40000 & #229BFF)
+ * Style 2 (festival): ⚡ Cyber Equalizer & Neon Stage (Obsidian #0B0F14, Emerald #10B981 & Amber #F59E0B)
+ * Style 3 (editorial):✨ VIP Velvet & Champagne Gold (Warm Stone #161311, Champagne Gold #D4AF37)
+ */
+
+/* Theme Switcher Studio Bar */
+.gsap-theme-bar {
+  background: rgba(18, 18, 18, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 95;
+  padding: 8px 0;
+  transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.gsap-theme-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gsap-studio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #E2E8F0;
+  letter-spacing: 0.2px;
+}
+
+.gsap-studio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 10px #10B981;
+  display: inline-block;
+}
+
+.gsap-theme-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gsap-theme-btn {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #CBD5E1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.gsap-theme-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+}
+
+.gsap-theme-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.gsap-theme-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(180, 0, 0, 0.4);
+}
+
+.gsap-replay-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.gsap-replay-btn:hover {
+  background: rgba(34, 155, 255, 0.12);
+  border-color: var(--color-accent);
+}
+
+/* GSAP Stage Background FX Layers inside Hero */
+.hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.gsap-stage-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.hero > .container {
+  position: relative;
+  z-index: 2;
+}
+
+/* Spotlight Beams */
+.gsap-spotlight {
+  position: absolute;
+  top: -35%;
+  width: 340px;
+  height: 170%;
+  background: radial-gradient(ellipse at top, rgba(180, 0, 0, 0.28) 0%, rgba(34, 155, 255, 0.08) 45%, transparent 75%);
+  transform-origin: top center;
+  filter: blur(22px);
+  opacity: 0.75;
+}
+
+.gsap-spotlight.beam-left {
+  left: 12%;
+  transform: rotate(-18deg);
+}
+
+.gsap-spotlight.beam-right {
+  right: 14%;
+  transform: rotate(18deg);
+}
+
+/* Kinetic Audio Equalizer Bars (Style 2) */
+.gsap-equalizer-wrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 86px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 24px;
+  opacity: 0.18;
+  transition: opacity 0.4s ease;
+}
+
+.gsap-eq-bar {
+  flex: 1;
+  max-width: 18px;
+  height: 68px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(to top, var(--color-primary), var(--color-accent));
+  transform-origin: bottom center;
+  transform: scaleY(0.2);
+}
+
+/* Floating Luxury Gold Orbs (Style 3) */
+.gsap-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(28px);
+  opacity: 0;
+}
+
+.gsap-orb.orb-1 {
+  width: 220px;
+  height: 220px;
+  top: 10%;
+  left: 8%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.26) 0%, transparent 70%);
+}
+
+.gsap-orb.orb-2 {
+  width: 280px;
+  height: 280px;
+  bottom: -10%;
+  right: 10%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, transparent 70%);
+}
+
+/* 3D Tilt & Smooth Motion Card Enhancements */
+.event-card {
+  transform-style: preserve-3d;
+  will-change: transform;
+  position: relative;
+}
+
+.hero-poster {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* Style Indicator Banner inside Hero */
+.gsap-style-badge-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  color: #E2E8F0;
+  width: fit-content;
+}
+
+/* ==========================================================================
+   STYLE 1: 🎬 CRIMSON ARENA STAGE (Default ThaiTicket Classic Dark)
+   ========================================================================== */
+body[data-design-theme="arena"] {
+  --color-primary: #B40000;
+  --color-primary-hover: #900000;
+  --color-accent: #229BFF;
+  --color-bg-dark: #1E1E1E;
+  --color-bg-surface: #333333;
+  --color-bg-elevated: #434343;
+}
+
+/* ==========================================================================
+   STYLE 2: ⚡ CYBER EQUALIZER & NEON STAGE (Festival Night Kinetic)
+   ========================================================================== */
+body[data-design-theme="festival"] {
+  --color-primary: #10B981;
+  --color-primary-hover: #059669;
+  --color-accent: #F59E0B;
+  --color-bg-dark: #0B0F14;
+  --color-bg-surface: #131B26;
+  --color-bg-elevated: #1C2838;
+  --color-gradient-start: #0F172A;
+  --color-gradient-end: #070A0E;
+  background-color: #0B0F14;
+}
+
+body[data-design-theme="festival"] .header {
+  background-color: rgba(11, 15, 20, 0.92);
+  border-bottom-color: rgba(16, 185, 129, 0.22);
+}
+
+body[data-design-theme="festival"] .subnav {
+  background-color: #0E141D;
+}
+
+body[data-design-theme="festival"] .brand-badge {
+  background-color: #10B981;
+  color: #06281E;
+}
+
+body[data-design-theme="festival"] .btn-primary,
+body[data-design-theme="festival"] .gsap-theme-btn.active {
+  background-color: #10B981;
+  border-color: #10B981;
+  color: #052E16;
+  font-weight: 700;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+}
+
+body[data-design-theme="festival"] .btn-primary:hover {
+  background-color: #34D399;
+}
+
+body[data-design-theme="festival"] .hero {
+  background: radial-gradient(circle at 20% 20%, #112A2A 0%, #0B0F14 70%);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+body[data-design-theme="festival"] .gsap-equalizer-wrap {
+  opacity: 0.42;
+}
+
+body[data-design-theme="festival"] .gsap-eq-bar {
+  background: linear-gradient(to top, #10B981, #F59E0B);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+body[data-design-theme="festival"] .gsap-spotlight {
+  background: radial-gradient(ellipse at top, rgba(16, 185, 129, 0.32) 0%, rgba(245, 158, 11, 0.12) 50%, transparent 75%);
+}
+
+body[data-design-theme="festival"] .event-card {
+  background: linear-gradient(180deg, #151F2E 0%, #0F1622 100%);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+body[data-design-theme="festival"] .event-card:hover {
+  border-color: #10B981;
+  box-shadow: 0 14px 32px rgba(16, 185, 129, 0.22);
+}
+
+/* ==========================================================================
+   STYLE 3: ✨ EDITORIAL GOLD & VELVET HALL (VIP Symphony Luxury)
+   ========================================================================== */
+body[data-design-theme="editorial"] {
+  --color-primary: #C59B27;
+  --color-primary-hover: #A8821A;
+  --color-accent: #F3E5AB;
+  --color-bg-dark: #14110F;
+  --color-bg-surface: #211C18;
+  --color-bg-elevated: #2E2722;
+  --color-gradient-start: #261F1A;
+  --color-gradient-end: #120F0D;
+  background-color: #14110F;
+}
+
+body[data-design-theme="editorial"] .header {
+  background-color: #181412;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.28);
+}
+
+body[data-design-theme="editorial"] .subnav {
+  background-color: #120F0D;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.14);
+}
+
+body[data-design-theme="editorial"] .brand-badge {
+  background: linear-gradient(135deg, #D4AF37, #9A7418);
+  color: #14110F;
+}
+
+body[data-design-theme="editorial"] .btn-primary,
+body[data-design-theme="editorial"] .gsap-theme-btn.active {
+  background: linear-gradient(135deg, #D4AF37 0%, #AA8018 100%);
+  border-color: #D4AF37;
+  color: #14110F;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.32);
+}
+
+body[data-design-theme="editorial"] .btn-primary:hover {
+  background: linear-gradient(135deg, #E5C352 0%, #C59B27 100%);
+}
+
+body[data-design-theme="editorial"] .hero {
+  background: linear-gradient(135deg, #241D17 0%, #120E0B 100%);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+body[data-design-theme="editorial"] .hero-wrapper {
+  grid-template-columns: 1fr 1fr;
+}
+
+body[data-design-theme="editorial"] .hero-poster {
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+}
+
+body[data-design-theme="editorial"] .gsap-orb {
+  opacity: 0.85;
+}
+
+body[data-design-theme="editorial"] .gsap-spotlight {
+  background: radial-gradient(ellipse at top, rgba(212, 175, 55, 0.25) 0%, rgba(243, 229, 171, 0.08) 50%, transparent 75%);
+}
+
+body[data-design-theme="editorial"] .events-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+body[data-design-theme="editorial"] .event-card {
+  background: linear-gradient(145deg, #231E1A 0%, #181411 100%);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 12px;
+}
+
+body[data-design-theme="editorial"] .event-card:hover {
+  border-color: #D4AF37;
+  box-shadow: 0 12px 30px rgba(212, 175, 55, 0.18);
+}
+
+body[data-design-theme="editorial"] .price-value {
+  color: #F3E5AB;
+}
+
+@media (max-width: 767px) {
+  .gsap-theme-bar-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .gsap-theme-pills {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .gsap-theme-btn {
+    justify-content: center;
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+  body[data-design-theme="editorial"] .hero-wrapper,
+  body[data-design-theme="editorial"] .events-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -6,9 +6,13 @@
  */
 
 function buildTicketFlexMessage(order) {
+  const qrPayload = order.qrPayload || ('THAITICKET|' + order.ref + '|' + (order.zone || '') + '|' + (order.qty || 1) + (order.qrSignature ? '|SIG:' + order.qrSignature : ''));
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(qrPayload)}`;
+  const ticketPassUrl = `https://tikkethub.vercel.app/ticket.html?ref=${encodeURIComponent(order.ref)}`;
+
   return {
     type: 'flex',
-    altText: `บัตรคอนเสิร์ต ${order.title} (${order.ref}) อนุมัติแล้ว`,
+    altText: `บัตรคอนเสิร์ต ${order.title} (${order.ref}) อนุมัติแล้ว พร้อม QR Code สแกนเข้างาน`,
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -31,10 +35,10 @@ function buildTicketFlexMessage(order) {
               },
               {
                 type: 'text',
-                text: 'E-TICKET',
+                text: 'OFFICIAL E-TICKET',
                 color: '#229BFF',
                 weight: 'bold',
-                size: 'sm',
+                size: 'xs',
                 align: 'end'
               }
             ]
@@ -61,7 +65,7 @@ function buildTicketFlexMessage(order) {
       body: {
         type: 'box',
         layout: 'vertical',
-        backgroundColor: '#333333',
+        backgroundColor: '#262626',
         paddingAll: '20px',
         spacing: 'md',
         contents: [
@@ -117,19 +121,74 @@ function buildTicketFlexMessage(order) {
           },
           {
             type: 'separator',
-            color: '#555555',
-            margin: 'lg'
+            color: '#444444',
+            margin: 'md'
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            alignItems: 'center',
+            contents: [
+              { type: 'text', text: 'รหัสการจองบัตร (Booking Ref)', color: '#999999', size: 'xs' },
+              { type: 'text', text: order.ref, color: '#FFFFFF', weight: 'bold', size: 'xl', margin: 'xs' },
+              { type: 'text', text: '🟢 ชำระเงิน & อนุมัติสิทธิ์เรียบร้อย', color: '#68D391', size: 'xs', margin: 'xs', weight: 'bold' }
+            ]
           },
           {
             type: 'box',
             layout: 'vertical',
             margin: 'lg',
             alignItems: 'center',
+            backgroundColor: '#1E1E1E',
+            cornerRadius: '12px',
+            paddingAll: '16px',
             contents: [
-              { type: 'text', text: 'รหัสการจอง (แสดงหน้างาน)', color: '#999999', size: 'xs' },
-              { type: 'text', text: order.ref, color: '#FFFFFF', weight: 'bold', size: 'xl', margin: 'xs' },
-              { type: 'text', text: 'สถานะ: ชำระเงินและอนุมัติแล้ว', color: '#229BFF', size: 'xs', margin: 'sm' }
+              {
+                type: 'image',
+                url: qrUrl,
+                size: 'lg',
+                aspectRatio: '1:1',
+                aspectMode: 'cover'
+              },
+              {
+                type: 'text',
+                text: '📷 ยื่น QR Code นี้ที่จุดตรวจเพื่อสแกนเข้างาน',
+                color: '#68D391',
+                size: 'xs',
+                weight: 'bold',
+                align: 'center',
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: '🔐 ลายเซ็นดิจิทัล HMAC-SHA256 ป้องกันบัตรปลอม',
+                color: '#888888',
+                size: 'xxs',
+                align: 'center',
+                margin: 'xs'
+              }
             ]
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#1E1E1E',
+        paddingAll: '16px',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#B40000',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '🎫 เปิดดูบัตรจริง & Dynamic Pass',
+              uri: ticketPassUrl
+            }
           }
         ]
       }

@@ -156,6 +156,15 @@
           <div class="line-flex-ref">
             <small>รหัสการจอง (แสดงหน้างาน)</small>
             <strong>${esc(ticket.ref)}</strong>
+            <div style="font-size:11px;color:#68D391;margin-top:2px;">🟢 ชำระเงิน & อนุมัติสิทธิ์เรียบร้อย</div>
+          </div>
+          <div style="margin-top:14px;background:#181818;border-radius:10px;padding:14px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(ticket.qrPayload || ('THAITICKET|' + ticket.ref))}" alt="QR Code สแกนเข้างาน" style="width:160px;height:160px;display:block;margin:0 auto;border-radius:6px;background:#fff;padding:6px;">
+            <p style="font-size:11px;color:#68D391;margin-top:8px;font-weight:700;">📷 ยื่น QR Code นี้ที่จุดตรวจเพื่อสแกนเข้างาน</p>
+            <p style="font-size:10px;color:#888;margin:0;">🔐 ลายเซ็นดิจิทัล HMAC-SHA256 ป้องกันบัตรปลอม</p>
+          </div>
+          <div style="margin-top:14px;">
+            <a href="ticket.html?ref=${encodeURIComponent(ticket.ref)}" target="_blank" class="btn-primary btn-block" style="text-align:center;text-decoration:none;font-size:13px;display:block;padding:10px;">🎫 เปิดดูบัตรจริง & Dynamic Pass</a>
           </div>
         </div>
       </div>
@@ -256,9 +265,9 @@
   }
 
   function statusBadgeHtml(status) {
-    if (status === 'pending') return '<span class="badge-pending">รอตรวจสอบสลิป</span>';
+    if (status === 'pending') return '<span class="badge-pending">รอตรวจสอบสลิป (จะส่งเข้า LINE OA เมื่ออนุมัติ)</span>';
     if (status === 'rejected') return '<span class="badge-rejected">สลิปไม่ผ่าน</span>';
-    return '<span class="badge-accent">อนุมัติแล้ว</span>';
+    return '<span class="badge-accent">🟢 ส่งบัตรเข้า LINE OA แล้ว</span>';
   }
 
   async function renderList() {
@@ -267,16 +276,23 @@
     const list = await window.TicketStore.syncAll();
     document.dispatchEvent(new CustomEvent('tickets:changed'));
 
+    const bannerHtml = `
+      <div style="background:rgba(34,155,255,0.08);border:1px solid rgba(34,155,255,0.25);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.5;">
+        🛡️ <strong>นโยบายจัดส่งบัตรเข้า LINE OA เท่านั้น:</strong> บัตรคอนเสิร์ต E-Ticket และ QR Code เข้างาน จะถูกจัดส่งตรงเข้า <strong>LINE Official Account (@thaiticket)</strong> ของผู้ซื้อเท่านั้น เพื่อความปลอดภัยสูงสุดและป้องกันการสวมสิทธิ์
+      </div>
+    `;
+
     if (!list.length) {
       box.innerHTML = `
+        ${bannerHtml}
         <div class="empty-state">
-          <p class="empty-title">ยังไม่มีบัตรในบัญชีของคุณ</p>
-          <p class="text-muted">เลือกคอนเสิร์ตแล้วชำระเงิน บัตรจะแสดงที่นี่ทันที</p>
+          <p class="empty-title">ยังไม่มีรายการบัตรในระบบ</p>
+          <p class="text-muted">เลือกคอนเสิร์ตและแนบสลิปชำระเงิน บัตรจะถูกส่งเข้า LINE OA ของท่านทันทีหลังอนุมัติ</p>
         </div>`;
       return;
     }
     const esc = window.UI.escapeHtml;
-    box.innerHTML = list
+    box.innerHTML = bannerHtml + list
       .map(
         (t) => {
           const raw = String(t.holderIdCard || '').trim();
@@ -284,6 +300,7 @@
           const masked = idDigits.length === 13
             ? `${idDigits.slice(0, 1)}-${idDigits.slice(1, 5)}-xxxxx-xx-${idDigits.slice(12)}`
             : (raw.length >= 7 ? `${raw.slice(0, 2)}***${raw.slice(-3)}` : (raw || '-'));
+          const isApproved = t.status === 'approved' || !t.status;
           return `
           <article class="my-ticket">
             <div class="my-ticket-main">
@@ -291,9 +308,13 @@
               <h4 class="my-ticket-title">${esc(t.title)}</h4>
               <p class="text-muted">${esc(t.date)} · ${esc(t.zone)} · ${t.qty} ใบ</p>
               <p class="text-muted">ผู้ถือบัตร: ${esc(t.holderName || '-')} (${esc(t.holderPhone || '-')}) · ปชช.: ${esc(masked)}</p>
+              <p class="text-muted" style="font-size:11px;color:#68D391;">📲 LINE: ${esc(t.lineUserId || 'เชื่อมต่อกับ LINE OA')}</p>
               <p class="my-ticket-ref">${esc(t.ref)}</p>
             </div>
-            <button class="btn-primary" data-ref="${esc(t.ref)}">ดูบัตร</button>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <button class="btn-primary" data-ref="${esc(t.ref)}">${isApproved ? '🎫 ดูบัตร' : 'ดูสถานะ'}</button>
+              ${isApproved ? `<a href="ticket.html?ref=${encodeURIComponent(t.ref)}" target="_blank" class="btn-outline btn-sm" style="text-align:center;text-decoration:none;">📱 Dynamic Pass</a>` : ''}
+            </div>
           </article>`;
         }
       )

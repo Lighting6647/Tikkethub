@@ -621,6 +621,37 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true, orders });
   }
 
+  // Get single order by ref (Public E-Ticket Pass for LINE OA customer)
+  const singleOrderMatch = pathname.match(/^\/api\/orders\/([A-Za-z0-9_-]+)$/);
+  if (method === 'GET' && singleOrderMatch) {
+    const targetRef = singleOrderMatch[1];
+    const found = db.getOrder(targetRef);
+    if (!found) {
+      return sendJson(res, 404, { ok: false, error: 'ไม่พบบัตรรายการนี้' });
+    }
+    const sanitized = {
+      ref: found.ref,
+      title: found.title,
+      date: found.date,
+      venue: found.venue,
+      zone: found.zone,
+      qty: found.qty,
+      seats: found.seats,
+      total: found.total,
+      holderName: found.holderName,
+      holderPhone: found.holderPhone,
+      holderIdCard: found.holderIdCard,
+      lineUserId: found.lineUserId,
+      status: found.status,
+      checkedInAt: found.checkedInAt,
+      checkedInBy: found.checkedInBy,
+      qrSignature: found.qrSignature,
+      qrPayload: found.qrPayload,
+      issuedAt: found.issuedAt
+    };
+    return sendJson(res, 200, { ok: true, order: sanitized });
+  }
+
   // Gate Check-in Scanner API
   if (method === 'POST' && pathname === '/api/checkin') {
     if (!isAdminAuthenticated(req)) {

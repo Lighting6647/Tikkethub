@@ -293,6 +293,11 @@
         </div>
       </div>
       <div class="modal-content">
+        <!-- Scanner Instruction Banner -->
+        <div style="background:rgba(34,155,255,0.08); border:1px solid rgba(34,155,255,0.25); border-radius:8px; padding:10px 14px; font-size:12px; margin-bottom:8px; line-height:1.45;">
+          💡 <strong>วิธีสแกน:</strong> ส่องกล้องไปที่ QR Code บนมือถือของลูกค้า (ที่ส่งเข้า LINE OA) ให้อยู่ในกรอบ กล้องจะตรวจจับและส่งเสียงแจ้งเตือนพร้อมบันทึกเข้างานทันที
+        </div>
+
         <!-- Live Camera Viewfinder with Camera Device Selector -->
         <div class="camera-scanner-card">
           <div class="camera-select-bar">
@@ -334,6 +339,26 @@
                 ส่อง QR Code บนบัตรเข้างานให้อยู่ในกรอบ
               </div>
             </div>
+
+            <!-- Live HUD Result Alert Overlay -->
+            <div class="scanner-hud-alert" id="scannerHudAlert" hidden>
+              <div class="hud-alert-card" id="hudAlertCard">
+                <div class="hud-status-row">
+                  <span class="hud-icon" id="hudIcon">✅</span>
+                  <span class="hud-title" id="hudTitle">เช็กอินสำเร็จ — ผ่านเข้างาน</span>
+                </div>
+                <div class="hud-details" id="hudDetails">
+                  <div class="hud-name" id="hudName">คุณสมชาย วงศ์สวัสดิ์</div>
+                  <div class="hud-meta" id="hudMeta">โซน VIP · 2 ใบ · Gate A</div>
+                  <div class="hud-sig" id="hudSig">🔐 ลายเซ็นดิจิทัล HMAC-SHA256 แท้</div>
+                </div>
+                <div class="hud-actions">
+                  <span class="hud-countdown" id="hudCountdown">พร้อมสแกนคนถัดไปใน 2.5s</span>
+                  <button type="button" class="btn-primary hud-next-btn" id="hudNextBtn">📷 สแกนคนถัดไปทันที</button>
+                </div>
+              </div>
+            </div>
+
             <div class="camera-off-placeholder" id="cameraOffPlaceholder" hidden>
               <span>📷 กล้องปิดอยู่ · สามารถพิมพ์รหัสหรือใช้เครื่องยิงบาร์โค้ดได้</span>
             </div>
@@ -749,6 +774,7 @@
   </div>
 
   <script src="js/ui.js"></script>
+  <script src="js/vendor/jsQR.js"></script>
   <script src="js/admin.js"></script>
 </body>
 </html>

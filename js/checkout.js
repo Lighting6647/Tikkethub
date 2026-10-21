@@ -264,8 +264,7 @@
     window.UI.close('paymentModal');
     clearSlip();
     document.dispatchEvent(new CustomEvent('tickets:changed'));
-    if (window.SoundEffects) window.SoundEffects.playSuccessChime();
-    window.UI.toast('ชำระเงินสำเร็จ! บัตรของคุณพร้อมแล้ว');
+    window.UI.toast('แนบสลิปชำระเงินสำเร็จ! เมื่อแอดมินอนุมัติ บัตร E-Ticket จะถูกจัดส่งตรงเข้า LINE OA ทันที');
     window.TicketViewer.show(saved);
   }
 

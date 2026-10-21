@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>บัตรคอนเสิร์ตอิเล็กทรอนิกส์ (E-Ticket) | Thai Ticket Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23B40000'/%3E%3Ctext x='16' y='22' font-size='16' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    body {
+      background-color: #121212;
+      color: #E2E8F0;
+      font-family: 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ticket-nav {
+      background-color: #1A1A1A;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ticket-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      color: #FFFFFF;
+      font-size: 16px;
+      text-decoration: none;
+    }
+
+    .brand-badge {
+      background-color: var(--color-primary);
+      color: #FFFFFF;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .ticket-container {
+      max-width: 480px;
+      margin: 20px auto 40px;
+      padding: 0 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Live Security Bar */
+    .live-pass-bar {
+      background: linear-gradient(90deg, #1A202C, #2D3748);
+      border: 1px solid rgba(104, 211, 145, 0.35);
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+
+    .live-pass-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #68D391;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      box-shadow: 0 0 8px #68D391;
+      animation: pulse 1.4s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .live-token-code {
+      font-family: monospace;
+      font-weight: 800;
+      color: #68D391;
+      font-size: 12px;
+      background: rgba(0,0,0,0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(104, 211, 145, 0.25);
+    }
+
+    .live-pass-timer {
+      font-size: 11px;
+      color: #A0AEC0;
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .live-progress {
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .live-progress-fill {
+      height: 100%;
+      background: #68D391;
+      width: 100%;
+      transition: width 1s linear;
+    }
+
+    /* Ticket Card */
+    .ticket-card {
+      background-color: #1E1E1E;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.6);
+      position: relative;
+    }
+
+    .ticket-header-strip {
+      background: #181818;
+      border-bottom: 2px dashed rgba(255, 255, 255, 0.15);
+      padding: 20px;
+      position: relative;
+    }
+
+    .ticket-header-strip::before,
+    .ticket-header-strip::after {
+      content: '';
+      position: absolute;
+      bottom: -12px;
+      width: 24px;
+      height: 24px;
+      background-color: #121212;
+      border-radius: 50%;
+    }
+    .ticket-header-strip::before { left: -12px; }
+    .ticket-header-strip::after { right: -12px; }
+
+    .event-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin: 8px 0 6px;
+      line-height: 1.3;
+    }
+
+    .event-meta {
+      font-size: 12px;
+      color: #CBD5E1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    /* Status Pill */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .status-badge.is-ready {
+      background: rgba(104, 211, 145, 0.18);
+      color: #68D391;
+      border: 1px solid rgba(104, 211, 145, 0.4);
+    }
+    .status-badge.is-checked {
+      background: rgba(34, 155, 255, 0.18);
+      color: #229BFF;
+      border: 1px solid rgba(34, 155, 255, 0.4);
+    }
+
+    /* QR Presentation Area */
+    .ticket-qr-area {
+      padding: 24px 20px 20px;
+      text-align: center;
+      background: radial-gradient(circle at center, #252525 0%, #1A1A1A 100%);
+    }
+
+    .qr-frame {
+      display: inline-block;
+      background: #FFFFFF;
+      padding: 14px;
+      border-radius: 12px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+    }
+
+    .qr-frame img, .qr-frame svg {
+      display: block;
+      width: 200px;
+      height: 200px;
+    }
+
+    .booking-ref-title {
+      font-size: 11px;
+      color: #A0AEC0;
+      margin-top: 14px;
+      letter-spacing: 0.5px;
+    }
+
+    .booking-ref-value {
+      font-size: 26px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+
+    .qr-instruction {
+      font-size: 12px;
+      color: #68D391;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    /* Details Grid */
+    .ticket-details {
+      padding: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      font-size: 12px;
+      background: #1E1E1E;
+    }
+
+    .detail-item small {
+      display: block;
+      color: #A0AEC0;
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+
+    .detail-item strong {
+      color: #F8FAFC;
+      font-size: 13px;
+    }
+
+    .ticket-notice-box {
+      margin: 16px 0;
+      background: rgba(34, 155, 255, 0.08);
+      border: 1px solid rgba(34, 155, 255, 0.25);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #E2E8F0;
+      line-height: 1.5;
+    }
+
+    .ticket-actions-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn-action-primary {
+      background: var(--color-primary);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-weight: 700;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: block;
+      transition: background 0.15s ease;
+    }
+    .btn-action-primary:hover {
+      background: #900000;
+    }
+
+    .btn-action-outline {
+      background: transparent;
+      color: #E2E8F0;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: block;
+    }
+    .btn-action-outline:hover {
+      background: rgba(255,255,255,0.06);
+    }
+  </style>
+</head>
+<body>
+  <nav class="ticket-nav">
+    <a href="index.html" class="ticket-brand">
+      <span class="brand-badge">THAI</span> TICKET MAJOR
+    </a>
+    <span style="font-size:12px; color:#A0AEC0;">บัตรคอนเสิร์ตทางการ</span>
+  </nav>
+
+  <main class="ticket-container">
+    <!-- Dynamic Anti-Screenshot Security Pass -->
+    <div class="live-pass-bar" id="livePassBar">
+      <div class="live-pass-header">
+        <div>
+          <span class="live-dot"></span>
+          <strong style="color:#FFFFFF;">LIVE DYNAMIC PASS</strong>
+          <span style="color:#A0AEC0; font-size:10px;">(ป้องกันภาพแคปหน้าจอ)</span>
+        </div>
+        <span class="live-token-code" id="liveTokenCode">TOKEN #000-000</span>
+      </div>
+      <div class="live-pass-timer">
+        <span id="liveClockDisplay">เวลา: --:--:--</span>
+        <span>เปลี่ยนรหัสในอีก <strong id="liveSecRemain" style="color:#68D391;">30</strong> วิ</span>
+      </div>
+      <div class="live-progress">
+        <div class="live-progress-fill" id="liveProgressFill"></div>
+      </div>
+    </div>
+
+    <!-- Official E-Ticket Card -->
+    <div class="ticket-card" id="ticketCard">
+      <div class="ticket-header-strip">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#B40000; font-weight:800; font-size:12px;">THAI TICKET E-PASS</span>
+          <span class="status-badge is-ready" id="ticketStatusBadge">🟢 พร้อมสแกนเข้างาน</span>
+        </div>
+        <h1 class="event-title" id="ticketEventTitle">ECHOES OF ASIA WORLD TOUR 2026</h1>
+        <div class="event-meta">
+          <span id="ticketEventDate">📅 14 - 15 พฤศจิกายน 2026</span>
+          <span id="ticketEventVenue">📍 อิมแพ็ค อารีน่า เมืองทองธานี</span>
+        </div>
+      </div>
+
+      <div class="ticket-qr-area">
+        <div class="qr-frame" id="qrFrame">
+          <div id="ticketQrElement"></div>
+        </div>
+        <div class="booking-ref-title">รหัสการจองบัตร (BOOKING REF)</div>
+        <div class="booking-ref-value" id="ticketRefValue">TT1001-A1</div>
+        <div class="qr-instruction" id="ticketQrInstruction">📷 ยื่นหน้าจอนี้ให้เจ้าหน้าที่สแกน ณ ประตูทางเข้า</div>
+      </div>
+
+      <div class="ticket-details">
+        <div class="detail-item">
+          <small>ชื่อผู้ถือบัตร</small>
+          <strong id="ticketHolderName">-</strong>
+        </div>
+        <div class="detail-item">
+          <small>เบอร์โทรศัพท์</small>
+          <strong id="ticketHolderPhone">-</strong>
+        </div>
+        <div class="detail-item">
+          <small>เลขบัตร ปชช. / Passport</small>
+          <strong id="ticketHolderId" style="color:#229BFF;">-</strong>
+        </div>
+        <div class="detail-item">
+          <small>โซนที่นั่ง</small>
+          <strong id="ticketZone" style="color:#68D391;">-</strong>
+        </div>
+        <div class="detail-item">
+          <small>หมายเลขที่นั่ง</small>
+          <strong id="ticketSeats">-</strong>
+        </div>
+        <div class="detail-item">
+          <small>ประตูทางเข้า (Gate)</small>
+          <strong id="ticketGate">Gate A (Main)</strong>
+        </div>
+        <div class="detail-item" style="grid-column: 1 / -1;">
+          <small>ลายเซ็นดิจิทัล (HMAC-SHA256)</small>
+          <strong id="ticketSignature" style="font-family:monospace; font-size:11px; color:#A0AEC0;">SIG:VERIFIED</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security Notice -->
+    <div class="ticket-notice-box">
+      🛡️ <strong>นโยบายบัตรเข้าชมงาน:</strong> บัตรนี้จัดส่งตรงเข้า <strong>LINE Official Account</strong> ของผู้ซื้อโดยเฉพาะ ป้องกันการสวมสิทธิ์และบัตรผี เจ้าหน้าที่จะตรวจสอบชื่อและเลขบัตรประชาชนตรงกับบัตรแข็งหน้างาน
+    </div>
+
+    <!-- Actions -->
+    <div class="ticket-actions-bar">
+      <button type="button" class="btn-action-primary" id="btnSaveTicket">
+        📥 บันทึกรูปบัตรลงในอุปกรณ์
+      </button>
+      <a href="https://line.me" target="_blank" class="btn-action-outline">
+        💬 เปิดในแอปพลิเคชัน LINE
+      </a>
+      <a href="index.html" class="btn-action-outline">
+        🏠 กลับหน้าหลัก
+      </a>
+    </div>
+  </main>
+
+  <script src="js/vendor/qrcode.js"></script>
+  <script src="js/ticket-store.js"></script>
+  <script src="js/ticket-renderer.js"></script>
+  <script>
+    (function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = (urlParams.get('ref') || 'TT1001-DEMO').trim();
+
+      // Dynamic Token Ticker
+      function computeLiveToken(refStr, slot) {
+        const str = `${refStr}:${slot}`;
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        const num = Math.abs(h) % 900000 + 100000;
+        const s = String(num);
+        return `TOKEN #${s.slice(0, 3)}-${s.slice(3)}`;
+      }
+
+      function startTicker() {
+        function tick() {
+          const now = new Date();
+          const sec = 30 - (Math.floor(now.getTime() / 1000) % 30);
+          const slot = Math.floor(now.getTime() / 30000);
+          const elToken = document.getElementById('liveTokenCode');
+          const elClock = document.getElementById('liveClockDisplay');
+          const elSec = document.getElementById('liveSecRemain');
+          const elFill = document.getElementById('liveProgressFill');
+          if (elToken) elToken.textContent = computeLiveToken(ref, slot);
+          if (elClock) elClock.textContent = `เวลา: ${now.toLocaleTimeString('th-TH')}`;
+          if (elSec) elSec.textContent = String(sec);
+          if (elFill) elFill.style.width = `${Math.round((sec / 30) * 100)}%`;
+        }
+        tick();
+        setInterval(tick, 1000);
+      }
+      startTicker();
+
+      async function loadTicket() {
+        let ticket = null;
+        try {
+          const res = await fetch(`/api/orders/${encodeURIComponent(ref)}`);
+          const data = await res.json();
+          if (data && data.order) ticket = data.order;
+        } catch {}
+
+        if (!ticket) {
+          ticket = window.TicketStore ? window.TicketStore.get(ref) : null;
+        }
+
+        if (!ticket) {
+          ticket = {
+            ref: ref,
+            title: 'ECHOES OF ASIA WORLD TOUR 2026',
+            date: '14 - 15 พฤศจิกายน 2026',
+            venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
+            zone: 'VIP Standing',
+            qty: 1,
+            seats: ['A1'],
+            holderName: 'คุณผู้ถือบัตร',
+            holderPhone: '081-xxx-xxxx',
+            holderIdCard: '1-1004-xxxxx-xx-3',
+            qrSignature: 'OFFICIAL_PASS',
+            status: 'approved'
+          };
+        }
+
+        renderTicket(ticket);
+      }
+
+      function maskId(id) {
+        const raw = String(id || '').trim();
+        const d = raw.replace(/\D/g, '');
+        if (d.length === 13) return `${d[0]}-${d.slice(1, 5)}-xxxxx-xx-${d.slice(12)}`;
+        if (raw.length >= 7) return `${raw.slice(0, 2)}***${raw.slice(-3)}`;
+        return raw || '-';
+      }
+
+      function renderTicket(t) {
+        document.getElementById('ticketRefValue').textContent = t.ref;
+        if (t.title) document.getElementById('ticketEventTitle').textContent = t.title;
+        if (t.date) document.getElementById('ticketEventDate').textContent = `📅 ${t.date}`;
+        if (t.venue) document.getElementById('ticketEventVenue').textContent = `📍 ${t.venue}`;
+        document.getElementById('ticketHolderName').textContent = t.holderName || '-';
+        document.getElementById('ticketHolderPhone').textContent = t.holderPhone || '-';
+        document.getElementById('ticketHolderId').textContent = maskId(t.holderIdCard);
+        document.getElementById('ticketZone').textContent = `${t.zone} (${t.qty || 1} ใบ)`;
+        document.getElementById('ticketSeats').textContent = (t.seats && t.seats.length) ? t.seats.join(', ') : 'โซนระบุที่นั่ง';
+        document.getElementById('ticketSignature').textContent = `SIG:${t.qrSignature || 'VERIFIED'}`;
+
+        const badge = document.getElementById('ticketStatusBadge');
+        if (t.checkedInAt) {
+          badge.className = 'status-badge is-checked';
+          badge.textContent = `🔵 เข้างานแล้ว (${new Date(t.checkedInAt).toLocaleTimeString('th-TH')} น.)`;
+          document.getElementById('ticketQrInstruction').textContent = '✔ บัตรนี้ถูกสแกนเข้างานเรียบร้อยแล้ว';
+          document.getElementById('ticketQrInstruction').style.color = '#229BFF';
+        } else {
+          badge.className = 'status-badge is-ready';
+          badge.textContent = '🟢 พร้อมสแกนเข้างาน';
+        }
+
+        // Render QR Code
+        const payload = t.qrPayload || `THAITICKET|${t.ref}|${t.zone || ''}|${t.qty || 1}|SIG:${t.qrSignature || 'OFFICIAL'}`;
+        const qrEl = document.getElementById('ticketQrElement');
+        try {
+          const qr = qrcode(0, 'M');
+          qr.addData(payload);
+          qr.make();
+          qrEl.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 0, scalable: true, alt: 'Official Entry QR' });
+        } catch {
+          qrEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(payload)}" alt="QR Code">`;
+        }
+
+        // Save Image Action
+        document.getElementById('btnSaveTicket').addEventListener('click', async () => {
+          try {
+            if (window.TicketRenderer) {
+              const canvas = await window.TicketRenderer.render(t);
+              const blob = await window.TicketRenderer.canvasToBlob(canvas);
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `ticket-${t.ref}.png`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }
+          } catch {
+            alert('บันทึกรูปภาพเรียบร้อย (หรือสามารถแคปเจอร์หน้าจอนี้ได้)');
+          }
+        });
+      }
+
+      loadTicket();
+    })();
+  </script>
+</body>
+</html>

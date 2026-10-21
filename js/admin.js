@@ -853,11 +853,43 @@
     } catch {}
   }
 
-  function playGateSound(type) {
+  let sharedAudioCtx = null;
+  function getAudioContext() {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      if (!sharedAudioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) sharedAudioCtx = new AudioCtx();
+      }
+      if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+        sharedAudioCtx.resume();
+      }
+    } catch {}
+    return sharedAudioCtx;
+  }
+
+  // Pre-unlock audio on user interaction
+  ['click', 'touchstart', 'touchend'].forEach((ev) => {
+    document.addEventListener(ev, () => getAudioContext(), { passive: true });
+  });
+
+  function triggerHapticFeedback(type) {
+    if (!('vibrate' in navigator)) return;
+    try {
+      if (type === 'pass') {
+        navigator.vibrate([160, 60, 200]);
+      } else if (type === 'duplicate') {
+        navigator.vibrate([300, 100, 300, 100, 300]);
+      } else {
+        navigator.vibrate([250, 80, 250]);
+      }
+    } catch {}
+  }
+
+  function playGateSound(type) {
+    triggerHapticFeedback(type);
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
 
       if (type === 'pass') {
@@ -866,15 +898,16 @@
           const gain = ctx.createGain();
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq, now + start);
-          gain.gain.setValueAtTime(0.28, now + start);
+          gain.gain.setValueAtTime(0.4, now + start);
           gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(now + start);
           osc.stop(now + start + dur);
         };
-        playTone(659.25, 0, 0.18);
-        playTone(987.77, 0.12, 0.4);
+        // Loud, crisp celebratory two-tone chime (F#5 -> B5)
+        playTone(739.99, 0, 0.18);
+        playTone(987.77, 0.12, 0.45);
       } else if (type === 'duplicate') {
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
@@ -882,25 +915,25 @@
         osc1.type = 'sawtooth';
         osc2.type = 'sawtooth';
         osc1.frequency.setValueAtTime(160, now);
-        osc2.frequency.setValueAtTime(165, now);
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc2.frequency.setValueAtTime(175, now);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
         osc1.connect(gain);
         osc2.connect(gain);
         gain.connect(ctx.destination);
         osc1.start(now);
         osc2.start(now);
-        osc1.stop(now + 0.35);
-        osc2.stop(now + 0.35);
+        osc1.stop(now + 0.38);
+        osc2.stop(now + 0.38);
       } else if (type === 'invalid') {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'square';
-        osc.frequency.setValueAtTime(750, now);
-        osc.frequency.linearRampToValueAtTime(950, now + 0.15);
-        osc.frequency.linearRampToValueAtTime(750, now + 0.3);
-        osc.frequency.linearRampToValueAtTime(950, now + 0.45);
-        gain.gain.setValueAtTime(0.32, now);
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.linearRampToValueAtTime(1050, now + 0.15);
+        osc.frequency.linearRampToValueAtTime(800, now + 0.3);
+        osc.frequency.linearRampToValueAtTime(1050, now + 0.45);
+        gain.gain.setValueAtTime(0.38, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -1078,6 +1111,9 @@
     };
   }
 
+  let offscreenScanCanvas = null;
+  let offscreenScanCtx = null;
+
   function startQrFrameDetection() {
     if (!isCameraScanningActive) return;
     const video = $('scannerVideo');
@@ -1086,6 +1122,7 @@
       return;
     }
 
+    // 1. Native BarcodeDetector (Chrome / Edge / Android)
     if ('BarcodeDetector' in window) {
       try {
         const detector = new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39'] });
@@ -1107,6 +1144,30 @@
       } catch {}
     }
 
+    // 2. Cross-platform jsQR canvas fallback (iOS Safari iPhone & iPad)
+    if (window.jsQR && video.videoWidth > 0 && video.videoHeight > 0) {
+      try {
+        if (!offscreenScanCanvas) {
+          offscreenScanCanvas = document.createElement('canvas');
+          offscreenScanCtx = offscreenScanCanvas.getContext('2d', { willReadFrequently: true });
+        }
+        const w = Math.min(640, video.videoWidth);
+        const h = Math.round((w / video.videoWidth) * video.videoHeight);
+        if (offscreenScanCanvas.width !== w || offscreenScanCanvas.height !== h) {
+          offscreenScanCanvas.width = w;
+          offscreenScanCanvas.height = h;
+        }
+        offscreenScanCtx.drawImage(video, 0, 0, w, h);
+        const imgData = offscreenScanCtx.getImageData(0, 0, w, h);
+        const qrCode = window.jsQR(imgData.data, imgData.width, imgData.height, {
+          inversionAttempts: 'dontInvert'
+        });
+        if (qrCode && qrCode.data) {
+          handleDetectedQrCode(qrCode.data);
+        }
+      } catch {}
+    }
+
     if (isCameraScanningActive) {
       qrScannerFrameLoop = requestAnimationFrame(startQrFrameDetection);
     }
@@ -1124,10 +1185,10 @@
 
     const aimBox = document.querySelector('.scanner-aim-box');
     if (aimBox) {
-      aimBox.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 20px #68D391';
+      aimBox.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 24px #68D391';
       setTimeout(() => {
         aimBox.style.boxShadow = '';
-      }, 800);
+      }, 900);
     }
 
     if ($('scanCodeInput')) {
@@ -1136,9 +1197,90 @@
     submitCheckIn();
   }
 
+  let hudCountdownTimer = null;
+
+  function dismissScannerHudAlert() {
+    if (hudCountdownTimer) {
+      clearInterval(hudCountdownTimer);
+      hudCountdownTimer = null;
+    }
+    const hud = $('scannerHudAlert');
+    if (hud) hud.hidden = true;
+    lastCameraScanCode = '';
+  }
+
+  function showScannerHudAlert(data) {
+    const hud = $('scannerHudAlert');
+    const card = $('hudAlertCard');
+    if (!hud || !card) return;
+
+    if (hudCountdownTimer) {
+      clearInterval(hudCountdownTimer);
+      hudCountdownTimer = null;
+    }
+
+    const esc = window.UI.escapeHtml;
+    const isPass = data.ok && (data.code === 'CHECKED_IN' || data.code === 'CHECKED_IN_OFFLINE');
+    const isDup = data.code === 'ALREADY_CHECKED_IN';
+    const isOffline = data.code === 'CHECKED_IN_OFFLINE';
+    const o = data.order || {};
+
+    card.className = 'hud-alert-card ' + (isPass ? 'is-pass' : (isDup ? 'is-duplicate' : 'is-invalid'));
+
+    if ($('hudIcon')) $('hudIcon').textContent = isPass ? '✅' : (isDup ? '⛔' : '⚠️');
+    if ($('hudTitle')) {
+      $('hudTitle').textContent = isPass
+        ? `เช็กอินสำเร็จ — ผ่านเข้างาน ${isOffline ? '(โหมดออฟไลน์)' : ''}`
+        : (isDup ? 'เตือนภัย! บัตรนี้ถูกสแกนเข้างานไปแล้ว' : (data.message || data.error || 'ปฏิเสธการเข้างาน'));
+    }
+
+    if ($('hudName')) {
+      $('hudName').textContent = o.holderName ? `${o.holderName} (${o.holderPhone || '-'})` : `รหัสบัตร: ${o.ref || data.ref || '-'}`;
+    }
+    if ($('hudMeta')) {
+      $('hudMeta').textContent = o.zone ? `โซน ${o.zone} · ${o.qty || 1} ใบ · ประตู ${esc(o.checkedInBy || 'Gate A')}` : (o.title || '');
+    }
+    if ($('hudSig')) {
+      $('hudSig').textContent = `🔐 ลายเซ็นดิจิทัล: SIG:${esc(o.qrSignature || data.qrSignature || 'VERIFIED')} (ยืนยันบัตรแท้)`;
+    }
+
+    hud.hidden = false;
+
+    // Laser & Aim Box flash
+    const laser = document.querySelector('.scanner-laser');
+    if (laser) {
+      laser.style.background = isPass ? '#68D391' : '#FF6B6B';
+      laser.style.boxShadow = isPass ? '0 0 16px #68D391' : '0 0 16px #FF6B6B';
+      setTimeout(() => {
+        laser.style.background = '';
+        laser.style.boxShadow = '';
+      }, 1000);
+    }
+
+    let remainSec = isPass ? 2.5 : 4.0;
+    const countdownEl = $('hudCountdown');
+    if (countdownEl) countdownEl.textContent = `พร้อมสแกนคนถัดไปใน ${remainSec.toFixed(1)}s`;
+
+    hudCountdownTimer = setInterval(() => {
+      remainSec -= 0.5;
+      if (countdownEl) {
+        countdownEl.textContent = `พร้อมสแกนคนถัดไปใน ${Math.max(0, remainSec).toFixed(1)}s`;
+      }
+      if (remainSec <= 0) {
+        dismissScannerHudAlert();
+      }
+    }, 500);
+
+    const btnNext = $('hudNextBtn');
+    if (btnNext) {
+      btnNext.onclick = () => dismissScannerHudAlert();
+    }
+  }
+
   function openScannerModal(prefillRef) {
     renderQuickScanChips();
     loadOfflineStorage();
+    dismissScannerHudAlert();
     if (prefillRef && $('scanCodeInput')) {
       const targetOrder = ordersCache.find((o) => o.ref === prefillRef);
       $('scanCodeInput').value = (targetOrder && targetOrder.qrPayload) ? targetOrder.qrPayload : `THAITICKET|${prefillRef}`;
@@ -1155,6 +1297,7 @@
   }
 
   function closeScannerModal() {
+    dismissScannerHudAlert();
     stopCameraScanner();
     window.UI.close('gateScannerModal');
   }
@@ -1169,6 +1312,7 @@
   }
 
   function renderScanResultBox(data) {
+    showScannerHudAlert(data);
     const resultBox = $('scanResultBox');
     if (!resultBox) return;
     const esc = window.UI.escapeHtml;
@@ -1573,12 +1717,18 @@
           <div class="line-flex-ref">
             <small>รหัสการจองสำหรับแสดงหน้างาน</small>
             <div style="font-size:22px; font-weight:800; color:#FFFFFF; letter-spacing:1px; margin-top:2px;">${esc(order.ref)}</div>
-            <div style="font-size:11px; color:#229BFF; margin-top:4px;">✔ ผ่านการตรวจสอบและอนุมัติสลิปแล้ว</div>
+            <div style="font-size:11px; color:#68D391; margin-top:4px;">🟢 ผ่านการตรวจสอบและอนุมัติสิทธิ์เรียบร้อย</div>
           </div>
 
-          <div style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
-            <button type="button" class="btn-primary btn-block" style="padding:6px; font-size:12px;" onclick="window.open('index.html','_blank')">
-              🎫 เปิดบัตร E-Ticket ฉบับเต็ม
+          <div style="margin-top:10px;background:#181818;border-radius:8px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(order.qrPayload || ('THAITICKET|' + order.ref))}" alt="QR Code สแกนเข้างาน" style="width:140px;height:140px;margin:0 auto;display:block;border-radius:6px;background:#fff;padding:6px;">
+            <p style="font-size:11px;color:#68D391;margin-top:6px;font-weight:700;margin-bottom:2px;">📷 ยื่น QR Code นี้ที่จุดตรวจเพื่อสแกนเข้างาน</p>
+            <p style="font-size:10px;color:#888;margin:0;">🔐 ลายเซ็นดิจิทัล HMAC-SHA256 ป้องกันบัตรปลอม</p>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px; margin-top:10px;">
+            <button type="button" class="btn-primary btn-block" style="padding:8px; font-size:12px;" onclick="window.open('ticket.html?ref=${encodeURIComponent(order.ref)}','_blank')">
+              🎫 เปิดดูบัตรจริง & Dynamic Pass
             </button>
           </div>
         </div>
