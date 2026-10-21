@@ -135,6 +135,9 @@ if (!orderColumns.includes('verified_by')) {
 if (!orderColumns.includes('verification_detail')) {
   db.exec(`ALTER TABLE orders ADD COLUMN verification_detail TEXT DEFAULT '';`);
 }
+if (!orderColumns.includes('re_entry_attempts')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN re_entry_attempts INTEGER DEFAULT 0;`);
+}
 
 const DEFAULT_EVENTS = [
   {
@@ -381,6 +384,7 @@ function rowToOrder(row) {
     reviewedAt: row.reviewed_at || 0,
     checkedInAt: row.checked_in_at || 0,
     checkedInBy: row.checked_in_by || '',
+    reEntryAttempts: row.re_entry_attempts || 0,
     qrSignature,
     qrPayload: `THAITICKET|${row.ref}|${row.zone}|${row.qty}|SIG:${qrSignature}`
   };
@@ -587,11 +591,19 @@ function checkInOrder(rawInput, staffName = 'Gate Staff #1') {
   }
 
   if (existing.checkedInAt > 0) {
+    const attempts = Number(existing.reEntryAttempts || 0) + 1;
+    try {
+      db.prepare(`UPDATE orders SET re_entry_attempts = ? WHERE ref = ?`).run(attempts, existing.ref);
+    } catch {}
+    const orderSnapshot = { ...existing, reEntryAttempts: attempts };
     return {
       ok: false,
       code: 'ALREADY_CHECKED_IN',
       message: `เตือนภัย! บัตร ${existing.ref} ถูกสแกนเข้างานไปแล้วเมื่อ ${new Date(existing.checkedInAt).toLocaleString('th-TH')}`,
-      order: existing
+      firstCheckedInAt: existing.checkedInAt,
+      firstCheckedInBy: existing.checkedInBy || 'Gate A (Main)',
+      reEntryAttempts: attempts,
+      order: orderSnapshot
     };
   }
 

@@ -936,22 +936,34 @@
         playTone(987.77, 0.12, 0.45, 'triangle', 0.45);
       }
     } else if (type === 'duplicate') {
+      // High-Urgency Re-entry Siren Alarm (Dual-tone oscillating warble 880Hz / 440Hz / 880Hz / 440Hz)
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
       osc1.type = 'sawtooth';
-      osc2.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(160, now);
-      osc2.frequency.setValueAtTime(175, now);
-      gain.gain.setValueAtTime(0.4, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      osc2.type = 'square';
+      osc1.frequency.setValueAtTime(880, now);
+      osc1.frequency.linearRampToValueAtTime(440, now + 0.15);
+      osc1.frequency.linearRampToValueAtTime(880, now + 0.3);
+      osc1.frequency.linearRampToValueAtTime(440, now + 0.45);
+      osc1.frequency.linearRampToValueAtTime(880, now + 0.6);
+
+      osc2.frequency.setValueAtTime(440, now);
+      osc2.frequency.linearRampToValueAtTime(220, now + 0.15);
+      osc2.frequency.linearRampToValueAtTime(440, now + 0.3);
+      osc2.frequency.linearRampToValueAtTime(220, now + 0.45);
+
+      gain.gain.setValueAtTime(0.48, now);
+      gain.gain.setValueAtTime(0.48, now + 0.45);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
       osc1.connect(gain);
       osc2.connect(gain);
       gain.connect(ctx.destination);
       osc1.start(now);
       osc2.start(now);
-      osc1.stop(now + 0.38);
-      osc2.stop(now + 0.38);
+      osc1.stop(now + 0.65);
+      osc2.stop(now + 0.65);
     } else if (type === 'invalid') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -996,6 +1008,114 @@
         playGateSound('pass');
         window.UI.toast('ทดสอบเสียงผ่านเข้างาน (Pass)');
       });
+    }
+    updateFastScanUi();
+    const btnFast = $('btnToggleFastScan');
+    if (btnFast) {
+      btnFast.addEventListener('click', toggleFastScan);
+    }
+  }
+
+  let isFastScanMode = localStorage.getItem('tt_gate_fast_scan') === 'true';
+
+  function updateFastScanUi() {
+    const btn = $('btnToggleFastScan');
+    if (!btn) return;
+    if (isFastScanMode) {
+      btn.textContent = '⚡ สแกนด่วน: เปิด';
+      btn.classList.add('btn-fast-scan-active');
+    } else {
+      btn.textContent = '⚡ สแกนด่วน: ปิด';
+      btn.classList.remove('btn-fast-scan-active');
+    }
+    const hint = $('scannerStatusHint');
+    if (hint) {
+      hint.textContent = isFastScanMode
+        ? '⚡ โหมดสแกนด่วนเปิดอยู่ · เล็ง QR Code สแกนผ่านทันทีใน 0.8s'
+        : 'ส่อง QR Code บนบัตรเข้างานให้อยู่ในกรอบ';
+    }
+  }
+
+  function toggleFastScan() {
+    isFastScanMode = !isFastScanMode;
+    localStorage.setItem('tt_gate_fast_scan', isFastScanMode ? 'true' : 'false');
+    updateFastScanUi();
+    window.UI.toast(
+      isFastScanMode
+        ? 'เปิดโหมดสแกนด่วนต่อเนื่อง (Fast-Scan Mode) ความเร็วสูงสุด 0.8s ต่อคน'
+        : 'ปิดโหมดสแกนด่วน (กลับสู่โหมดปกติ)'
+    );
+  }
+
+  async function exportAttendanceCsv() {
+    try {
+      window.UI.toast('กำลังส่งออกรายงานรายชื่อผู้เข้างาน (CSV)...');
+      const res = await fetch('/api/admin/export-attendance?status=approved', {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const nowStr = new Date().toISOString().slice(0, 10);
+        a.download = `thaiticket-attendance-roster-${nowStr}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        window.UI.toast('ดาวน์โหลดรายงานผู้เข้างาน (CSV) สำเร็จแล้ว');
+      } else {
+        throw new Error('ไม่สามารถดาวน์โหลดไฟล์จากเซิร์ฟเวอร์');
+      }
+    } catch (err) {
+      const approved = ordersCache.filter((o) => o.status === 'approved');
+      if (!approved.length) {
+        window.UI.toast('ไม่มีข้อมูลบัตรที่อนุมัติสำหรับส่งออก', 'info');
+        return;
+      }
+      const headers = [
+        'ลำดับ',
+        'รหัสการจอง (Ref)',
+        'คอนเสิร์ต',
+        'รอบการแสดง',
+        'โซนที่นั่ง',
+        'จำนวนบัตร (ใบ)',
+        'ชื่อผู้ถือบัตร',
+        'เบอร์โทรศัพท์',
+        'เลขบัตรประชาชน',
+        'สถานะการตรวจเข้างาน',
+        'เวลาตรวจเข้างาน',
+        'จุดตรวจ/เจ้าหน้าที่',
+        'พยายามเข้าซ้ำ (ครั้ง)'
+      ];
+      const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const rows = approved.map((o, i) => [
+        i + 1,
+        o.ref,
+        o.title,
+        o.date,
+        o.zone,
+        o.qty,
+        o.holderName,
+        o.holderPhone,
+        o.holderIdCard || '',
+        o.checkedInAt > 0 ? 'เข้างานแล้ว' : 'ยังไม่เข้างาน',
+        o.checkedInAt > 0 ? new Date(o.checkedInAt).toLocaleString('th-TH') : '-',
+        o.checkedInBy || '-',
+        o.reEntryAttempts || 0
+      ].map(esc).join(','));
+      const csv = '\uFEFF' + [headers.map(esc).join(','), ...rows].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `thaiticket-attendance-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      window.UI.toast(`ส่งออกรายงานออฟไลน์สำเร็จ (${approved.length} รายการ)`);
     }
   }
 
@@ -1233,7 +1353,8 @@
     if (!code) return;
     const trimmed = String(code).trim();
     const now = Date.now();
-    if (trimmed === lastCameraScanCode && now - lastCameraScanTimestamp < 2500) {
+    const debounceDelay = isFastScanMode ? 1200 : 2500;
+    if (trimmed === lastCameraScanCode && now - lastCameraScanTimestamp < debounceDelay) {
       return;
     }
     lastCameraScanCode = trimmed;
@@ -1300,6 +1421,25 @@
       $('hudSig').textContent = `🔐 ลายเซ็นดิจิทัล: SIG:${esc(o.qrSignature || data.qrSignature || 'VERIFIED')} (ยืนยันบัตรแท้)`;
     }
 
+    const reEntryBox = $('hudReEntryBox');
+    if (reEntryBox) {
+      if (isDup) {
+        const firstTime = data.firstCheckedInAt || o.checkedInAt;
+        const firstTimeStr = firstTime ? new Date(firstTime).toLocaleString('th-TH') : '-';
+        const firstGate = esc(data.firstCheckedInBy || o.checkedInBy || 'Gate A (Main)');
+        const attempts = data.reEntryAttempts || o.reEntryAttempts || 1;
+        reEntryBox.innerHTML = `
+          <strong>⛔ บันทึกการพยายามเข้างานซ้ำ (Re-entry Lockout):</strong>
+          <span>• สแกนเข้าครั้งแรก: <b>${firstTimeStr}</b></span>
+          <span>• จุดตรวจแรก: <b>${firstGate}</b></span>
+          <span>• พยายามเข้าซ้ำ: <b style="color:#FF6B6B;">ครั้งที่ ${attempts}</b> (ระบบปฏิเสธการเข้างาน)</span>
+        `;
+        reEntryBox.hidden = false;
+      } else {
+        reEntryBox.hidden = true;
+      }
+    }
+
     hud.hidden = false;
 
     // Laser & Aim Box flash
@@ -1313,19 +1453,22 @@
       }, 1000);
     }
 
-    let remainSec = isPass ? 2.5 : 4.0;
+    let remainSec = isFastScanMode ? (isPass ? 0.8 : 2.2) : (isPass ? 2.5 : 4.0);
+    const intervalStep = isFastScanMode ? 0.2 : 0.5;
+    const intervalMs = isFastScanMode ? 200 : 500;
     const countdownEl = $('hudCountdown');
-    if (countdownEl) countdownEl.textContent = `พร้อมสแกนคนถัดไปใน ${remainSec.toFixed(1)}s`;
+    const fastPrefix = isFastScanMode ? '⚡ สแกนด่วน: ' : '';
+    if (countdownEl) countdownEl.textContent = `${fastPrefix}พร้อมสแกนคนถัดไปใน ${remainSec.toFixed(1)}s`;
 
     hudCountdownTimer = setInterval(() => {
-      remainSec -= 0.5;
+      remainSec -= intervalStep;
       if (countdownEl) {
-        countdownEl.textContent = `พร้อมสแกนคนถัดไปใน ${Math.max(0, remainSec).toFixed(1)}s`;
+        countdownEl.textContent = `${fastPrefix}พร้อมสแกนคนถัดไปใน ${Math.max(0, remainSec).toFixed(1)}s`;
       }
       if (remainSec <= 0) {
         dismissScannerHudAlert();
       }
-    }, 500);
+    }, intervalMs);
 
     const btnNext = $('hudNextBtn');
     if (btnNext) {
@@ -3170,6 +3313,15 @@
         closeScannerModal();
         openGateMonitorModal();
       });
+    }
+    if ($('btnOpenTurnstileFromScanner')) {
+      $('btnOpenTurnstileFromScanner').addEventListener('click', () => {
+        closeScannerModal();
+        openGateMonitorModal();
+      });
+    }
+    if ($('btnExportAttendanceCsv')) {
+      $('btnExportAttendanceCsv').addEventListener('click', exportAttendanceCsv);
     }
     if ($('refreshGateMonitorBtn')) {
       $('refreshGateMonitorBtn').addEventListener('click', () => {

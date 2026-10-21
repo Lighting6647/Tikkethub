@@ -63,3 +63,58 @@ test('index.html storefront navbar has clean LINE OA link without public cart ba
   assert.ok(html.includes('id="lineOaNavLink"'), 'Navbar has lineOaNavLink');
   assert.ok(html.includes('id="cartButton"'), 'cartButton preserved in footer for test compatibility');
 });
+
+test('Feature 1 (Security): Ticket Re-entry Lockout tracks attempts and records incident details', () => {
+  const db = require('../backend/db');
+  db.clearAllForTest();
+  const order = db.createOrder({
+    title: 'RE-ENTRY SECURITY TOUR 2026',
+    date: '2026-11-20',
+    venue: 'Impact Hall 1',
+    zone: 'VIP',
+    qty: 1,
+    unitPrice: 6500,
+    total: 6500,
+    holderName: 'คุณสมศักดิ์ ทดสอบเข้าซ้ำ',
+    holderPhone: '081-999-8888',
+    holderIdCard: '1-1004-12345-67-3',
+    seats: ['VIP-09'],
+    slipName: 'slip-reentry.png',
+    slipMime: 'image/png',
+    slipData: 'data:image/png;base64,' + Buffer.from('test_slip_reentry_1234567890'.padEnd(600, 'Z')).toString('base64')
+  });
+
+  db.updateOrderStatus(order.ref, { status: 'approved' });
+
+  // 1st scan: must succeed
+  const res1 = db.checkInOrder(order.ref, 'ประตู Gate A (Main)');
+  assert.equal(res1.ok, true, '1st scan must pass');
+  assert.equal(res1.code, 'CHECKED_IN');
+
+  // 2nd scan: must block re-entry with ALREADY_CHECKED_IN
+  const res2 = db.checkInOrder(order.ref, 'ประตู Gate B (Side)');
+  assert.equal(res2.ok, false, '2nd scan must be blocked');
+  assert.equal(res2.code, 'ALREADY_CHECKED_IN');
+  assert.equal(res2.reEntryAttempts, 1, '1st duplicate attempt recorded');
+  assert.ok(res2.firstCheckedInAt > 0, 'firstCheckedInAt is populated');
+  assert.equal(res2.firstCheckedInBy, 'ประตู Gate A (Main)', 'firstCheckedInBy is preserved');
+
+  // 3rd scan: attempt counter increments
+  const res3 = db.checkInOrder(order.ref, 'ประตู VIP Fast Track');
+  assert.equal(res3.ok, false);
+  assert.equal(res3.reEntryAttempts, 2, '2nd duplicate attempt recorded');
+});
+
+test('Feature 2 & 3 (UX & Data): Fast-Scan mode, Torch, Turnstile & Attendance CSV export elements exist', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  assert.ok(html.includes('id="btnToggleFastScan"'), 'admin.html must contain Fast-Scan toggle button');
+  assert.ok(html.includes('id="btnToggleTorch"'), 'admin.html must contain camera torch button');
+  assert.ok(html.includes('id="btnOpenTurnstileFromScanner"'), 'admin.html must contain Turnstile button in scanner');
+  assert.ok(html.includes('id="btnExportAttendanceCsv"'), 'admin.html must contain attendance CSV export button');
+  assert.ok(html.includes('id="hudReEntryBox"'), 'admin.html must contain hudReEntryBox for lockout details');
+
+  // Customer UI cleanup assertion: customer pending view must not expose admin link
+  const viewerJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'ticket-viewer.js'), 'utf8');
+  assert.ok(!viewerJs.includes('href="admin.html"'), 'Customer ticket view must NOT link to admin.html');
+});
+

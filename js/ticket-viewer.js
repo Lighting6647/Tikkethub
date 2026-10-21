@@ -82,9 +82,8 @@
       banner.innerHTML = `
         <div>
           <strong>รอแอดมินตรวจสอบสลิป</strong>
-          <p>เมื่อแอดมินกดอนุมัติแล้ว ระบบจะปลดล็อกปุ่มบันทึกบัตรและส่งบัตรเข้า LINE OA อัตโนมัติ</p>
+          <p>เมื่อแอดมินตรวจสอบยอดเงินและอนุมัติแล้ว บัตร E-Ticket จะถูกจัดส่งตรงเข้า LINE Official Account ของท่านทันที</p>
         </div>
-        <a href="admin.html" target="_blank" class="btn-default btn-sm">เปิดหน้าแอดมิน</a>
       `;
       banner.hidden = false;
     } else if (ticket.status === 'rejected') {

@@ -1180,3 +1180,36 @@
   font-size: 13px;
   font-weight: 700;
 }
+
+.hud-reentry-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 107, 107, 0.15);
+  border: 1px solid rgba(255, 107, 107, 0.45);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #FFA8A8;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+.hud-reentry-box strong {
+  color: #FF6B6B;
+  font-size: 12px;
+}
+
+.btn-fast-scan-active {
+  background: rgba(34, 155, 255, 0.2) !important;
+  border-color: #229BFF !important;
+  color: #63b3ed !important;
+  font-weight: 700 !important;
+}
+
+.btn-torch-active {
+  background: rgba(245, 166, 35, 0.2) !important;
+  border-color: #F5A623 !important;
+  color: #F5A623 !important;
+  font-weight: 700 !important;
+}

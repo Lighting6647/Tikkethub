@@ -284,6 +284,8 @@ function buildGuestListCsv(orders) {
     'สถานะการชำระเงิน',
     'สถานะการตรวจเข้างาน',
     'เวลาตรวจเข้างาน (Check-in)',
+    'จุดตรวจ/เจ้าหน้าที่สแกน',
+    'พยายามเข้าซ้ำ (ครั้ง)',
     'เวลาทำรายการสั่งซื้อ'
   ];
 
@@ -316,6 +318,8 @@ function buildGuestListCsv(orders) {
       statusText(o.status),
       checkInText(o.checkedInAt),
       checkInTimeText(o.checkedInAt),
+      o.checkedInBy || '-',
+      o.reEntryAttempts || 0,
       new Date(o.issuedAt).toLocaleString('th-TH')
     ]
       .map(escCsv)
@@ -1156,21 +1160,26 @@ async function handleApi(req, res, url) {
   }
 
   // Admin Guest List CSV Export (for on-site gate check-in & citizen ID verification)
-  if (method === 'GET' && pathname === '/api/admin/guest-list.csv') {
+  if (method === 'GET' && (pathname === '/api/admin/guest-list.csv' || pathname === '/api/admin/export-attendance' || pathname === '/api/admin/attendance.csv')) {
     if (!isAdminAuthenticated(req)) {
       res.writeHead(302, { Location: '/admin.html' });
       return res.end();
     }
     const filterStatus = url.searchParams.get('status') || 'approved';
+    const checkedInOnly = url.searchParams.get('checkedInOnly') === 'true' || url.searchParams.get('checkedIn') === 'true';
     let orders = db.listOrders({ includeSlipData: false });
     if (filterStatus && filterStatus !== 'all') {
       orders = orders.filter((o) => o.status === filterStatus);
     }
+    if (checkedInOnly) {
+      orders = orders.filter((o) => o.checkedInAt > 0);
+    }
     const csv = buildGuestListCsv(orders);
     const dateStr = new Date().toISOString().slice(0, 10);
+    const fileLabel = checkedInOnly ? 'attendance-checkedin' : 'attendance-roster';
     res.writeHead(200, {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="thaiticket-guest-list-${dateStr}.csv"`,
+      'Content-Disposition': `attachment; filename="thaiticket-${fileLabel}-${dateStr}.csv"`,
       'Cache-Control': 'no-store'
     });
     return res.end(csv);
