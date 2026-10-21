@@ -44,6 +44,10 @@ test('admin.html has jsQR library and Live Scanner HUD Overlay', () => {
   assert.ok(html.includes('id="scannerHudAlert"'), 'admin.html must contain live HUD alert container');
   assert.ok(html.includes('id="hudAlertCard"'), 'admin.html must contain HUD alert card');
   assert.ok(html.includes('วิธีสแกน:'), 'admin.html must show scan instructions');
+  assert.ok(html.includes('id="gateSoundPackSelect"'), 'admin.html must have sound pack selector');
+  assert.ok(html.includes('convenience'), 'Sound pack must offer 7-Eleven beep');
+  assert.ok(html.includes('victory'), 'Sound pack must offer Victory chime');
+  assert.ok(html.includes('cyber'), 'Sound pack must offer Cyber laser');
 });
 
 test('ticket.html exists and contains live security pass and QR frame', () => {
@@ -51,4 +55,11 @@ test('ticket.html exists and contains live security pass and QR frame', () => {
   assert.ok(html.includes('LIVE DYNAMIC PASS'), 'ticket.html must feature live dynamic pass');
   assert.ok(html.includes('id="ticketQrElement"'), 'ticket.html must have QR element');
   assert.ok(html.includes('LINE Official Account'), 'ticket.html must cite LINE OA policy');
+});
+
+test('index.html storefront navbar has clean LINE OA link without public cart badge', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(html.includes('class="btn-line-oa"'), 'Navbar has official LINE OA button');
+  assert.ok(html.includes('id="lineOaNavLink"'), 'Navbar has lineOaNavLink');
+  assert.ok(html.includes('id="cartButton"'), 'cartButton preserved in footer for test compatibility');
 });

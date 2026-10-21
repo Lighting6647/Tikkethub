@@ -156,7 +156,7 @@
           <button class="btn-primary" id="openScannerBtn">📷 สแกนบัตรเข้างาน</button>
           <button class="btn-outline" id="openGateMonitorBtn" style="border-color:#229BFF; color:#63b3ed;">🚦 มอนิเตอร์ประตูเข้างาน</button>
           <button class="btn-outline" id="openAnalyticsBtn" data-admin-only="true">📊 รายงานปิดรอบ / PDF</button>
-          <button class="btn-outline" id="openLinePreviewNavBtn" data-admin-only="true">📱 พรีวิว LINE</button>
+          <button class="btn-outline" id="openLinePreviewNavBtn" data-admin-only="true" style="border-color:#06C755; color:#06C755;">📱 จัดส่งบัตร LINE OA (<span id="adminLinePendingBadge">0</span>)</button>
           <button class="btn-outline" id="openEventManagerBtn" data-admin-only="true">🎤 คอนเสิร์ต/โควตา</button>
           <button class="btn-outline" id="openAuditLogBtn" data-admin-only="true">📋 ประวัติแอดมิน</button>
           <button class="btn-outline" id="openBackupModalBtn" data-admin-only="true">💾 สำรองข้อมูล</button>
@@ -300,8 +300,8 @@
 
         <!-- Live Camera Viewfinder with Camera Device Selector -->
         <div class="camera-scanner-card">
-          <div class="camera-select-bar">
-            <div style="flex:1; display:flex; align-items:center; gap:8px;">
+          <div class="camera-select-bar" style="flex-wrap:wrap; gap:8px;">
+            <div style="flex:1; min-width:180px; display:flex; align-items:center; gap:8px;">
               <label for="cameraDeviceSelect" style="font-size:12px; font-weight:600; white-space:nowrap; color:var(--color-muted);">
                 📷 เลือกกล้อง:
               </label>
@@ -309,7 +309,21 @@
                 <option value="">กำลังค้นหากล้องที่เชื่อมต่อ...</option>
               </select>
             </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              <div style="display:flex; align-items:center; gap:4px;">
+                <label for="gateSoundPackSelect" style="font-size:12px; font-weight:600; color:var(--color-muted); white-space:nowrap;">
+                  🎵 เสียง:
+                </label>
+                <select id="gateSoundPackSelect" class="input-field" style="padding:4px 6px; font-size:11px; width:auto; border-color:var(--color-border-subtle);" aria-label="เลือกชุดเสียงเตือนสแกน">
+                  <option value="chime">🔔 กระดิ่งคอนเสิร์ต (Concert Chime)</option>
+                  <option value="convenience">🏪 บี๊บร้านสะดวกซื้อ (7-Eleven Beep)</option>
+                  <option value="victory">🎮 ผ่านด่าน (Victory Chime)</option>
+                  <option value="cyber">⚡ เลเซอร์ดิจิทัล (Cyber Laser)</option>
+                </select>
+                <button type="button" class="btn-outline" id="btnTestSoundPack" title="ทดสอบฟังเสียงที่เลือก" style="padding:4px 8px; font-size:11px;">
+                  ▶ ฟังเสียง
+                </button>
+              </div>
               <button type="button" class="btn-outline" id="btnToggleTorch" title="เปิด/ปิดไฟฉายส่องบัตรในที่มืด" style="padding:6px 10px; font-size:12px;">
                 🔦 ไฟฉาย: ปิด
               </button>

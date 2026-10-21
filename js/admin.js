@@ -526,6 +526,11 @@
   }
 
   function renderOrders() {
+    const pendingLine = ordersCache.filter((o) => o.status === 'approved' && !o.lineSent).length;
+    if ($('adminLinePendingBadge')) {
+      $('adminLinePendingBadge').textContent = String(pendingLine);
+    }
+
     const container = $('adminOrdersList');
     if (!ordersCache.length) {
       container.innerHTML = `
@@ -885,62 +890,113 @@
     } catch {}
   }
 
+  let activeSoundPack = localStorage.getItem('tt_gate_sound_pack') || 'chime';
+
+  function playSoundPack(pack, type, ctx, now) {
+    const playTone = (freq, start, dur, oscType = 'triangle', gainVal = 0.4) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = oscType;
+      osc.frequency.setValueAtTime(freq, now + start);
+      gain.gain.setValueAtTime(gainVal, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + dur);
+    };
+
+    if (type === 'pass') {
+      if (pack === 'convenience') {
+        // 7-Eleven Iconic Quick Two-Tone Beep (1046.5Hz -> 1318.5Hz)
+        playTone(1046.5, 0, 0.08, 'sine', 0.42);
+        playTone(1318.5, 0.08, 0.16, 'sine', 0.45);
+      } else if (pack === 'victory') {
+        // Game Victory Ascending Arpeggio (C5 -> E5 -> G5 -> C6)
+        playTone(523.25, 0, 0.09, 'triangle', 0.35);
+        playTone(659.25, 0.08, 0.09, 'triangle', 0.38);
+        playTone(783.99, 0.16, 0.11, 'triangle', 0.4);
+        playTone(1046.5, 0.24, 0.35, 'triangle', 0.45);
+      } else if (pack === 'cyber') {
+        // Futuristic Cyber Laser (High Sine Sweep)
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(700, now + 0.22);
+        gain.gain.setValueAtTime(0.45, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else {
+        // Default Concert Chime (F#5 739.99Hz -> B5 987.77Hz)
+        playTone(739.99, 0, 0.18, 'triangle', 0.4);
+        playTone(987.77, 0.12, 0.45, 'triangle', 0.45);
+      }
+    } else if (type === 'duplicate') {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc2.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(160, now);
+      osc2.frequency.setValueAtTime(175, now);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.38);
+      osc2.stop(now + 0.38);
+    } else if (type === 'invalid') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.linearRampToValueAtTime(1050, now + 0.15);
+      osc.frequency.linearRampToValueAtTime(800, now + 0.3);
+      osc.frequency.linearRampToValueAtTime(1050, now + 0.45);
+      gain.gain.setValueAtTime(0.38, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.5);
+    }
+  }
+
   function playGateSound(type) {
     triggerHapticFeedback(type);
     try {
       const ctx = getAudioContext();
       if (!ctx) return;
       const now = ctx.currentTime;
-
-      if (type === 'pass') {
-        const playTone = (freq, start, dur) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(freq, now + start);
-          gain.gain.setValueAtTime(0.4, now + start);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now + start);
-          osc.stop(now + start + dur);
-        };
-        // Loud, crisp celebratory two-tone chime (F#5 -> B5)
-        playTone(739.99, 0, 0.18);
-        playTone(987.77, 0.12, 0.45);
-      } else if (type === 'duplicate') {
-        const osc1 = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc1.type = 'sawtooth';
-        osc2.type = 'sawtooth';
-        osc1.frequency.setValueAtTime(160, now);
-        osc2.frequency.setValueAtTime(175, now);
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(ctx.destination);
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + 0.38);
-        osc2.stop(now + 0.38);
-      } else if (type === 'invalid') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(800, now);
-        osc.frequency.linearRampToValueAtTime(1050, now + 0.15);
-        osc.frequency.linearRampToValueAtTime(800, now + 0.3);
-        osc.frequency.linearRampToValueAtTime(1050, now + 0.45);
-        gain.gain.setValueAtTime(0.38, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.5);
-      }
+      playSoundPack(activeSoundPack, type, ctx, now);
     } catch {}
+  }
+
+  function initSoundPackControls() {
+    const sel = $('gateSoundPackSelect');
+    if (sel) {
+      sel.value = activeSoundPack;
+      sel.addEventListener('change', (e) => {
+        activeSoundPack = e.target.value;
+        localStorage.setItem('tt_gate_sound_pack', activeSoundPack);
+        window.UI.toast(`เปลี่ยนชุดเสียงสแกนเป็น: ${sel.options[sel.selectedIndex].text}`);
+        playGateSound('pass');
+      });
+    }
+    const btnTest = $('btnTestSoundPack');
+    if (btnTest) {
+      btnTest.addEventListener('click', () => {
+        playGateSound('pass');
+        window.UI.toast('ทดสอบเสียงผ่านเข้างาน (Pass)');
+      });
+    }
   }
 
   // 3. Offline Gate Check-in Engine (Cache, Local Validation & Outbox Sync)
@@ -3316,6 +3372,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     bind();
     initSoundSetting();
+    initSoundPackControls();
     updateNotifyBtnUi();
     checkAdminSession();
     startLivePolling();
