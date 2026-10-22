@@ -1176,7 +1176,8 @@ async function handleApi(req, res, url) {
     }
     const csv = buildGuestListCsv(orders);
     const dateStr = new Date().toISOString().slice(0, 10);
-    const fileLabel = checkedInOnly ? 'attendance-checkedin' : 'attendance-roster';
+    const isGuestList = pathname === '/api/admin/guest-list.csv';
+    const fileLabel = isGuestList ? 'guest-list' : (checkedInOnly ? 'attendance-checkedin' : 'attendance-roster');
     res.writeHead(200, {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="thaiticket-${fileLabel}-${dateStr}.csv"`,

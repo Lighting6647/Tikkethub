@@ -550,7 +550,7 @@
         const shortHash = (o.slipHash || '').slice(0, 14);
         const isChecked = selectedOrderRefs.has(o.ref);
         return `
-        <article class="order-card" data-order-ref="${esc(o.ref)}">
+        <article class="order-card ${isStaff || !o.slipData ? 'no-slip' : ''}" data-order-ref="${esc(o.ref)}">
           ${
             isStaff
               ? ''
