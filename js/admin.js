@@ -280,7 +280,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin })
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        errEl.textContent = 'ไม่สามารถเชื่อมต่อระบบยืนยันตัวตนได้ กรุณาลองใหม่อีกครั้ง';
+        return;
+      }
       if (!data.ok) {
         errEl.textContent = data.error || 'รหัส PIN ไม่ถูกต้อง';
         return;

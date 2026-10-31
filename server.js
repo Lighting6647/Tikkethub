@@ -157,6 +157,14 @@ function sendJson(res, status, data, extraHeaders = {}) {
 }
 
 function readJsonBody(req, maxBytes = 8 * 1024 * 1024) {
+  if (req.body) {
+    if (typeof req.body === 'object') return Promise.resolve(req.body);
+    try {
+      return Promise.resolve(JSON.parse(String(req.body)));
+    } catch {
+      return Promise.reject(Object.assign(new Error('รูปแบบข้อมูล JSON ไม่ถูกต้อง'), { status: 400 }));
+    }
+  }
   return new Promise((resolve, reject) => {
     const chunks = [];
     let total = 0;
@@ -330,9 +338,9 @@ function buildGuestListCsv(orders) {
 }
 
 async function handleApi(req, res, url) {
-  const pathname = url.pathname;
+  const pathname = url.searchParams.get('_path') || url.pathname;
   const method = req.method;
-  const ip = req.socket.remoteAddress || '127.0.0.1';
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || '127.0.0.1';
 
   if (method === 'GET' && pathname === '/api/health') {
     return sendJson(res, 200, { ok: true });
@@ -1387,7 +1395,7 @@ async function handleApi(req, res, url) {
 }
 
 function serveStatic(req, res, url) {
-  let reqPath = decodeURIComponent(url.pathname);
+  let reqPath = decodeURIComponent(url.searchParams.get('_path') || url.pathname);
   if (reqPath === '/') reqPath = '/index.html';
   if (reqPath === '/manage' || reqPath === '/manage/' || reqPath === '/manage.html') reqPath = '/manage.html';
   if (reqPath === '/ticket' || reqPath === '/ticket/') reqPath = '/ticket.html';
@@ -1425,8 +1433,10 @@ function serveStatic(req, res, url) {
 
 async function requestHandler(req, res) {
   try {
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    if (url.pathname.startsWith('/api/')) {
+    const rawPath = req.headers['x-matched-path'] || req.url;
+    const url = new URL(rawPath, `http://${req.headers.host || 'localhost'}`);
+    const reqPath = url.searchParams.get('_path') || url.pathname;
+    if (reqPath.startsWith('/api/')) {
       await handleApi(req, res, url);
     } else {
       serveStatic(req, res, url);

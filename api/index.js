@@ -15,3 +15,4 @@ if (process.env.VERCEL_INCLUDE_FILES) {
 module.exports = async (req, res) => {
   return requestHandler(req, res);
 };
+module.exports.default = module.exports;

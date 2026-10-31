@@ -15,8 +15,9 @@ const isUnitTest = process.execArgv.includes('--test') || Boolean(process.env.NO
 const dbPath = isUnitTest ? ':memory:' : path.join(DATA_DIR, 'tickets.db');
 const db = new DatabaseSync(dbPath);
 
+const journalMode = process.env.VERCEL ? 'MEMORY' : 'WAL';
 db.exec(`
-  PRAGMA journal_mode = WAL;
+  PRAGMA journal_mode = ${journalMode};
   PRAGMA busy_timeout = 5000;
   CREATE TABLE IF NOT EXISTS orders (
     ref TEXT PRIMARY KEY,
