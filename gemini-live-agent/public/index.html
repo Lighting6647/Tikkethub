@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Live Voice Concierge • ThaiTicketHub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card-bg: rgba(18, 22, 34, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+      --accent: #06b6d4;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, #171b30 0%, var(--bg) 70%);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      background: rgba(9, 10, 15, 0.6);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .badge-dot.active {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .badge-dot.busy {
+      background: var(--warning);
+      box-shadow: 0 0 8px var(--warning);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.9); }
+    }
+
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    .stage {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 1.5rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Live Visualizer Card */
+    .visualizer-card {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 240px;
+      text-align: center;
+      gap: 1.25rem;
+    }
+
+    canvas#waveCanvas {
+      width: 100%;
+      height: 120px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .mic-button-wrapper {
+      position: relative;
+    }
+
+    .mic-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+      color: white;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 8px 30px var(--primary-glow);
+    }
+
+    .mic-btn:hover {
+      transform: scale(1.06);
+      box-shadow: 0 12px 35px rgba(99, 102, 241, 0.6);
+    }
+
+    .mic-btn.active {
+      background: linear-gradient(135deg, var(--danger), #dc2626);
+      box-shadow: 0 0 35px rgba(239, 68, 68, 0.6);
+      animation: pulse 1.5s infinite;
+    }
+
+    .mic-status-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .alert-banner {
+      display: none;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      align-items: center;
+      gap: 0.5rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .alert-banner.interrupted {
+      display: flex;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+
+    /* Live Transcripts */
+    .transcript-card {
+      display: flex;
+      flex-direction: column;
+      height: 380px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .transcript-feed {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      padding-right: 0.5rem;
+    }
+
+    .msg {
+      max-width: 85%;
+      padding: 0.85rem 1.15rem;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .msg-user {
+      align-self: flex-end;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-agent {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-role {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+
+    .msg-filler {
+      font-style: italic;
+      color: #cbd5e1;
+      border-left: 3px solid var(--accent);
+      padding-left: 0.5rem;
+      margin-top: 0.4rem;
+    }
+
+    /* Quick Prompts */
+    .chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+
+    .chip:hover {
+      background: rgba(99, 102, 241, 0.25);
+      color: var(--text);
+      border-color: var(--primary);
+    }
+
+    /* Sidebar: Non-blocking Tool Inspector & Configuration */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.6rem 0.85rem;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+    }
+
+    /* Tool Call Stream */
+    .tool-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 0.3rem;
+    }
+
+    .tool-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--card-border);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 0.85rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+
+    .tool-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+
+    .tool-name {
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .tool-tag {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.45rem;
+      border-radius: 4px;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .tool-tag.done {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    pre.tool-json {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 0.5rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      color: #a5f3fc;
+      margin-top: 0.4rem;
+      font-size: 0.72rem;
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">Gemini Live Voice Agent</div>
+        <div class="brand-subtitle">Non-Blocking Function Calling & Conversational Fillers</div>
+      </div>
+    </div>
+
+    <div class="header-badges">
+      <div class="badge" id="connBadge">
+        <span class="badge-dot" id="connDot"></span>
+        <span id="connText">Disconnected</span>
+      </div>
+      <div class="badge" id="statusBadge">
+        <span class="badge-dot" id="statusDot"></span>
+        <span id="statusText">IDLE</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="stage">
+      <!-- Visualizer & Microphone controls -->
+      <div class="card visualizer-card">
+        <canvas id="waveCanvas"></canvas>
+
+        <div class="alert-banner interrupted" id="interruptedBanner">
+          ⚡ <strong>User Interruption Detected:</strong> Audio buffer flushed, listening to user speech.
+        </div>
+
+        <div class="mic-button-wrapper">
+          <button class="mic-btn" id="micBtn" title="Toggle Live Voice Session">
+            <svg id="micIcon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="mic-status-label" id="micStatusLabel">Click to Start Conversation</div>
+
+        <div class="chips-container">
+          <div class="chip" onclick="sendPrompt('Are there any VIP tickets left for Echoes of Asia?')">🎫 "Any VIP tickets for Echoes of Asia?"</div>
+          <div class="chip" onclick="sendPrompt('Calculate the price for 2 Zone A tickets with promo code EARLYBIRD')">💰 "Quote 2 Zone A tickets with promo EARLYBIRD"</div>
+          <div class="chip" onclick="sendPrompt('What concerts are scheduled for November and December?')">📅 "Concerts in Nov/Dec?"</div>
+          <div class="chip" onclick="sendPrompt('Check reservation status for order TKT-2026-0001')">🔍 "Check order TKT-2026-0001"</div>
+        </div>
+      </div>
+
+      <!-- Real-time Transcripts -->
+      <div class="card transcript-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Live Conversation Transcript
+          </div>
+          <button class="chip" onclick="clearTranscripts()">Clear</button>
+        </div>
+        <div class="transcript-feed" id="transcriptFeed">
+          <div class="msg msg-agent">
+            <div class="msg-role">AI CONCIERGE</div>
+            Hello! I'm your ThaiTicketHub voice concierge. Ask me anything about upcoming concerts, seat availability, or price quotes!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar: Non-Blocking Tool Monitor & Configuration -->
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Session Configuration
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">GEMINI MODEL</label>
+          <select class="form-control" id="modelSelect">
+            <option value="gemini-3.8-live-extended-thinking" selected>gemini-3.8-live-extended-thinking (Fillers + Background Reasoning)</option>
+            <option value="gemini-3.8-live">gemini-3.8-live (Ultra Low Latency)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">THINKING LEVEL</label>
+          <select class="form-control" id="thinkingLevelSelect">
+            <option value="low" selected>Low (Recommended for real-time speech)</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">VOICE</label>
+          <select class="form-control" id="voiceSelect">
+            <option value="Aoede" selected>Aoede (Natural Female)</option>
+            <option value="Puck">Puck (Friendly Male)</option>
+            <option value="Charon">Charon (Deep Male)</option>
+            <option value="Fenrir">Fenrir (Fast Dynamic)</option>
+            <option value="Kore">Kore (Warm Female)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">GEMINI API KEY (Optional if set on server)</label>
+          <input type="password" class="form-control" id="apiKeyInput" placeholder="AIzaSy... (leave blank to use server env)">
+        </div>
+      </div>
+
+      <!-- Non-blocking Function Calling Monitor -->
+      <div class="card" style="flex: 1;">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
+            Non-Blocking Tool Monitor
+          </div>
+          <span class="badge" style="font-size: 0.68rem; color: var(--accent);">behavior: NON_BLOCKING</span>
+        </div>
+        <div class="tool-feed" id="toolFeed">
+          <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">
+            No tools executed yet.<br>Ask for ticket availability or booking quotes to observe non-blocking async execution.
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // State & Audio Management
+    let isConnected = false;
+    let isRecording = false;
+    let ws = null;
+    let audioContext = null;
+    let micStream = null;
+    let micNode = null;
+    let processorNode = null;
+    let audioQueue = [];
+    let isPlaying = false;
+    let nextScheduledTime = 0;
+    let activeAudioNodes = [];
+
+    // DOM Elements
+    const micBtn = document.getElementById('micBtn');
+    const micStatusLabel = document.getElementById('micStatusLabel');
+    const connDot = document.getElementById('connDot');
+    const connText = document.getElementById('connText');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const interruptedBanner = document.getElementById('interruptedBanner');
+    const transcriptFeed = document.getElementById('transcriptFeed');
+    const toolFeed = document.getElementById('toolFeed');
+    const waveCanvas = document.getElementById('waveCanvas');
+    const canvasCtx = waveCanvas.getContext('2d');
+
+    // Canvas resize
+    function resizeCanvas() {
+      waveCanvas.width = waveCanvas.parentElement.clientWidth - 48;
+      waveCanvas.height = 120;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Visualizer dummy wave loop
+    let animId = null;
+    let visualEnergy = 0.05;
+    function drawVisualizer() {
+      canvasCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+      const w = waveCanvas.width;
+      const h = waveCanvas.height;
+      const centerY = h / 2;
+
+      canvasCtx.beginPath();
+      canvasCtx.strokeStyle = isPlaying ? '#06b6d4' : (isRecording ? '#6366f1' : '#334155');
+      canvasCtx.lineWidth = 2.5;
+
+      const bars = 48;
+      const sliceWidth = w / bars;
+      for (let i = 0; i < bars; i++) {
+        const x = i * sliceWidth;
+        const offset = Math.sin(Date.now() * 0.006 + i * 0.4) * (visualEnergy * 40);
+        const y = centerY + offset;
+        if (i === 0) canvasCtx.moveTo(x, y);
+        else canvasCtx.lineTo(x, y);
+      }
+      canvasCtx.stroke();
+      animId = requestAnimationFrame(drawVisualizer);
+    }
+    drawVisualizer();
+
+    // Toggle Mic Session
+    micBtn.addEventListener('click', async () => {
+      if (!isRecording) {
+        await startSession();
+      } else {
+        stopSession();
+      }
+    });
+
+    async function startSession() {
+      try {
+        micStatusLabel.textContent = 'Connecting...';
+        connDot.className = 'badge-dot busy';
+        connText.textContent = 'Connecting';
+
+        // 1. Initialize AudioContext (Output at 24kHz for native Gemini Live audio)
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+
+        // 2. Connect WebSocket to Local Agent Server
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${proto}//${location.host}/ws/agent`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          isConnected = true;
+          connDot.className = 'badge-dot active';
+          connText.textContent = 'Live Connected';
+
+          // Send session setup configuration
+          const setupMsg = {
+            type: 'setup',
+            apiKey: document.getElementById('apiKeyInput').value.trim() || undefined,
+            model: document.getElementById('modelSelect').value,
+            voiceName: document.getElementById('voiceSelect').value,
+            thinkingLevel: document.getElementById('thinkingLevelSelect').value
+          };
+          ws.send(JSON.stringify(setupMsg));
+
+          // Start Microphone stream (16kHz PCM)
+          startMicrophone();
+        };
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          handleServerEvent(msg);
+        };
+
+        ws.onerror = (err) => {
+          console.error('WS Error:', err);
+          stopSession();
+        };
+
+        ws.onclose = () => {
+          stopSession();
+        };
+
+      } catch (err) {
+        console.error('Failed to start session:', err);
+        alert('Could not start microphone or connect: ' + err.message);
+        stopSession();
+      }
+    }
+
+    async function startMicrophone() {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      // AudioContext for recording downsampled to 16kHz
+      const micAudioCtx = new AudioContext({ sampleRate: 16000 });
+      const source = micAudioCtx.createMediaStreamSource(micStream);
+
+      // ScriptProcessor / AudioWorklet fallback for PCM 16-bit 16kHz
+      processorNode = micAudioCtx.createScriptProcessor(4096, 1, 1);
+      processorNode.onaudioprocess = (e) => {
+        if (!isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+
+        // Convert Float32 to 16-bit PCM Little Endian
+        const pcm16 = new Int16Array(inputData.length);
+        let sum = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          const s = Math.max(-1, Math.min(1, inputData[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          sum += Math.abs(s);
+        }
+
+        visualEnergy = isPlaying ? 0.35 : Math.min(1, (sum / inputData.length) * 5 + 0.05);
+
+        // Send base64 PCM chunk
+        const base64Chunk = bufferToBase64(pcm16.buffer);
+        ws.send(JSON.stringify({
+          type: 'audio',
+          data: base64Chunk
+        }));
+      };
+
+      source.connect(processorNode);
+      processorNode.connect(micAudioCtx.destination);
+
+      isRecording = true;
+      micBtn.classList.add('active');
+      micStatusLabel.textContent = 'Listening (Speak to Concierge)';
+    }
+
+    function stopSession() {
+      isRecording = false;
+      isConnected = false;
+      micBtn.classList.remove('active');
+      micStatusLabel.textContent = 'Click to Start Conversation';
+      connDot.className = 'badge-dot';
+      connText.textContent = 'Disconnected';
+      statusDot.className = 'badge-dot';
+      statusText.textContent = 'IDLE';
+
+      if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+      }
+      if (processorNode) {
+        try { processorNode.disconnect(); } catch(e){}
+        processorNode = null;
+      }
+      if (ws) {
+        try { ws.close(); } catch(e){}
+        ws = null;
+      }
+      flushAudioQueue();
+    }
+
+    // Server Event Handler
+    function handleServerEvent(msg) {
+      switch (msg.type) {
+        case 'audio':
+          // 24kHz PCM from Gemini Live
+          queueAudioChunk(msg.data);
+          break;
+
+        case 'input_transcript':
+          appendTranscript('USER', msg.text);
+          break;
+
+        case 'output_transcript':
+          appendTranscript('AI CONCIERGE', msg.text);
+          break;
+
+        case 'interrupted':
+          showInterruption();
+          flushAudioQueue();
+          break;
+
+        case 'status':
+          updateStatus(msg.status);
+          break;
+
+        case 'tool_call':
+          appendToolCall(msg.id, msg.name, msg.args);
+          break;
+
+        case 'tool_response':
+          updateToolResponse(msg.id, msg.name, msg.result, msg.executionTimeMs);
+          break;
+
+        case 'error':
+          console.error('Agent error:', msg.message);
+          break;
+      }
+    }
+
+    // Audio Playback with Seamless Queueing (24kHz PCM)
+    function queueAudioChunk(base64Data) {
+      if (!audioContext) return;
+      const rawBytes = base64ToBuffer(base64Data);
+      const int16Array = new Int16Array(rawBytes);
+      const float32Array = new Float32Array(int16Array.length);
+
+      for (let i = 0; i < int16Array.length; i++) {
+        float32Array[i] = int16Array[i] / 32768.0;
+      }
+
+      const audioBuffer = audioContext.createBuffer(1, float32Array.length, 24000);
+      audioBuffer.getChannelData(0).set(float32Array);
+
+      const sourceNode = audioContext.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(audioContext.destination);
+
+      const currentTime = audioContext.currentTime;
+      if (nextScheduledTime < currentTime) {
+        nextScheduledTime = currentTime;
+      }
+
+      sourceNode.start(nextScheduledTime);
+      nextScheduledTime += audioBuffer.duration;
+      isPlaying = true;
+
+      activeAudioNodes.push(sourceNode);
+      sourceNode.onended = () => {
+        const idx = activeAudioNodes.indexOf(sourceNode);
+        if (idx !== -1) activeAudioNodes.splice(idx, 1);
+        if (activeAudioNodes.length === 0 && audioContext.currentTime >= nextScheduledTime) {
+          isPlaying = false;
+        }
+      };
+    }
+
+    // Instant Flush on Interruption (Barge-in)
+    function flushAudioQueue() {
+      for (const node of activeAudioNodes) {
+        try { node.stop(); } catch(e){}
+      }
+      activeAudioNodes = [];
+      isPlaying = false;
+      if (audioContext) {
+        nextScheduledTime = audioContext.currentTime;
+      }
+    }
+
+    function showInterruption() {
+      interruptedBanner.classList.add('interrupted');
+      setTimeout(() => {
+        interruptedBanner.classList.remove('interrupted');
+      }, 3000);
+    }
+
+    function updateStatus(status) {
+      statusText.textContent = status;
+      if (status === 'IN_PROGRESS') {
+        statusDot.className = 'badge-dot busy';
+      } else {
+        statusDot.className = 'badge-dot active';
+      }
+    }
+
+    // Transcript Append
+    function appendTranscript(role, text) {
+      const isUser = role === 'USER';
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `msg ${isUser ? 'msg-user' : 'msg-agent'}`;
+
+      const roleDiv = document.createElement('div');
+      roleDiv.className = 'msg-role';
+      roleDiv.textContent = role;
+
+      const textDiv = document.createElement('div');
+      textDiv.textContent = text;
+
+      msgDiv.appendChild(roleDiv);
+      msgDiv.appendChild(textDiv);
+      transcriptFeed.appendChild(msgDiv);
+      transcriptFeed.scrollTop = transcriptFeed.scrollHeight;
+    }
+
+    function clearTranscripts() {
+      transcriptFeed.innerHTML = '';
+    }
+
+    // Tool Call Monitor Display
+    function appendToolCall(id, name, args) {
+      const emptyNotice = toolFeed.querySelector('div[style*="text-align: center"]');
+      if (emptyNotice) emptyNotice.remove();
+
+      const toolDiv = document.createElement('div');
+      toolDiv.className = 'tool-card';
+      toolDiv.id = `tool-${id}`;
+      toolDiv.innerHTML = `
+        <div class="tool-header">
+          <span class="tool-name">⚡ ${name}</span>
+          <span class="tool-tag" id="tag-${id}">EXECUTING ASYNC</span>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem;">Model streaming conversational fillers simultaneously...</div>
+        <pre class="tool-json">${JSON.stringify(args, null, 2)}</pre>
+      `;
+      toolFeed.prepend(toolDiv);
+    }
+
+    function updateToolResponse(id, name, result, durationMs) {
+      const tag = document.getElementById(`tag-${id}`);
+      if (tag) {
+        tag.className = 'tool-tag done';
+        tag.textContent = `COMPLETED (${durationMs}ms)`;
+      }
+      const card = document.getElementById(`tool-${id}`);
+      if (card) {
+        const resDiv = document.createElement('pre');
+        resDiv.className = 'tool-json';
+        resDiv.style.borderColor = 'var(--success)';
+        resDiv.textContent = 'Result:\n' + JSON.stringify(result, null, 2);
+        card.appendChild(resDiv);
+      }
+    }
+
+    // Send Quick Prompt Chip
+    function sendPrompt(text) {
+      if (!isRecording) {
+        alert('Please click the microphone button to start the live session first.');
+        return;
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        appendTranscript('USER', text);
+        ws.send(JSON.stringify({ type: 'text', text }));
+      }
+    }
+
+    // Utility Base64 converters
+    function bufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    }
+
+    function base64ToBuffer(base64) {
+      const binaryString = window.atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+  </script>
+</body>
+</html>
