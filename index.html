@@ -152,19 +152,19 @@
         <div class="mockup-cards-row">
           
           <!-- Card 1: International Artist -->
-          <div class="mockup-card artist-hero-card" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า เมืองทองธานี', 2500)" title="คลิกเพื่อจองบัตร">
+          <div class="mockup-card artist-hero-card" id="heroArtistCard" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า เมืองทองธานี', 2500)" title="คลิกเพื่อจองบัตร">
             <div class="card-tags">
               <span class="tag-pill">Sun Sep</span>
-              <span class="tag-pill">Date 11, 2026</span>
+              <span class="tag-pill" id="heroArtistDate">14 - 15 พ.ย. 2026</span>
             </div>
             <div class="artist-hero-body">
-              <div class="artist-hero-sub">INTERNATIONAL</div>
-              <h3 class="artist-hero-title">International Artist</h3>
-              <div class="artist-hero-genre">Echoes of Asia World Tour · Live in BKK</div>
+              <div class="artist-hero-sub" id="heroArtistTag">INTERNATIONAL</div>
+              <h3 class="artist-hero-title" id="heroArtistTitle">ECHOES OF ASIA WORLD TOUR 2026</h3>
+              <div class="artist-hero-genre" id="heroArtistGenre">Echoes of Asia World Tour · Live in BKK</div>
             </div>
             <div class="artist-hero-price">
               <span>Starting at</span>
-              <b>$440 / 1,800 THB</b>
+              <b id="heroArtistPrice">$440 / 1,800 THB</b>
             </div>
           </div>
 
@@ -874,6 +874,6 @@
   <script src="js/checkout.js?v=20261031_2"></script>
   <script src="js/vendor/gsap.min.js"></script>
   <script src="js/gsap-themes.js?v=20261031_2"></script>
-  <script src="js/app.js?v=20261031_2"></script>
+  <script src="js/app.js?v=20261031_catfix"></script>
 </body>
 </html>

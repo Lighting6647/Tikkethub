@@ -96,10 +96,92 @@ function renderEvents() {
   }
 }
 
+const HERO_CATEGORY_MAP = {
+  all: {
+    title: 'ECHOES OF ASIA WORLD TOUR 2026',
+    sub: 'INTERNATIONAL',
+    genre: 'Echoes of Asia World Tour · Live in BKK',
+    price: '$440 / 1,800 THB',
+    date: '14 - 15 พ.ย. 2026',
+    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=800&q=80',
+    venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
+    unitPrice: 2500
+  },
+  kpop: {
+    title: 'K-POP FESTIVAL LIVE IN BKK',
+    sub: 'K-POP SENSATION',
+    genre: 'Live at Rajamangala Stadium',
+    price: '$550 / 2,200 THB',
+    date: '28 พ.ย. 2026',
+    image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80',
+    venue: 'ราชมังคลากีฬาสถาน',
+    unitPrice: 2200
+  },
+  thai: {
+    title: 'THAI ROCK REVOLUTION 2026',
+    sub: 'THAI ROCK LEGENDS',
+    genre: 'Live at BITEC Bangna (Hall 100)',
+    price: '$300 / 1,200 THB',
+    date: '5 ธ.ค. 2026',
+    image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
+    venue: 'ไบเทค บางนา (Hall 100)',
+    unitPrice: 1200
+  },
+  world: {
+    title: 'ECHOES OF ASIA WORLD TOUR 2026',
+    sub: 'WORLD TOUR',
+    genre: 'Echoes of Asia World Tour · Live in BKK',
+    price: '$440 / 1,800 THB',
+    date: '14 - 15 พ.ย. 2026',
+    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=800&q=80',
+    venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
+    unitPrice: 2500
+  },
+  fest: {
+    title: 'BIG MOUNTAIN INDIE CAMP 2026',
+    sub: 'MUSIC FESTIVAL',
+    genre: 'The Ocean เขาใหญ่',
+    price: '$380 / 1,500 THB',
+    date: '12 - 13 ธ.ค. 2026',
+    image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80',
+    venue: 'The Ocean เขาใหญ่',
+    unitPrice: 1500
+  }
+};
+
+function updateHeroCardForCategory(cat) {
+  if (typeof document === 'undefined') return;
+  const data = HERO_CATEGORY_MAP[cat] || HERO_CATEGORY_MAP.all;
+  const card = document.getElementById('heroArtistCard');
+  const tagEl = document.getElementById('heroArtistTag');
+  const titleEl = document.getElementById('heroArtistTitle');
+  const genreEl = document.getElementById('heroArtistGenre');
+  const priceEl = document.getElementById('heroArtistPrice');
+  const dateEl = document.getElementById('heroArtistDate');
+
+  if (card && data.image) {
+    card.style.backgroundImage = `linear-gradient(180deg, rgba(14, 16, 24, 0.5) 0%, rgba(10, 11, 16, 0.94) 100%), url('${data.image}')`;
+    card.onclick = () => openBookingModal(data.title, data.date, data.venue, data.unitPrice);
+  }
+  if (tagEl) tagEl.textContent = data.sub;
+  if (titleEl) titleEl.textContent = data.title;
+  if (genreEl) genreEl.textContent = data.genre;
+  if (priceEl) priceEl.textContent = data.price;
+  if (dateEl) dateEl.textContent = data.date;
+}
+
 function filterCategory(cat, btn) {
   currentCategory = cat;
-  document.querySelectorAll('.subnav-item button').forEach((b) => b.classList.remove('active'));
-  btn.classList.add('active');
+  if (typeof document !== 'undefined') {
+    document.querySelectorAll('.category-pills .pill-btn, .subnav-item').forEach((b) => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    updateHeroCardForCategory(cat);
+  }
+  renderEvents();
+}
+
+function onHeroSearch(val) {
+  searchQuery = (val || '').trim();
   renderEvents();
 }
 
@@ -651,6 +733,9 @@ if (typeof window !== 'undefined') {
   window.formatPhoneInput = formatPhoneInput;
   window.formatIdCardInput = formatIdCardInput;
   window.clearSavedHolderInfo = clearSavedHolderInfo;
+  window.filterCategory = filterCategory;
+  window.onHeroSearch = onHeroSearch;
+  window.updateHeroCardForCategory = updateHeroCardForCategory;
 }
 if (typeof module !== 'undefined') {
   module.exports = {
