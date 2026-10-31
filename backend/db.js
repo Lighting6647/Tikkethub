@@ -701,8 +701,49 @@ function getStats() {
   };
 }
 
+function syncCustomEventsWithDb() {
+  try {
+    const raw = getSetting('custom_events', '[]');
+    if (!raw) return;
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list) || !list.length) return;
+    
+    const existing = db.prepare(`SELECT id, title FROM events`).all();
+    const existingIds = new Set(existing.map((e) => Number(e.id)));
+    const existingTitles = new Set(existing.map((e) => String(e.title).trim().toLowerCase()));
+    
+    for (const ev of list) {
+      if (!ev || !ev.title) continue;
+      const numId = Number(ev.id);
+      if (numId && existingIds.has(numId)) {
+        db.prepare(`
+          UPDATE events
+          SET title = ?, category = ?, date = ?, venue = ?, price_range = ?, badge = ?, is_accent = ?, gradient = ?, image = ?,
+              quota_vip = ?, quota_a = ?, quota_b = ?, quota_c = ?
+          WHERE id = ?
+        `).run(
+          ev.title, ev.category || 'world', ev.date || '', ev.venue || '', ev.priceRange || '1,800 - 6,500 THB',
+          ev.badge || 'เปิดจำหน่าย', ev.isAccent ? 1 : 0, ev.gradient || 'linear-gradient(135deg, #4d1313, #1f1f1f)',
+          ev.image || '', Number(ev.quotaVip || 50), Number(ev.quotaA || 100), Number(ev.quotaB || 120), Number(ev.quotaC || 150),
+          numId
+        );
+      } else if (!existingTitles.has(String(ev.title).trim().toLowerCase())) {
+        db.prepare(`
+          INSERT INTO events (title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          ev.title, ev.category || 'world', ev.date || '', ev.venue || '', ev.priceRange || '1,800 - 6,500 THB',
+          ev.badge || 'เปิดจำหน่าย', ev.isAccent ? 1 : 0, ev.gradient || 'linear-gradient(135deg, #4d1313, #1f1f1f)',
+          ev.image || '', Number(ev.quotaVip || 50), Number(ev.quotaA || 100), Number(ev.quotaB || 120), Number(ev.quotaC || 150)
+        );
+      }
+    }
+  } catch (_) {}
+}
+
 // Events & Zone Quota Manager
 function listEventsWithQuota() {
+  syncCustomEventsWithDb();
   const rows = db.prepare(`SELECT * FROM events ORDER BY id ASC`).all();
   const soldRows = db
     .prepare(`SELECT title, zone, SUM(qty) AS sold FROM orders WHERE status != 'rejected' GROUP BY title, zone`)
@@ -778,7 +819,12 @@ function saveEvent(input) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC);
   }
-  return listEventsWithQuota();
+
+  const allEvents = listEventsWithQuota();
+  try {
+    setSetting('custom_events', JSON.stringify(allEvents));
+  } catch (_) {}
+  return allEvents;
 }
 
 function deleteEvent(id) {
@@ -798,11 +844,16 @@ function deleteEvent(id) {
   } catch {
     setSetting('deleted_event_ids', JSON.stringify([numId]));
   }
+
+  const allEvents = listEventsWithQuota();
+  try {
+    setSetting('custom_events', JSON.stringify(allEvents));
+  } catch (_) {}
   return {
     ok: true,
     deletedId: numId,
     deletedTitle: existing ? existing.title : `คอนเสิร์ต #${numId}`,
-    events: listEventsWithQuota()
+    events: allEvents
   };
 }
 

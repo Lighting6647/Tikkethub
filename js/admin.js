@@ -3169,12 +3169,18 @@
       adminEventsCache = filterDeletedEvents(data.events || []);
       try {
         localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(adminEventsCache));
+        localStorage.setItem('stagepass_events_updated_at', String(Date.now()));
       } catch {
         /* ignore */
       }
+      try {
+        const bc = new BroadcastChannel('stagepass_events_channel');
+        bc.postMessage({ type: 'EVENTS_UPDATED', events: adminEventsCache });
+        bc.close();
+      } catch (_) {}
       renderAdminEvents();
       resetEventForm();
-      window.UI.toast('บันทึกข้อมูลคอนเสิร์ตและโควตาที่นั่งเรียบร้อยแล้ว');
+      window.UI.toast('บันทึกข้อมูลคอนเสิร์ตและโควตาที่นั่งเรียบร้อยแล้ว (อัปเดตหน้าขายบัตรทันที)');
     } catch (err) {
       window.UI.toast(err.message, 'error');
     } finally {
@@ -3209,9 +3215,15 @@
       adminEventsCache = filterDeletedEvents(data.events || adminEventsCache.filter((x) => Number(x.id) !== id));
       try {
         localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(adminEventsCache));
+        localStorage.setItem('stagepass_events_updated_at', String(Date.now()));
       } catch {
         /* ignore */
       }
+      try {
+        const bc = new BroadcastChannel('stagepass_events_channel');
+        bc.postMessage({ type: 'EVENTS_UPDATED', events: adminEventsCache });
+        bc.close();
+      } catch (_) {}
       renderAdminEvents();
       if (Number($('evIdInput').value) === id) {
         resetEventForm();

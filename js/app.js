@@ -34,17 +34,39 @@ function filterClientEvents(list) {
   return (Array.isArray(list) ? list : []).filter((ev) => ev && !deletedSet.has(Number(ev.id)));
 }
 
+function loadLocalCustomEvents() {
+  try {
+    const raw = localStorage.getItem('thaiticket.customEvents.v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        eventsData = filterClientEvents(parsed);
+        renderEvents();
+        return true;
+      }
+    }
+  } catch (_) {}
+  return false;
+}
+
 async function syncEventsFromServer() {
   try {
     const res = await fetch('/api/events', { cache: 'no-store' });
     const data = await res.json();
     if (data && data.ok && Array.isArray(data.events) && data.events.length) {
       eventsData = filterClientEvents(data.events);
+      try {
+        localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(eventsData));
+      } catch (_) {}
       renderEvents();
+    } else {
+      loadLocalCustomEvents();
     }
   } catch {
-    eventsData = filterClientEvents(eventsData);
-    renderEvents();
+    if (!loadLocalCustomEvents()) {
+      eventsData = filterClientEvents(eventsData);
+      renderEvents();
+    }
   }
 }
 
@@ -722,9 +744,28 @@ if (typeof document !== 'undefined') {
         updatePriceDisplay();
       });
     }
+    loadLocalCustomEvents();
     renderEvents();
     syncEventsFromServer();
     TicketStore.syncAll().then(refreshCartCount);
+
+    // Cross-tab real-time listener for instant event & quota updates from Admin
+    try {
+      const bc = new BroadcastChannel('stagepass_events_channel');
+      bc.onmessage = (msg) => {
+        if (msg && msg.data && msg.data.type === 'EVENTS_UPDATED' && Array.isArray(msg.data.events)) {
+          eventsData = filterClientEvents(msg.data.events);
+          renderEvents();
+        }
+      };
+    } catch (_) {}
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'thaiticket.customEvents.v1' || e.key === 'stagepass_events_updated_at') {
+        loadLocalCustomEvents();
+        syncEventsFromServer();
+      }
+    });
 
     function applyStorefrontSettings(sf) {
       if (!sf) return;
