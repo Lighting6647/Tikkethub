@@ -234,11 +234,24 @@ function computeNetTotal() {
 
 function openBookingModal(title, date, venue) {
   selectedEvent = { title, date, venue };
-  document.getElementById('modalEventTitle').textContent = title;
-  document.getElementById('modalEventVenue').textContent = `${venue} · ${date}`;
+  
+  const evNameEl = document.getElementById('wizardEventName');
+  if (evNameEl) evNameEl.textContent = title;
+  
+  const venueEl = document.getElementById('modalEventVenue');
+  if (venueEl) venueEl.textContent = `${venue} · ${date}`;
+
+  // Find matching event image
+  const ev = (eventsData || []).find(e => e.title === title || e.venue === venue);
+  const posterEl = document.getElementById('wizardEventPoster');
+  if (posterEl && ev && ev.image) {
+    posterEl.style.backgroundImage = `url('${ev.image}')`;
+  }
+
   currentQty = 1;
   activePromo = null;
-  document.getElementById('ticketQty').textContent = currentQty;
+  const qtyEl = document.getElementById('ticketQty');
+  if (qtyEl) qtyEl.textContent = currentQty;
   const errEl = document.getElementById('holderError');
   if (errEl) errEl.textContent = '';
   const promoInput = document.getElementById('promoCodeInput');
@@ -256,7 +269,59 @@ function openBookingModal(title, date, venue) {
   const first = document.querySelector('.zone-btn');
   if (first) first.click();
   updatePriceDisplay();
+  
+  goToStep(1);
   UI.open('bookingModal');
+}
+
+function goToStep(stepNum) {
+  if (typeof document === 'undefined') return;
+  const step1 = document.getElementById('stepView1');
+  const step2 = document.getElementById('stepView2');
+  const pill1 = document.getElementById('stepPill1');
+  const pill2 = document.getElementById('stepPill2');
+  const pill3 = document.getElementById('stepPill3');
+  const modalTitle = document.getElementById('modalEventTitle');
+
+  if (stepNum === 1) {
+    if (step1) step1.hidden = false;
+    if (step2) step2.hidden = true;
+    if (pill1) pill1.className = 'wizard-step-item active';
+    if (pill2) pill2.className = 'wizard-step-item';
+    if (pill3) pill3.className = 'wizard-step-item';
+    if (modalTitle) modalTitle.textContent = 'ขั้นตอนที่ 1: ตรวจสอบและเลือกอีเวนต์';
+  } else if (stepNum === 2) {
+    if (step1) step1.hidden = true;
+    if (step2) step2.hidden = false;
+    if (pill1) pill1.className = 'wizard-step-item completed';
+    if (pill2) pill2.className = 'wizard-step-item active';
+    if (pill3) pill3.className = 'wizard-step-item';
+    if (modalTitle) modalTitle.textContent = 'ขั้นตอนที่ 2: เลือกโต๊ะ/บัตร และระบุข้อมูลผู้ซื้อ';
+    setBookingMode('map');
+    if (typeof window !== 'undefined' && window.SeatMap && typeof window.SeatMap.syncStatuses === 'function') {
+      window.SeatMap.syncStatuses();
+    }
+  }
+}
+
+function selectEventRound(el) {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('.round-select-pill').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+function backToStep2FromPayment() {
+  if (typeof UI !== 'undefined') {
+    UI.close('paymentModal');
+    goToStep(2);
+    UI.open('bookingModal');
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.goToStep = goToStep;
+  window.selectEventRound = selectEventRound;
+  window.backToStep2FromPayment = backToStep2FromPayment;
 }
 
 function closeBookingModal() {

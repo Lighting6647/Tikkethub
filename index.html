@@ -376,161 +376,276 @@
     </div>
   </section>
 
-  <!-- Interactive Booking Modal (Virgin Table & Ticket Picker Engine) -->
+  <!-- Interactive Booking Modal (4-Step Booking Wizard) -->
   <div class="modal-backdrop" id="bookingModal" data-dismissable="true" role="dialog" aria-modal="true">
-    <div class="modal-box" style="max-width:580px;">
+    <div class="modal-box" style="max-width:620px;">
       <div class="modal-header">
         <div>
-          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS TICKET ENGINE</span>
-          <h3 id="modalEventTitle" style="font-weight:700; margin-top:2px;">เลือกรอบและโซนที่นั่ง</h3>
+          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS BOOKING WIZARD</span>
+          <h3 id="modalEventTitle" style="font-weight:700; margin-top:2px;">ขั้นตอนที่ 1: ตรวจสอบและเลือกอีเวนต์</h3>
         </div>
         <button class="modal-close" onclick="closeBookingModal()">&times;</button>
       </div>
 
+      <!-- 4-Step Wizard Stepper Bar (Matching Image Example) -->
+      <div class="wizard-steps-header">
+        <div class="wizard-step-item active" id="stepPill1" onclick="goToStep(1)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">01</span>
+            <span class="wizard-step-icon">🎫</span>
+          </div>
+          <span class="wizard-step-label">เลือกอีเวนต์</span>
+        </div>
+        <div class="wizard-step-item" id="stepPill2" onclick="goToStep(2)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">02</span>
+            <span class="wizard-step-icon">🗺️</span>
+          </div>
+          <span class="wizard-step-label">เลือกโต๊ะ/บัตร</span>
+        </div>
+        <div class="wizard-step-item" id="stepPill3">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">03</span>
+            <span class="wizard-step-icon">⚡</span>
+          </div>
+          <span class="wizard-step-label">ชำระเงิน</span>
+        </div>
+        <div class="wizard-step-item" id="stepPill4">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-icon">✨</span>
+          </div>
+          <span class="wizard-step-label">รอรับการยืนยัน</span>
+        </div>
+      </div>
+
       <div class="modal-content">
-        <div>
-          <span class="text-muted" style="font-size:12px;">สถานที่ & เวลา</span>
-          <p id="modalEventVenue" style="font-weight:600; margin-top:2px;"></p>
-        </div>
+        <!-- ============================================== -->
+        <!-- STEP 1: เลือกอีเวนต์                           -->
+        <!-- ============================================== -->
+        <div id="stepView1">
+          <div class="wizard-event-card">
+            <div class="wizard-event-poster" id="wizardEventPoster" style="background-image: url('https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=400&q=80');"></div>
+            <div class="wizard-event-details">
+              <span class="badge-accent" style="font-size:11px; margin-bottom:6px; display:inline-block;">อีเวนต์ทางการ</span>
+              <h4 id="wizardEventName">ECHOES OF ASIA WORLD TOUR 2026</h4>
+              <div class="wizard-event-meta-line">
+                <span>📍</span> <span id="modalEventVenue">อิมแพ็ค อารีน่า เมืองทองธานี · 14 - 15 พ.ย. 2026</span>
+              </div>
+              <div class="wizard-event-meta-line">
+                <span>🎟️</span> <span style="color:var(--fire); font-weight:700;">ราคาเริ่มต้น 1,800 - 6,500 THB</span>
+              </div>
+            </div>
+          </div>
 
-        <!-- Table Legend according to Virgin Official -->
-        <div class="table-picker-legend">
-          <span><span class="legend-box available"></span>ว่าง</span>
-          <span><span class="legend-box taken"></span>จองแล้ว</span>
-          <span><span class="legend-box reserving"></span>กำลังจอง</span>
-          <span><span class="legend-box selected"></span>เลือกแล้ว</span>
-        </div>
+          <!-- Round / Session Selection -->
+          <div style="margin:16px 0 12px;">
+            <label style="font-weight:600; font-size:13px; display:block; margin-bottom:8px;">เลือกรอบการแสดงที่ต้องการชม</label>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div class="round-select-pill active" onclick="selectEventRound(this)">
+                <span>🎵 รอบวันเสาร์: 19:00 น. (ประตูเปิด 17:30 น.)</span>
+                <span style="color:#10B981; font-size:11px;">เปิดจำหน่าย</span>
+              </div>
+              <div class="round-select-pill" onclick="selectEventRound(this)">
+                <span>🎵 รอบวันอาทิตย์: 19:00 น. (ประตูเปิด 17:30 น.)</span>
+                <span style="color:#10B981; font-size:11px;">เปิดจำหน่าย</span>
+              </div>
+            </div>
+          </div>
 
-        <!-- Mode Switch Tabs -->
-        <div class="seat-mode-tabs" style="display:flex; gap:8px;">
-          <button type="button" class="btn-outline active seat-mode-tab" id="tabSeatMap" onclick="setBookingMode('map')" style="flex:1;">
-            🗺️ ผังที่นั่งจริง (Map)
+          <!-- Guarantee badges -->
+          <div style="background:rgba(255,255,255,0.02); padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); font-size:12px; color:var(--color-muted); line-height:1.7; margin-bottom:14px;">
+            <div>✓ การันตีสิทธิ์เข้าชมงาน 100% ด้วยระบบ Dynamic Pass</div>
+            <div>✓ เลือกผังที่นั่งหรือโต๊ะ VIP แบบเรียลไทม์</div>
+            <div>✓ สแกนชำระผ่าน PromptPay พร้อมระบบ AI ตรวจสลิปอัตโนมัติ</div>
+          </div>
+
+          <button type="button" class="btn-primary btn-block" onclick="goToStep(2)" style="padding:14px; font-size:15px; font-weight:600;">
+            ถัดไป: เลือกโต๊ะ/บัตร (ขั้นตอนที่ 2) →
           </button>
-          <button type="button" class="btn-outline seat-mode-tab" id="tabQuickZone" onclick="setBookingMode('zone')" style="flex:1;">
-            ⚡ เลือกโซนด่วน (Quick)
-          </button>
         </div>
 
-        <!-- Interactive Seat Map View -->
-        <div id="seatMapView">
-          <div id="seatMapContainer"></div>
-        </div>
-
-        <!-- Quick Zone Selection View -->
-        <div id="quickZoneView" hidden>
-          <div>
-            <label style="font-weight:600; margin-bottom:8px; display:block;">เลือกโซนที่นั่ง / ยืน</label>
-            <div class="zone-selection-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-              <button class="zone-btn selected" onclick="selectZone('VIP Standing', 6500, this)">
-                <span class="zone-btn-name">VIP Standing (ยืน)</span>
-                <span class="zone-btn-price">6,500 THB</span>
-              </button>
-              <button class="zone-btn" onclick="selectZone('Zone A (บัตรนั่ง)', 4500, this)">
-                <span class="zone-btn-name">Zone A (นั่ง)</span>
-                <span class="zone-btn-price">4,500 THB</span>
-              </button>
-              <button class="zone-btn" onclick="selectZone('Zone B (บัตรนั่ง)', 3200, this)">
-                <span class="zone-btn-name">Zone B (นั่ง)</span>
-                <span class="zone-btn-price">3,200 THB</span>
-              </button>
-              <button class="zone-btn" onclick="selectZone('Zone C (ชั้นบน)', 1800, this)">
-                <span class="zone-btn-name">Zone C (ชั้นบน)</span>
-                <span class="zone-btn-price">1,800 THB</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quantity Control -->
-        <div>
-          <div class="quantity-control" style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px;">
-            <span style="font-weight:600;">จำนวนบัตร / โต๊ะ</span>
-            <div style="display:flex; align-items:center; gap:12px;">
-              <button class="qty-btn icon-btn" onclick="changeQty(-1)" style="width:32px; height:32px;">-</button>
-              <span id="ticketQty" style="font-weight:700; min-width:24px; text-align:center; font-family:var(--font-tech); font-size:16px;">1</span>
-              <button class="qty-btn icon-btn" onclick="changeQty(1)" style="width:32px; height:32px;">+</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Holder Information Form -->
-        <div class="holder-form">
-          <label style="font-weight:600; margin-bottom:8px; display:block;">ข้อมูลผู้ถือบัตร (แสดงบนบัตร & ส่งทาง LINE)</label>
-          <div class="holder-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <div>
-              <label class="holder-sub-label" for="holderName">ชื่อ - นามสกุล <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
-              <input type="text" id="holderName" class="input-field holder-input" placeholder="เช่น ธนภัทร วงศ์สวัสดิ์" autocomplete="name" required>
-            </div>
-            <div>
-              <label class="holder-sub-label" for="holderPhone">เบอร์โทรศัพท์ <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
-              <input type="tel" id="holderPhone" class="input-field holder-input" placeholder="เช่น 095-465-4698" maxlength="12" autocomplete="tel" required>
-            </div>
+        <!-- ============================================== -->
+        <!-- STEP 2: เลือกโต๊ะ/บัตร                          -->
+        <!-- ============================================== -->
+        <div id="stepView2" hidden>
+          <!-- Table Legend according to Virgin Official -->
+          <div class="table-picker-legend">
+            <span><span class="legend-box available"></span>ว่าง</span>
+            <span><span class="legend-box taken"></span>จองแล้ว</span>
+            <span><span class="legend-box reserving"></span>กำลังจอง</span>
+            <span><span class="legend-box selected"></span>เลือกแล้ว</span>
           </div>
 
-          <div style="margin-top:8px;">
-            <label class="holder-sub-label" for="holderIdCard">เลขประจำตัวประชาชน 13 หลัก / Passport <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
-            <input type="text" id="holderIdCard" class="input-field holder-input" placeholder="เช่น 1-1004-12345-67-3 หรือเลขพาสปอร์ต" maxlength="17" autocomplete="off" required>
-            <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี</p>
-          </div>
-
-          <div style="margin-top:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-              <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
-              <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:4px 10px; font-size:11px; border-color:var(--fire); color:var(--fire);">
-                💬 ดึงรหัส LINE อัตโนมัติ
-              </button>
-            </div>
-            <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น Ohm หรือ U4af4980629..." required>
-          </div>
-
-          <div style="margin-top:10px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px; border:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--color-text); margin:0;">
-              <input type="checkbox" id="rememberHolderCheckbox" checked style="width:15px; height:15px; accent-color:var(--fire); cursor:pointer;">
-              <span>จำข้อมูลผู้ถือบัตรนี้ไว้ในเครื่อง</span>
-            </label>
-            <button type="button" id="clearSavedHolderBtn" onclick="clearSavedHolderInfo()" style="font-size:11px; color:#FF6B6B; background:none; border:none; cursor:pointer;" hidden>
-              🗑️ ล้างข้อมูล
+          <!-- Mode Switch Tabs -->
+          <div class="seat-mode-tabs" style="display:flex; gap:8px;">
+            <button type="button" class="btn-outline active seat-mode-tab" id="tabSeatMap" onclick="setBookingMode('map')" style="flex:1;">
+              🗺️ ผังที่นั่งจริง (Map)
+            </button>
+            <button type="button" class="btn-outline seat-mode-tab" id="tabQuickZone" onclick="setBookingMode('zone')" style="flex:1;">
+              ⚡ เลือกโซนด่วน (Quick)
             </button>
           </div>
-          <div id="savedHolderBadge" style="font-size:11px; color:#68D391; margin-top:4px;" hidden>
-            ✓ โหลดข้อมูลผู้ซื้อที่บันทึกไว้ในเครื่องเรียบร้อย
+
+          <!-- Interactive Seat Map View -->
+          <div id="seatMapView">
+            <div id="seatMapContainer"></div>
           </div>
 
-          <!-- Promo Code -->
-          <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">
-            <label class="holder-sub-label" for="promoCodeInput">🎟️ โค้ดส่วนลด (เช่น <code>EARLY10</code> หรือ <code>VIP500</code>)</label>
-            <div style="display:flex; gap:8px;">
-              <input type="text" id="promoCodeInput" class="input-field holder-input" placeholder="กรอกโค้ดส่วนลด" style="text-transform:uppercase;">
-              <button type="button" class="btn-outline" id="applyPromoBtn" onclick="applyPromoCode()" style="white-space:nowrap;">ใช้โค้ด</button>
+          <!-- Quick Zone Selection View -->
+          <div id="quickZoneView" hidden>
+            <div>
+              <label style="font-weight:600; margin-bottom:8px; display:block;">เลือกโซนที่นั่ง / ยืน</label>
+              <div class="zone-selection-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button class="zone-btn selected" onclick="selectZone('VIP Standing', 6500, this)">
+                  <span class="zone-btn-name">VIP Standing (ยืน)</span>
+                  <span class="zone-btn-price">6,500 THB</span>
+                </button>
+                <button class="zone-btn" onclick="selectZone('Zone A (บัตรนั่ง)', 4500, this)">
+                  <span class="zone-btn-name">Zone A (นั่ง)</span>
+                  <span class="zone-btn-price">4,500 THB</span>
+                </button>
+                <button class="zone-btn" onclick="selectZone('Zone B (บัตรนั่ง)', 3200, this)">
+                  <span class="zone-btn-name">Zone B (นั่ง)</span>
+                  <span class="zone-btn-price">3,200 THB</span>
+                </button>
+                <button class="zone-btn" onclick="selectZone('Zone C (ชั้นบน)', 1800, this)">
+                  <span class="zone-btn-name">Zone C (ชั้นบน)</span>
+                  <span class="zone-btn-price">1,800 THB</span>
+                </button>
+              </div>
             </div>
-            <p id="promoStatusMsg" style="font-size:11px; margin-top:4px;" hidden></p>
           </div>
-          <p class="slip-error" id="holderError" role="alert" style="color:var(--fire); font-size:12px; margin-top:4px;"></p>
+
+          <!-- Quantity Control -->
+          <div>
+            <div class="quantity-control" style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px;">
+              <span style="font-weight:600;">จำนวนบัตร / โต๊ะ</span>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <button class="qty-btn icon-btn" onclick="changeQty(-1)" style="width:32px; height:32px;">-</button>
+                <span id="ticketQty" style="font-weight:700; min-width:24px; text-align:center; font-family:var(--font-tech); font-size:16px;">1</span>
+                <button class="qty-btn icon-btn" onclick="changeQty(1)" style="width:32px; height:32px;">+</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Holder Information Form -->
+          <div class="holder-form">
+            <label style="font-weight:600; margin-bottom:8px; display:block;">ข้อมูลผู้ถือบัตร (แสดงบนบัตร & ส่งทาง LINE)</label>
+            <div class="holder-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div>
+                <label class="holder-sub-label" for="holderName">ชื่อ - นามสกุล <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
+                <input type="text" id="holderName" class="input-field holder-input" placeholder="เช่น ธนภัทร วงศ์สวัสดิ์" autocomplete="name" required>
+              </div>
+              <div>
+                <label class="holder-sub-label" for="holderPhone">เบอร์โทรศัพท์ <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
+                <input type="tel" id="holderPhone" class="input-field holder-input" placeholder="เช่น 095-465-4698" maxlength="12" autocomplete="tel" required>
+              </div>
+            </div>
+
+            <div style="margin-top:8px;">
+              <label class="holder-sub-label" for="holderIdCard">เลขประจำตัวประชาชน 13 หลัก / Passport <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
+              <input type="text" id="holderIdCard" class="input-field holder-input" placeholder="เช่น 1-1004-12345-67-3 หรือเลขพาสปอร์ต" maxlength="17" autocomplete="off" required>
+              <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี</p>
+            </div>
+
+            <div style="margin-top:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
+                <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:4px 10px; font-size:11px; border-color:var(--fire); color:var(--fire);">
+                  💬 ดึงรหัส LINE อัตโนมัติ
+                </button>
+              </div>
+              <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น Ohm หรือ U4af4980629..." required>
+            </div>
+
+            <div style="margin-top:10px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px; border:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--color-text); margin:0;">
+                <input type="checkbox" id="rememberHolderCheckbox" checked style="width:15px; height:15px; accent-color:var(--fire); cursor:pointer;">
+                <span>จำข้อมูลผู้ถือบัตรนี้ไว้ในเครื่อง</span>
+              </label>
+              <button type="button" id="clearSavedHolderBtn" onclick="clearSavedHolderInfo()" style="font-size:11px; color:#FF6B6B; background:none; border:none; cursor:pointer;" hidden>
+                🗑️ ล้างข้อมูล
+              </button>
+            </div>
+            <div id="savedHolderBadge" style="font-size:11px; color:#68D391; margin-top:4px;" hidden>
+              ✓ โหลดข้อมูลผู้ซื้อที่บันทึกไว้ในเครื่องเรียบร้อย
+            </div>
+
+            <!-- Promo Code -->
+            <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">
+              <label class="holder-sub-label" for="promoCodeInput">🎟️ โค้ดส่วนลด (เช่น <code>EARLY10</code> หรือ <code>VIP500</code>)</label>
+              <div style="display:flex; gap:8px;">
+                <input type="text" id="promoCodeInput" class="input-field holder-input" placeholder="กรอกโค้ดส่วนลด" style="text-transform:uppercase;">
+                <button type="button" class="btn-outline" id="applyPromoBtn" onclick="applyPromoCode()" style="white-space:nowrap;">ใช้โค้ด</button>
+              </div>
+              <p id="promoStatusMsg" style="font-size:11px; margin-top:4px;" hidden></p>
+            </div>
+            <p class="slip-error" id="holderError" role="alert" style="color:var(--fire); font-size:12px; margin-top:4px;"></p>
+          </div>
+
+          <!-- Summary & Step 2 CTA -->
+          <div class="summary-card" style="margin-top:14px;">
+            <div>
+              <span class="text-muted" style="font-size:11px;" id="summaryPriceLabel">ยอดชำระสุทธิ</span>
+              <div style="font-size:20px; font-weight:700; color:var(--color-text); font-family:var(--font-tech);" id="totalPriceDisplay">6,500 THB</div>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button type="button" class="btn-outline" onclick="goToStep(1)">
+                ← ย้อนกลับ
+              </button>
+              <button class="btn-primary" onclick="confirmBooking()">
+                ถัดไป: ชำระเงิน (ขั้นตอนที่ 3) →
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Summary & Checkout CTA -->
-        <div class="summary-card">
-          <div>
-            <span class="text-muted" style="font-size:11px;" id="summaryPriceLabel">ยอดชำระสุทธิ</span>
-            <div style="font-size:20px; font-weight:700; color:var(--color-text); font-family:var(--font-tech);" id="totalPriceDisplay">6,500 THB</div>
-          </div>
-          <button class="btn-primary" onclick="confirmBooking()">
-            ชำระเงินและรับบัตร
-          </button>
-        </div>
       </div>
     </div>
   </div>
 
-  <!-- PromptPay Payment Modal -->
+  <!-- PromptPay Payment Modal (STEP 3: ชำระเงิน) -->
   <div class="modal-backdrop" id="paymentModal" role="dialog" aria-modal="true" aria-labelledby="payHeading">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:620px;">
       <div class="modal-header">
         <div>
-          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">PROMPTPAY CHECKOUT</span>
-          <h3 id="payHeading" style="font-weight:700;">ชำระเงินผ่าน PromptPay</h3>
+          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS BOOKING WIZARD</span>
+          <h3 id="payHeading" style="font-weight:700; margin-top:2px;">ขั้นตอนที่ 3: ชำระเงินผ่าน PromptPay</h3>
         </div>
         <button class="modal-close" id="payCloseBtn" aria-label="ปิด">&times;</button>
+      </div>
+
+      <!-- 4-Step Wizard Stepper Bar (Step 3 Active) -->
+      <div class="wizard-steps-header">
+        <div class="wizard-step-item completed" onclick="backToStep2FromPayment()">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">01</span>
+            <span class="wizard-step-icon">🎫</span>
+          </div>
+          <span class="wizard-step-label">เลือกอีเวนต์</span>
+        </div>
+        <div class="wizard-step-item completed" onclick="backToStep2FromPayment()">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">02</span>
+            <span class="wizard-step-icon">🗺️</span>
+          </div>
+          <span class="wizard-step-label">เลือกโต๊ะ/บัตร</span>
+        </div>
+        <div class="wizard-step-item active">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">03</span>
+            <span class="wizard-step-icon">⚡</span>
+          </div>
+          <span class="wizard-step-label">ชำระเงิน</span>
+        </div>
+        <div class="wizard-step-item">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-icon">✨</span>
+          </div>
+          <span class="wizard-step-label">รอรับการยืนยัน</span>
+        </div>
       </div>
 
       <div class="modal-content">
@@ -576,23 +691,60 @@
           <p class="slip-error" id="slipError" role="alert" style="color:var(--fire); font-size:12px; margin-top:4px;"></p>
         </div>
 
-        <button class="btn-primary btn-block" id="payConfirmBtn" disabled>
-          ยืนยันการโอนเงินและรับบัตร
-        </button>
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button type="button" class="btn-outline" onclick="backToStep2FromPayment()">
+            ← ย้อนกลับ
+          </button>
+          <button class="btn-primary" id="payConfirmBtn" disabled style="flex:1;">
+            ยืนยันการโอนเงินและรับบัตร (ขั้นตอนที่ 4) →
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- E-Ticket Viewer Modal -->
+  <!-- E-Ticket Viewer Modal (STEP 4: รอรับการยืนยัน & รับบัตร) -->
   <div class="modal-backdrop" id="ticketModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="ticketHeading">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:620px;">
       <div class="modal-header">
         <div>
-          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">DIGITAL PASS</span>
-          <h3 id="ticketHeading" style="font-weight:700;">บัตรคอนเสิร์ตของคุณ</h3>
+          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS BOOKING WIZARD</span>
+          <h3 id="ticketHeading" style="font-weight:700; margin-top:2px;">ขั้นตอนที่ 4: ยืนยันการจอง & รับบัตร</h3>
           <p class="text-muted" id="ticketRefLabel" style="font-size:12px;"></p>
         </div>
         <button class="modal-close" id="ticketCloseBtn" aria-label="ปิด">&times;</button>
+      </div>
+
+      <!-- 4-Step Wizard Stepper Bar (Step 4 Active & Completed) -->
+      <div class="wizard-steps-header">
+        <div class="wizard-step-item completed">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">01</span>
+            <span class="wizard-step-icon">🎫</span>
+          </div>
+          <span class="wizard-step-label">เลือกอีเวนต์</span>
+        </div>
+        <div class="wizard-step-item completed">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">02</span>
+            <span class="wizard-step-icon">🗺️</span>
+          </div>
+          <span class="wizard-step-label">เลือกโต๊ะ/บัตร</span>
+        </div>
+        <div class="wizard-step-item completed">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">03</span>
+            <span class="wizard-step-icon">⚡</span>
+          </div>
+          <span class="wizard-step-label">ชำระเงิน</span>
+        </div>
+        <div class="wizard-step-item active">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-icon">✨</span>
+          </div>
+          <span class="wizard-step-label">รอรับการยืนยัน</span>
+        </div>
       </div>
       <div class="modal-content">
         <div id="ticketStatusBanner" class="ticket-status-banner" hidden></div>
