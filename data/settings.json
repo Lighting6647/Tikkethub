@@ -4,5 +4,10 @@
   "gate_staff_pin": "888888",
   "deleted_event_ids": "[]",
   "deleted_order_refs": "[]",
-  "slip_verify_provider": "simulator"
+  "slip_verify_provider": "simulator",
+  "google_drive_folder_id": "",
+  "google_service_account_email": "",
+  "google_service_account_private_key": "",
+  "admin_line_user_id": "",
+  "storefront_settings": "{\"headline\":\"PROMO TOUR 2026\",\"promoImage\":\"https://example.com/promo-banner.jpg\"}"
 }
