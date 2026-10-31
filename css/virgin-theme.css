@@ -47,20 +47,21 @@
   align-items: center;
   justify-content: space-between;
   height: 60px;
-  max-width: 980px;
+  max-width: 1060px;
   margin: 0 auto;
-  padding: 0 14px 0 20px;
-  background: rgba(14, 16, 23, 0.75);
+  padding: 0 16px 0 22px;
+  background: rgba(14, 16, 23, 0.78);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(229, 9, 20, 0.15);
   transition: all 0.3s ease;
+  gap: 20px;
 }
 
 .site-header.is-scrolled .site-header__inner {
-  background: rgba(10, 11, 16, 0.92);
+  background: rgba(10, 11, 16, 0.94);
   border-color: rgba(229, 9, 20, 0.35);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.85), 0 0 40px rgba(229, 9, 20, 0.25);
 }
@@ -89,13 +90,15 @@
 .site-logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
   font-family: var(--font-tech);
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 700;
   color: #FFFFFF;
   letter-spacing: 0.8px;
+  flex-shrink: 0;
+  margin-right: 28px;
 }
 
 .site-logo-icon {
