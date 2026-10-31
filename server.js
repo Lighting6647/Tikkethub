@@ -365,6 +365,31 @@ async function handleApi(req, res, url) {
     });
   }
 
+  // Public Storefront Settings (Headline, search placeholder, contact channels, promo image banner)
+  if (method === 'GET' && pathname === '/api/storefront-settings') {
+    const raw = db.getSetting('storefront_settings', '');
+    let settings = {};
+    if (raw) {
+      try { settings = JSON.parse(raw); } catch (_) {}
+    }
+    return sendJson(res, 200, { ok: true, settings });
+  }
+
+  // Admin Storefront Settings Update
+  if (method === 'POST' && pathname === '/api/admin/storefront-settings') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const body = await readJsonBody(req);
+    db.setSetting('storefront_settings', JSON.stringify(body));
+    db.addAuditLog({
+      action: 'UPDATE_STOREFRONT_SETTINGS',
+      detail: `อัปเดตข้อมูลและภาพโปรโมทหน้าขายบัตร (พาดหัว: ${body.headline || '-'})`,
+      actor: 'Admin'
+    });
+    return sendJson(res, 200, { ok: true, settings: body });
+  }
+
   // Admin & Gate Staff Login / Logout / Session check
   if (pathname === '/api/admin/session' && method === 'GET') {
     const role = getAuthRole(req);

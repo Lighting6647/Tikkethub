@@ -2754,11 +2754,50 @@
     }
   }
 
-  function openStorefrontSettings() {
+  function compressImageFile(file, maxWidth = 1200, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type || !file.type.startsWith('image/')) {
+        return reject(new Error('กรุณาเลือกไฟล์รูปภาพที่ถูกต้อง (PNG, JPG, WebP)'));
+      }
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('ไม่สามารถอ่านไฟล์ได้'));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('ไม่สามารถประมวลผลรูปภาพได้'));
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function openStorefrontSettings() {
     let local = {};
     try {
       const raw = localStorage.getItem('stagepass_storefront_settings');
       if (raw) local = JSON.parse(raw);
+    } catch (_) {}
+
+    // Also fetch server settings if available
+    try {
+      const res = await fetch('/api/storefront-settings');
+      const data = await res.json();
+      if (data && data.ok && data.settings) {
+        local = Object.assign({}, local, data.settings);
+      }
     } catch (_) {}
 
     if ($('sfHeadlineInput')) $('sfHeadlineInput').value = local.headline || 'ELEVATE YOUR NIGHT';
@@ -2768,24 +2807,46 @@
     if ($('sfInstagramUrlInput')) $('sfInstagramUrlInput').value = local.instagramUrl || 'https://instagram.com/stagepass.th';
     if ($('sfAnnouncementInput')) $('sfAnnouncementInput').value = local.announcement || '';
 
+    const promoImg = local.promoImage || '';
+    if ($('sfPromoImageUrlInput')) $('sfPromoImageUrlInput').value = promoImg;
+    if ($('sfPromoPreviewImg')) {
+      if (promoImg) {
+        $('sfPromoPreviewImg').src = promoImg;
+        if ($('sfPromoPreviewWrap')) $('sfPromoPreviewWrap').style.display = 'block';
+        if ($('sfClearPromoImgBtn')) $('sfClearPromoImgBtn').hidden = false;
+      } else {
+        if ($('sfPromoPreviewWrap')) $('sfPromoPreviewWrap').style.display = 'none';
+        if ($('sfClearPromoImgBtn')) $('sfClearPromoImgBtn').hidden = true;
+      }
+    }
+
     window.UI.open('storefrontSettingsModal');
   }
 
-  function saveStorefrontSettings() {
+  async function saveStorefrontSettings() {
     const headline = ($('sfHeadlineInput') ? $('sfHeadlineInput').value : '').trim() || 'ELEVATE YOUR NIGHT';
     const searchPlaceholder = ($('sfSearchPlaceholderInput') ? $('sfSearchPlaceholderInput').value : '').trim() || 'Search concerts, artists or VIP tables...';
     const lineOaUrl = ($('sfLineOaUrlInput') ? $('sfLineOaUrlInput').value : '').trim() || 'https://line.me/R/ti/p/@thaiticket';
     const facebookUrl = ($('sfFacebookUrlInput') ? $('sfFacebookUrlInput').value : '').trim() || 'https://facebook.com/stagepass.official';
     const instagramUrl = ($('sfInstagramUrlInput') ? $('sfInstagramUrlInput').value : '').trim() || 'https://instagram.com/stagepass.th';
     const announcement = ($('sfAnnouncementInput') ? $('sfAnnouncementInput').value : '').trim();
+    const promoImage = ($('sfPromoImageUrlInput') ? $('sfPromoImageUrlInput').value : '').trim();
 
-    const data = { headline, searchPlaceholder, lineOaUrl, facebookUrl, instagramUrl, announcement };
+    const data = { headline, searchPlaceholder, lineOaUrl, facebookUrl, instagramUrl, announcement, promoImage };
     try {
       localStorage.setItem('stagepass_storefront_settings', JSON.stringify(data));
     } catch (_) {}
 
+    try {
+      await fetch('/api/admin/storefront-settings', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data)
+      });
+    } catch (_) {}
+
     window.UI.close('storefrontSettingsModal');
-    window.UI.toast('บันทึกเนื้อหาหน้าขายบัตรเรียบร้อยแล้ว');
+    window.UI.toast('บันทึกเนื้อหาและภาพโปรโมทหน้าขายบัตรเรียบร้อยแล้ว');
   }
 
   async function testDriveConnection() {
@@ -2989,6 +3050,10 @@
     $('evVenueInput').value = '';
     $('evDateInput').value = '';
     $('evPriceRangeInput').value = '1,800 - 6,500 THB';
+    if ($('evImageInput')) $('evImageInput').value = '';
+    if ($('evImageFileInput')) $('evImageFileInput').value = '';
+    if ($('evImagePreviewWrap')) $('evImagePreviewWrap').style.display = 'none';
+    if ($('evClearImgBtn')) $('evClearImgBtn').hidden = true;
     $('evQuotaVip').value = '50';
     $('evQuotaA').value = '100';
     $('evQuotaB').value = '120';
@@ -3050,6 +3115,7 @@
     const quotaA = Number($('evQuotaA').value || 100);
     const quotaB = Number($('evQuotaB').value || 120);
     const quotaC = Number($('evQuotaC').value || 150);
+    const image = $('evImageInput') ? $('evImageInput').value.trim() : '';
 
     if (!title || !venue || !date) {
       window.UI.toast('กรุณากรอกชื่อคอนเสิร์ต สถานที่ และวันที่แสดงให้ครบถ้วน', 'error');
@@ -3061,7 +3127,7 @@
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ id, title, venue, date, priceRange, quotaVip, quotaA, quotaB, quotaC })
+        body: JSON.stringify({ id, title, venue, date, priceRange, quotaVip, quotaA, quotaB, quotaC, image })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -3520,6 +3586,17 @@
         $('evQuotaA').value = String(ev.quotaA);
         $('evQuotaB').value = String(ev.quotaB);
         $('evQuotaC').value = String(ev.quotaC);
+        if ($('evImageInput')) $('evImageInput').value = ev.image || '';
+        if ($('evImagePreviewWrap')) {
+          if (ev.image) {
+            if ($('evImagePreviewImg')) $('evImagePreviewImg').src = ev.image;
+            $('evImagePreviewWrap').style.display = 'block';
+            if ($('evClearImgBtn')) $('evClearImgBtn').hidden = false;
+          } else {
+            $('evImagePreviewWrap').style.display = 'none';
+            if ($('evClearImgBtn')) $('evClearImgBtn').hidden = true;
+          }
+        }
         $('evFormModeTitle').textContent = `กำลังแก้ไขคอนเสิร์ต #${ev.id}: ${ev.title}`;
         if ($('deleteEventBtn')) $('deleteEventBtn').hidden = false;
       });
@@ -3554,6 +3631,86 @@
     }
     if ($('saveStorefrontSettingsBtn')) {
       $('saveStorefrontSettingsBtn').addEventListener('click', saveStorefrontSettings);
+    }
+
+    // Storefront Promo Image Attachment Handlers
+    if ($('sfPromoImageFileInput')) {
+      $('sfPromoImageFileInput').addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        try {
+          window.UI.toast('กำลังประมวลผลรูปภาพโปรโมท...', 'info');
+          const dataUrl = await compressImageFile(file, 1200, 0.82);
+          if ($('sfPromoImageUrlInput')) $('sfPromoImageUrlInput').value = dataUrl;
+          if ($('sfPromoPreviewImg')) $('sfPromoPreviewImg').src = dataUrl;
+          if ($('sfPromoPreviewWrap')) $('sfPromoPreviewWrap').style.display = 'block';
+          if ($('sfClearPromoImgBtn')) $('sfClearPromoImgBtn').hidden = false;
+          window.UI.toast('แนบภาพโปรโมทสำเร็จแล้ว กรุณากดบันทึก', 'success');
+        } catch (err) {
+          window.UI.toast(err.message, 'error');
+        }
+      });
+    }
+    if ($('sfPromoImageUrlInput')) {
+      $('sfPromoImageUrlInput').addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        if (val) {
+          if ($('sfPromoPreviewImg')) $('sfPromoPreviewImg').src = val;
+          if ($('sfPromoPreviewWrap')) $('sfPromoPreviewWrap').style.display = 'block';
+          if ($('sfClearPromoImgBtn')) $('sfClearPromoImgBtn').hidden = false;
+        } else {
+          if ($('sfPromoPreviewWrap')) $('sfPromoPreviewWrap').style.display = 'none';
+          if ($('sfClearPromoImgBtn')) $('sfClearPromoImgBtn').hidden = true;
+        }
+      });
+    }
+    if ($('sfClearPromoImgBtn')) {
+      $('sfClearPromoImgBtn').addEventListener('click', () => {
+        if ($('sfPromoImageUrlInput')) $('sfPromoImageUrlInput').value = '';
+        if ($('sfPromoImageFileInput')) $('sfPromoImageFileInput').value = '';
+        if ($('sfPromoPreviewWrap')) $('sfPromoPreviewWrap').style.display = 'none';
+        $('sfClearPromoImgBtn').hidden = true;
+      });
+    }
+
+    // Event Poster Image Attachment Handlers
+    if ($('evImageFileInput')) {
+      $('evImageFileInput').addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        try {
+          window.UI.toast('กำลังประมวลผลภาพโปสเตอร์...', 'info');
+          const dataUrl = await compressImageFile(file, 1000, 0.82);
+          if ($('evImageInput')) $('evImageInput').value = dataUrl;
+          if ($('evImagePreviewImg')) $('evImagePreviewImg').src = dataUrl;
+          if ($('evImagePreviewWrap')) $('evImagePreviewWrap').style.display = 'block';
+          if ($('evClearImgBtn')) $('evClearImgBtn').hidden = false;
+          window.UI.toast('แนบภาพโปสเตอร์สำเร็จแล้ว', 'success');
+        } catch (err) {
+          window.UI.toast(err.message, 'error');
+        }
+      });
+    }
+    if ($('evImageInput')) {
+      $('evImageInput').addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        if (val) {
+          if ($('evImagePreviewImg')) $('evImagePreviewImg').src = val;
+          if ($('evImagePreviewWrap')) $('evImagePreviewWrap').style.display = 'block';
+          if ($('evClearImgBtn')) $('evClearImgBtn').hidden = false;
+        } else {
+          if ($('evImagePreviewWrap')) $('evImagePreviewWrap').style.display = 'none';
+          if ($('evClearImgBtn')) $('evClearImgBtn').hidden = true;
+        }
+      });
+    }
+    if ($('evClearImgBtn')) {
+      $('evClearImgBtn').addEventListener('click', () => {
+        if ($('evImageInput')) $('evImageInput').value = '';
+        if ($('evImageFileInput')) $('evImageFileInput').value = '';
+        if ($('evImagePreviewWrap')) $('evImagePreviewWrap').style.display = 'none';
+        $('evClearImgBtn').hidden = true;
+      });
     }
 
     $('confirmRejectBtn').addEventListener('click', confirmReject);

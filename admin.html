@@ -664,6 +664,26 @@
           <label class="field-label" for="sfAnnouncementInput">ข้อความประกาศหน้าเว็บ (Announcement Bar · เว้นว่างไว้หากไม่มี)</label>
           <input type="text" id="sfAnnouncementInput" class="input-field holder-input" placeholder="เช่น 🔥 เปิดจำหน่ายบัตรคอนเสิร์ตรอบพิเศษแล้ววันนี้!">
         </div>
+        <div>
+          <label class="field-label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>🖼️ ช่องแนบภาพเพื่อโปรโมทหน้าหลัก (Promo Banner Image)</span>
+            <span class="text-muted" style="font-size:11px;">PNG, JPG หรือ URL</span>
+          </label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="sfPromoImageUrlInput" class="input-field holder-input" placeholder="วางลิงก์รูปภาพ https://... หรือคลิกแนบไฟล์" style="flex:1;">
+            <label class="btn-outline" style="cursor:pointer; white-space:nowrap; padding:9px 12px; margin:0; border-color:var(--fire); color:var(--fire); font-size:12px; display:inline-flex; align-items:center; gap:4px;">
+              📁 แนบภาพ
+              <input type="file" id="sfPromoImageFileInput" accept="image/*" style="display:none;">
+            </label>
+            <button type="button" class="btn-outline" id="sfClearPromoImgBtn" title="ลบภาพโปรโมท" style="padding:9px 12px; color:#ff6b6b; border-color:rgba(255,107,107,0.4);" hidden>✕</button>
+          </div>
+          <div id="sfPromoPreviewWrap" style="margin-top:8px; display:none;">
+            <div style="position:relative; width:100%; height:130px; border-radius:8px; overflow:hidden; border:1px solid rgba(229,9,20,0.4); background:#111;">
+              <img id="sfPromoPreviewImg" src="" alt="ภาพโปรโมท" style="width:100%; height:100%; object-fit:cover;">
+              <span style="position:absolute; bottom:6px; right:8px; background:rgba(0,0,0,0.8); font-size:10px; padding:2px 6px; border-radius:4px; color:#fff;">ตัวอย่างภาพโปรโมทหน้าหลัก</span>
+            </div>
+          </div>
+        </div>
         <div style="display:flex; gap:10px; margin-top:8px;">
           <button type="button" class="btn-primary" id="saveStorefrontSettingsBtn" style="flex:1;">
             💾 บันทึกเนื้อหาหน้าขายบัตร
@@ -708,6 +728,26 @@
             <div>
               <label class="holder-sub-label" for="evPriceRangeInput">ช่วงราคาบัตร *</label>
               <input type="text" id="evPriceRangeInput" class="input-field holder-input" value="1,800 - 6,500 THB">
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <label class="holder-sub-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>🖼️ ช่องแนบภาพโปสเตอร์ / ภาพโปรโมทคอนเสิร์ต (Poster Image)</span>
+              <span class="text-muted" style="font-size:11px;">PNG, JPG หรือ URL</span>
+            </label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="evImageInput" class="input-field holder-input" placeholder="วางลิงก์รูปภาพ https://... หรือคลิกแนบไฟล์" style="flex:1;">
+              <label class="btn-outline" style="cursor:pointer; white-space:nowrap; padding:9px 12px; margin:0; border-color:var(--fire); color:var(--fire); font-size:12px; display:inline-flex; align-items:center; gap:4px;">
+                📁 แนบภาพ
+                <input type="file" id="evImageFileInput" accept="image/*" style="display:none;">
+              </label>
+              <button type="button" class="btn-outline" id="evClearImgBtn" title="ลบภาพโปสเตอร์" style="padding:9px 12px; color:#ff6b6b; border-color:rgba(255,107,107,0.4);" hidden>✕</button>
+            </div>
+            <div id="evImagePreviewWrap" style="margin-top:8px; display:none;">
+              <div style="position:relative; width:100%; height:120px; border-radius:8px; overflow:hidden; border:1px solid rgba(229,9,20,0.4); background:#111;">
+                <img id="evImagePreviewImg" src="" alt="ตัวอย่างโปสเตอร์" style="width:100%; height:100%; object-fit:cover;">
+                <span style="position:absolute; bottom:6px; right:8px; background:rgba(0,0,0,0.8); font-size:10px; padding:2px 6px; border-radius:4px; color:#fff;">ตัวอย่างภาพคอนเสิร์ต</span>
+              </div>
             </div>
           </div>
           <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:8px;">
