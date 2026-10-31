@@ -1404,9 +1404,12 @@ function serveStatic(req, res, url) {
       return res.end('404 Not Found');
     }
     const ext = path.extname(filePath).toLowerCase();
+    const isHtml = ext === '.html';
     res.writeHead(200, {
       'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': isHtml ? 'no-store, no-cache, must-revalidate, max-age=0' : 'no-cache',
+      'Pragma': isHtml ? 'no-cache' : 'no-cache',
+      'Expires': isHtml ? '0' : '0'
     });
     fs.createReadStream(filePath).pipe(res);
   });
