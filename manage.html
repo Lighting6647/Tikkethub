@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>STAGE PASS ADMIN · ตรวจสลิป & จัดการบัตรคอนเสิร์ต</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2C16 2 26 12 26 20C26 25.5 21.5 30 16 30C10.5 30 6 25.5 6 20C6 12 16 2 16 2Z' fill='%23e50914'/%3E%3Cpath d='M16 8C16 8 22 15 22 20C22 23.3 19.3 26 16 26C12.7 26 10 23.3 10 20C10 15 16 8 16 8Z' fill='%23ff5a1f'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="css/checkout.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <style>
+    .header {
+      background-color: #242424;
+      border-bottom: 1px solid var(--color-border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 0 max(var(--space-20), env(safe-area-inset-right, var(--space-20))) 0 max(var(--space-20), env(safe-area-inset-left, var(--space-20)));
+    }
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 64px;
+      padding: var(--space-12) 0;
+      gap: var(--space-12);
+      flex-wrap: wrap;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-8);
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFFFFF;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .brand-badge {
+      background-color: var(--color-primary);
+      color: #FFFFFF;
+      padding: 2px 8px;
+      border-radius: var(--radius-btn);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .main-content {
+      padding: var(--space-20) 0 var(--space-32);
+      flex: 1;
+    }
+    .toast {
+      position: fixed;
+      bottom: max(24px, env(safe-area-inset-bottom, 24px));
+      right: 24px;
+      background-color: #1a1a1a;
+      border-left: 4px solid var(--color-accent);
+      color: #fff;
+      padding: var(--space-12) var(--space-20);
+      border-radius: var(--radius-btn);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      gap: var(--space-12);
+    }
+    .toast.show { display: flex; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+      padding: var(--space-16);
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal-box {
+      background-color: var(--color-elevated);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-card);
+      width: 100%;
+      max-width: 520px;
+      max-height: calc(100vh - 32px);
+      max-height: calc(100dvh - 32px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: var(--space-16) var(--space-20);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--color-muted);
+      cursor: pointer;
+      font-size: 20px;
+      padding: var(--space-4);
+    }
+    .modal-content {
+      padding: var(--space-20);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-16);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-width: 640px) {
+      .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal-box {
+        max-width: 100%;
+        max-height: calc(100dvh - 24px);
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+      }
+      .toast {
+        bottom: max(16px, env(safe-area-inset-bottom, 16px));
+        right: 16px;
+        left: 16px;
+        max-width: calc(100% - 32px);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="container">
+      <div class="nav-bar">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <a href="index.html" class="brand">
+            <span class="brand-badge" style="background:var(--grad-fire);">STAGE</span> PASS · ADMIN
+          </a>
+          <span id="adminRoleBadge" class="role-pill-badge" hidden>👑 แอดมินหลัก</span>
+        </div>
+        <div class="admin-actions">
+          <button class="btn-primary" id="openScannerBtn">📷 สแกนบัตรเข้างาน</button>
+          <button class="btn-outline" id="openGateMonitorBtn" style="border-color:#229BFF; color:#63b3ed;">🚦 มอนิเตอร์ประตูเข้างาน</button>
+          <button class="btn-outline" id="openAnalyticsBtn" data-admin-only="true">📊 รายงานปิดรอบ / PDF</button>
+          <button class="btn-outline" id="openLinePreviewNavBtn" data-admin-only="true" style="border-color:#06C755; color:#06C755;">📱 จัดส่งบัตร LINE OA (<span id="adminLinePendingBadge">0</span>)</button>
+          <button class="btn-outline" id="openEventManagerBtn" data-admin-only="true">🎤 คอนเสิร์ต/โควตา</button>
+          <button class="btn-outline" id="openAuditLogBtn" data-admin-only="true">📋 ประวัติแอดมิน</button>
+          <button class="btn-outline" id="openBackupModalBtn" data-admin-only="true">💾 สำรองข้อมูล</button>
+          <button class="btn-outline" id="openLineSettingsBtn" data-admin-only="true">⚙️ ตั้งค่าพร้อมเพย์</button>
+          <a href="/api/admin/guest-list.csv?status=approved" class="btn-primary" id="exportGuestListBtn" title="ดาวน์โหลดรายชื่อผู้ถือบัตรและเลขบัตรประชาชนสำหรับตรวจบัตรหน้างาน">📋 Guest List (ตรวจบัตร)</a>
+          <a href="/api/admin/export.csv" class="btn-default" id="exportCsvBtn" data-admin-only="true">Export CSV</a>
+          <a href="user-manual.html" class="btn-outline" id="adminManualLink" title="คู่มือการใช้งานระบบ 1 หน้า (PDF)">📖 คู่มือ (PDF 1 หน้า)</a>
+          <button class="btn-outline" id="adminLogoutBtn" hidden>ออกจากระบบ</button>
+          <a href="index.html" class="btn-outline">หน้าจองบัตร</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <div class="admin-header-bar">
+        <div>
+          <h1 id="adminMainHeading">ระบบจัดการคำสั่งซื้อ ตรวจสลิป และเช็กอินหน้างาน</h1>
+          <p class="text-muted" id="adminMainSubheading">ตรวจสอบสลิปโอนเงิน ป้องกันสลิปซ้ำด้วย SHA-256 อนุมัติส่งบัตรเข้า LINE OA และสแกน QR Code เช็กอินเข้างาน</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button class="btn-outline" id="toggleSoundBtn" title="เปิด/ปิดเสียงแจ้งเตือนสลิปใหม่">🔔 เสียงเตือน: เปิด</button>
+          <button class="btn-outline" id="requestNotifyBtn" title="เปิดแจ้งเตือนบนหน้าจอคอม/มือถือ">📲 เปิดแจ้งเตือนหน้าจอ</button>
+          <button class="btn-outline" id="refreshAdminBtn">รีเฟรชข้อมูล</button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <section class="kpi-grid" aria-label="สรุปภาพรวมยอดขาย">
+        <div class="kpi-card" id="kpiPendingCard">
+          <span class="kpi-label">รายการรอตรวจสลิป (Pending)</span>
+          <div class="kpi-value is-pending" id="kpiPending">0</div>
+        </div>
+        <div class="kpi-card" id="kpiRevenueCard">
+          <span class="kpi-label">ยอดขายที่อนุมัติแล้ว</span>
+          <div class="kpi-value is-accent" id="kpiRevenue">0 THB</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">บัตรที่ออกแล้วทั้งหมด</span>
+          <div class="kpi-value" id="kpiApprovedTickets">0 ใบ</div>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">สแกนเข้างานแล้ว (Checked-in)</span>
+          <div class="kpi-value is-accent" id="kpiCheckedInTickets">0 ใบ</div>
+        </div>
+        <div class="kpi-card" id="kpiRejectedCard">
+          <span class="kpi-label">สลิปที่ปฏิเสธ</span>
+          <div class="kpi-value is-danger" id="kpiRejected">0</div>
+        </div>
+      </section>
+
+      <!-- Zone Breakdown -->
+      <section class="zone-summary-box" id="zoneSummarySection">
+        <h3 style="font-weight:700;">ยอดขายแยกตามโซนที่นั่ง (เฉพาะที่อนุมัติแล้ว)</h3>
+        <div class="zone-chips" id="zoneBreakdown">
+          <p class="text-muted">กำลังโหลดข้อมูลโซน...</p>
+        </div>
+      </section>
+
+      <!-- Filter Tabs & Bulk Actions Bar -->
+      <div class="admin-filter-bar">
+        <div class="filter-tabs" role="tablist">
+          <button class="filter-tab active" data-status="all">ทั้งหมด</button>
+          <button class="filter-tab" data-status="pending" data-admin-only="true">รอตรวจสอบ (Pending)</button>
+          <button class="filter-tab" data-status="approved">อนุมัติแล้ว (Approved)</button>
+          <button class="filter-tab" data-status="rejected" data-admin-only="true">ปฏิเสธ (Rejected)</button>
+        </div>
+
+        <div class="bulk-actions-bar" id="bulkActionsBar">
+          <label class="bulk-select-all-label">
+            <input type="checkbox" id="selectAllOrdersCheckbox">
+            <span>เลือกทั้งหมด (<strong id="selectedOrdersCount">0</strong>)</span>
+          </label>
+          <button type="button" class="btn-primary" id="bulkApproveBtn" data-admin-only="true" disabled style="padding:6px 12px; font-size:12px;">
+            ✅ อนุมัติ & ส่ง LINE ที่เลือก
+          </button>
+          <button type="button" class="btn-default" id="bulkCheckInBtn" disabled style="padding:6px 12px; font-size:12px;">
+            📷 เช็กอินเข้างานที่เลือก
+          </button>
+          <button type="button" class="btn-outline" id="bulkDeleteBtn" data-admin-only="true" disabled style="padding:6px 12px; font-size:12px; border-color:rgba(255,107,107,0.45); color:#FF6B6B;">
+            🗑️ ลบที่เลือก
+          </button>
+        </div>
+      </div>
+
+      <!-- Orders List -->
+      <section class="orders-list" id="adminOrdersList">
+        <div class="empty-state card"><p class="text-muted">กำลังโหลดรายการคำสั่งซื้อ...</p></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Admin & Gate Staff Role-Based PIN Login Modal -->
+  <div class="modal-backdrop" id="adminLoginModal" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
+    <div class="modal-box" style="max-width:460px;">
+      <div class="modal-header">
+        <h3 id="adminLoginTitle" style="font-weight:700;">🔒 ยืนยันตัวตนเข้าสู่ระบบ (Role-Based PIN)</h3>
+      </div>
+      <div class="modal-content">
+        <p class="text-muted" style="font-size:13px;">ระบบแยกระดับสิทธิ์อัตโนมัติตามรหัส PIN ที่กรอก เพื่อความปลอดภัยของข้อมูลการเงินหน้างาน:</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button type="button" class="role-select-card" id="fillAdminPinBtn" title="คลิกเพื่อกรอกรหัสแอดมินหลัก">
+            <div style="font-weight:700; color:#fff; font-size:13px;">👑 แอดมินหลัก (Admin)</div>
+            <div class="text-muted" style="font-size:11px; margin-top:2px;">ตรวจสลิป · ดูรายได้ · ตั้งค่าระบบ</div>
+            <div style="font-size:11px; color:var(--color-accent); margin-top:4px;">PIN เริ่มต้น: <code>123456</code></div>
+          </button>
+          <button type="button" class="role-select-card" id="fillStaffPinBtn" title="คลิกเพื่อกรอกรหัสเจ้าหน้าที่หน้าประตู">
+            <div style="font-weight:700; color:#68D391; font-size:13px;">🛡️ สตาฟหน้าประตู (Gate)</div>
+            <div class="text-muted" style="font-size:11px; margin-top:2px;">สแกนบัตร · มอนิเตอร์ประตู (ซ่อนรายได้)</div>
+            <div style="font-size:11px; color:#68D391; margin-top:4px;">PIN เริ่มต้น: <code>888888</code></div>
+          </button>
+        </div>
+        <div>
+          <label class="field-label" for="adminPinInput">รหัส PIN เข้าสู่ระบบ (แอดมิน หรือ สตาฟหน้าประตู)</label>
+          <input type="password" id="adminPinInput" class="input-field holder-input" placeholder="กรอกรหัส PIN (เช่น 123456 หรือ 888888)" autocomplete="current-password">
+          <p class="slip-error" id="adminLoginError" role="alert"></p>
+        </div>
+        <button class="btn-primary btn-block" id="adminLoginBtn">เข้าสู่ระบบ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gate Check-in QR Scanner Modal with Camera Selector -->
+  <div class="modal-backdrop" id="gateScannerModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="gateScannerTitle">
+    <div class="modal-box" style="max-width:620px;">
+      <div class="modal-header" style="gap:8px; flex-wrap:wrap;">
+        <h3 id="gateScannerTitle" style="font-weight:700;">📷 จุดสแกนบัตรเข้างาน & ตรวจลายเซ็น HMAC-SHA256</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn-outline" id="openGateMonitorFromScannerBtn" style="padding:4px 10px; font-size:12px; border-color:#229BFF; color:#63b3ed;">
+            🚦 มอนิเตอร์ประตู
+          </button>
+          <button class="modal-close" id="closeScannerBtn" aria-label="ปิด">&times;</button>
+        </div>
+      </div>
+      <div class="modal-content">
+        <!-- Scanner Instruction Banner -->
+        <div style="background:rgba(34,155,255,0.08); border:1px solid rgba(34,155,255,0.25); border-radius:8px; padding:10px 14px; font-size:12px; margin-bottom:8px; line-height:1.45;">
+          💡 <strong>วิธีสแกน:</strong> ส่องกล้องไปที่ QR Code บนมือถือของลูกค้า (ที่ส่งเข้า LINE OA) ให้อยู่ในกรอบ กล้องจะตรวจจับและส่งเสียงแจ้งเตือนพร้อมบันทึกเข้างานทันที
+        </div>
+
+        <!-- Live Camera Viewfinder with Camera Device Selector -->
+        <div class="camera-scanner-card">
+          <div class="camera-select-bar" style="flex-wrap:wrap; gap:8px;">
+            <div style="flex:1; min-width:180px; display:flex; align-items:center; gap:8px;">
+              <label for="cameraDeviceSelect" style="font-size:12px; font-weight:600; white-space:nowrap; color:var(--color-muted);">
+                📷 เลือกกล้อง:
+              </label>
+              <select id="cameraDeviceSelect" class="input-field camera-select-input" aria-label="เลือกกล้องสำหรับสแกนบัตร">
+                <option value="">กำลังค้นหากล้องที่เชื่อมต่อ...</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              <div style="display:flex; align-items:center; gap:4px;">
+                <label for="gateSoundPackSelect" style="font-size:12px; font-weight:600; color:var(--color-muted); white-space:nowrap;">
+                  🎵 เสียง:
+                </label>
+                <select id="gateSoundPackSelect" class="input-field" style="padding:4px 6px; font-size:11px; width:auto; border-color:var(--color-border-subtle);" aria-label="เลือกชุดเสียงเตือนสแกน">
+                  <option value="chime">🔔 กระดิ่งคอนเสิร์ต (Concert Chime)</option>
+                  <option value="convenience">🏪 บี๊บร้านสะดวกซื้อ (7-Eleven Beep)</option>
+                  <option value="victory">🎮 ผ่านด่าน (Victory Chime)</option>
+                  <option value="cyber">⚡ เลเซอร์ดิจิทัล (Cyber Laser)</option>
+                </select>
+                <button type="button" class="btn-outline" id="btnTestSoundPack" title="ทดสอบฟังเสียงที่เลือก" style="padding:4px 8px; font-size:11px;">
+                  ▶ ฟังเสียง
+                </button>
+              </div>
+              <button type="button" class="btn-outline" id="btnToggleFastScan" title="เปิด/ปิดโหมดสแกนบัตรต่อเนื่องความเร็วสูง (Auto-dismiss HUD และสแกนคนถัดไปทันที)" style="padding:6px 10px; font-size:12px;">
+                ⚡ สแกนด่วน: ปิด
+              </button>
+              <button type="button" class="btn-outline" id="btnToggleTorch" title="เปิด/ปิดไฟฉายส่องบัตรในที่มืด" style="padding:6px 10px; font-size:12px;">
+                🔦 ไฟฉาย: ปิด
+              </button>
+              <button type="button" class="btn-outline" id="btnToggleGateVoice" title="เปิด/ปิดเสียงพูดสังเคราะห์แจ้งผลภาษาไทย" style="padding:6px 10px; font-size:12px;">
+                🔊 เสียงพูด: เปิด
+              </button>
+              <button type="button" class="btn-outline" id="btnOpenTurnstileFromScanner" title="เปิดดูสถิติและอัตราการเข้าประตูตามเวลาจริง" style="padding:6px 10px; font-size:12px; border-color:#229BFF; color:#63b3ed;">
+                📊 ยอดเข้างาน Real-time
+              </button>
+              <button type="button" class="btn-outline" id="btnSwitchCamera" title="สลับกล้องหน้า/หลัง" style="padding:6px 10px; font-size:12px;">
+                🔄 สลับกล้อง
+              </button>
+              <button type="button" class="btn-outline" id="btnToggleCameraFeed" title="เปิด/ปิดกล้อง" style="padding:6px 10px; font-size:12px;">
+                ⏹️ ปิดกล้อง
+              </button>
+            </div>
+          </div>
+
+          <div class="camera-viewfinder-wrap" id="cameraViewfinderWrap">
+            <video id="scannerVideo" autoplay muted playsinline webkit-playsinline></video>
+            <div class="scanner-overlay" id="scannerOverlay">
+              <div class="scanner-aim-box">
+                <div class="aim-corner tl"></div>
+                <div class="aim-corner tr"></div>
+                <div class="aim-corner bl"></div>
+                <div class="aim-corner br"></div>
+                <div class="scanner-laser"></div>
+              </div>
+              <div class="scanner-status-hint" id="scannerStatusHint">
+                ส่อง QR Code บนบัตรเข้างานให้อยู่ในกรอบ
+              </div>
+            </div>
+
+            <!-- Live HUD Result Alert Overlay -->
+            <div class="scanner-hud-alert" id="scannerHudAlert" hidden>
+              <div class="hud-alert-card" id="hudAlertCard">
+                <div class="hud-status-row">
+                  <span class="hud-icon" id="hudIcon">✅</span>
+                  <span class="hud-title" id="hudTitle">เช็กอินสำเร็จ — ผ่านเข้างาน</span>
+                </div>
+                <div class="hud-details" id="hudDetails">
+                  <div class="hud-name" id="hudName">คุณสมชาย วงศ์สวัสดิ์</div>
+                  <div class="hud-meta" id="hudMeta">โซน VIP · 2 ใบ · Gate A</div>
+                  <div class="hud-sig" id="hudSig">🔐 ลายเซ็นดิจิทัล HMAC-SHA256 แท้</div>
+                  <div class="hud-reentry-box" id="hudReEntryBox" hidden></div>
+                </div>
+                <div class="hud-actions">
+                  <span class="hud-countdown" id="hudCountdown">พร้อมสแกนคนถัดไปใน 2.5s</span>
+                  <button type="button" class="btn-primary hud-next-btn" id="hudNextBtn">📷 สแกนคนถัดไปทันที</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="camera-off-placeholder" id="cameraOffPlaceholder" hidden>
+              <span>📷 กล้องปิดอยู่ · สามารถพิมพ์รหัสหรือใช้เครื่องยิงบาร์โค้ดได้</span>
+            </div>
+          </div>
+
+          <!-- Offline Gate Mode & Roster Sync Status -->
+          <div class="scanner-offline-toolbar" id="scannerOfflineToolbar">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span class="badge-status-online" id="gateOnlineBadge">🟢 ออนไลน์ (Real-time)</span>
+              <span class="text-muted" id="gateOfflineRosterCount" style="font-size:11px;">แคชตรวจบัตรในเครื่อง: 0 รายการ</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="btn-outline" id="btnDownloadOfflineRoster" title="ดาวน์โหลดฐานข้อมูลบัตรเข้าเครื่องเพื่อสแกนออฟไลน์" style="font-size:11px; padding:3px 8px;">
+                📥 อัปเดตแคชออฟไลน์
+              </button>
+              <button type="button" class="btn-primary" id="btnSyncOfflineQueue" title="ส่งข้อมูลสแกนออฟไลน์ขึ้นเซิร์ฟเวอร์" style="font-size:11px; padding:3px 10px;" hidden>
+                🔄 ซิงก์ที่รอส่ง (<span id="syncQueueCount">0</span>)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="holder-grid" style="margin-top:2px;">
+          <div>
+            <label class="field-label" for="scanCodeInput">รหัส QR Code (สแกนอัตโนมัติ หรือ กรอกเอง) *</label>
+            <input type="text" id="scanCodeInput" class="input-field holder-input" placeholder="ส่องกล้อง หรือ พิมพ์ THAITICKET|TT...|SIG:...">
+          </div>
+          <div>
+            <label class="field-label" for="scanStaffInput">จุดตรวจ / ชื่อเจ้าหน้าที่</label>
+            <input type="text" id="scanStaffInput" class="input-field holder-input" value="ประตู Gate A (Main)">
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn-primary" id="submitScanBtn" style="flex:1;">ตรวจสอบลายเซ็น & เช็กอินเข้างาน</button>
+          <button type="button" class="btn-outline" id="testTamperedQrBtn" style="font-size:12px;">🧪 ทดสอบสแกน QR ปลอมแปลง</button>
+        </div>
+
+        <div>
+          <span class="text-muted" style="font-size:12px;">เลือกสแกนด่วนจากรายการบัตรที่อนุมัติแล้ว (พร้อมลายเซ็น HMAC-SHA256):</span>
+          <div class="quick-scan-chips" id="quickScanChips"></div>
+        </div>
+
+        <div id="scanResultBox" class="scan-result-box" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slip Zoom Modal with Zoom, Rotation & Google Drive Link -->
+  <div class="modal-backdrop" id="slipZoomModal" data-dismissable="true" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:640px;">
+      <div class="modal-header">
+        <h3 id="slipZoomTitle" style="font-weight:700;">ตรวจสอบรูปสลิป</h3>
+        <button class="modal-close" id="closeSlipZoomBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div id="slipZoomActions" style="display:flex; gap:6px;">
+            <button type="button" class="btn-outline" id="btnZoomIn" style="font-size:11px; padding:3px 8px;">➕ ซูมเข้า</button>
+            <button type="button" class="btn-outline" id="btnZoomOut" style="font-size:11px; padding:3px 8px;">➖ ซูมออก</button>
+            <button type="button" class="btn-outline" id="btnZoomReset" style="font-size:11px; padding:3px 8px;">↺ รีเซ็ต</button>
+            <button type="button" class="btn-outline" id="btnRotateSlip" style="font-size:11px; padding:3px 8px;">🔄 หมุน 90°</button>
+          </div>
+          <a id="slipDriveDirectLink" href="#" target="_blank" rel="noopener" class="btn-outline" style="font-size:11px; padding:3px 10px; color:#63b3ed; border-color:#63b3ed; text-decoration:none;" hidden>
+            📁 เปิดไฟล์ใน Google Drive ↗
+          </a>
+        </div>
+        <div style="max-height: 480px; overflow: auto; display:flex; justify-content:center; align-items:center; background:#181818; border-radius:8px; padding:12px; border:1px solid rgba(255,255,255,0.08);">
+          <img id="slipZoomImg" class="slip-zoom-img" alt="สลิปโอนเงิน" style="max-width:100%; border-radius:4px; transition: transform 0.15s ease; transform-origin: center center;">
+        </div>
+        <div id="slipZoomDetails" style="background:#262626; padding:10px 12px; border-radius:6px; font-size:12px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:4px;">
+          <p class="text-muted" id="slipZoomMeta" style="font-size:11px; word-break:break-all; margin:0;"></p>
+          <div id="slipVerifyBadgeBox" style="font-size:12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Reason Modal -->
+  <div class="modal-backdrop" id="rejectModal" data-dismissable="true" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-weight:700;">ปฏิเสธสลิปรายการ <span id="rejectRefLabel"></span></h3>
+        <button class="modal-close" id="closeRejectBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div>
+          <label class="field-label" for="rejectReasonInput">ระบุเหตุผลที่ปฏิเสธ (แสดงให้ลูกค้าทราบ)</label>
+          <input type="text" id="rejectReasonInput" class="input-field holder-input" value="ยอดเงินในสลิปไม่ตรงกับยอดสั่งซื้อ">
+        </div>
+        <button class="btn-primary btn-block" id="confirmRejectBtn">ยืนยันการปฏิเสธสลิป</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINE OA Settings Modal -->
+  <div class="modal-backdrop" id="lineSettingsModal" data-dismissable="true" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-weight:700;">ตั้งค่าพร้อมเพย์, ชื่อบัญชีรับเงิน, LINE OA & PIN</h3>
+        <button class="modal-close" id="closeSettingsBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div>
+          <span class="text-muted" style="font-size:12px;">สถานะ LINE Messaging API ปัจจุบัน</span>
+          <p id="settingTokenStatus" style="font-weight:600;color:var(--color-accent);margin-top:2px;"></p>
+        </div>
+        <div>
+          <label class="field-label" for="settingLineTokenInput">LINE Channel Access Token (Long-lived)</label>
+          <input type="password" id="settingLineTokenInput" class="input-field holder-input" placeholder="วาง Channel Access Token จาก LINE Developers Console...">
+          <p class="text-muted" style="font-size:11px;margin-top:4px;">Webhook URL สำหรับตั้งค่าใน LINE Developers: <code>/api/line/webhook</code></p>
+        </div>
+        <div class="holder-grid">
+          <div>
+            <label class="field-label" for="settingPromptpayInput">เบอร์พร้อมเพย์ / เลขผู้เสียภาษี *</label>
+            <input type="text" id="settingPromptpayInput" class="input-field holder-input" placeholder="0954654698">
+          </div>
+          <div>
+            <label class="field-label" for="settingMerchantNameInput">ชื่อบัญชีรับเงิน (แสดงใต้ QR) *</label>
+            <input type="text" id="settingMerchantNameInput" class="input-field holder-input" placeholder="เช่น Thai Ticket Concert Co., Ltd.">
+          </div>
+        </div>
+        <div class="holder-grid" style="margin-top:8px;">
+          <div>
+            <label class="field-label" for="settingBankNameInput">ธนาคาร (ทางเลือกสำหรับโอนผ่านเลขบัญชี)</label>
+            <select id="settingBankNameInput" class="input-field holder-input">
+              <option value="">-- ไม่ระบุ / ใช้พร้อมเพย์อย่างเดียว --</option>
+              <option value="ธนาคารกสิกรไทย (KBANK)">ธนาคารกสิกรไทย (KBANK)</option>
+              <option value="ธนาคารไทยพาณิชย์ (SCB)">ธนาคารไทยพาณิชย์ (SCB)</option>
+              <option value="ธนาคารกรุงเทพ (BBL)">ธนาคารกรุงเทพ (BBL)</option>
+              <option value="ธนาคารกรุงไทย (KTB)">ธนาคารกรุงไทย (KTB)</option>
+              <option value="ธนาคารกรุงศรีอยุธยา (BAY)">ธนาคารกรุงศรีอยุธยา (BAY)</option>
+              <option value="ธนาคารทหารไทยธนชาต (TTB)">ธนาคารทหารไทยธนชาต (TTB)</option>
+              <option value="ธนาคารออมสิน (GSB)">ธนาคารออมสิน (GSB)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="settingBankAccountInput">เลขที่บัญชีธนาคาร (แสดงใต้ QR สำหรับคัดลอก)</label>
+            <input type="text" id="settingBankAccountInput" class="input-field holder-input" placeholder="เช่น 012-3-45678-9">
+          </div>
+        </div>
+        <div class="holder-grid">
+          <div>
+            <label class="field-label" for="settingAdminPinInput">เปลี่ยนรหัส PIN แอดมินหลัก (อย่างน้อย 4 หลัก · เว้นว่างหากไม่เปลี่ยน)</label>
+            <input type="password" id="settingAdminPinInput" class="input-field holder-input" placeholder="เช่น 123456">
+          </div>
+          <div>
+            <label class="field-label" for="settingGateStaffPinInput">เปลี่ยนรหัส PIN เจ้าหน้าที่หน้าประตู (Gate Staff · เริ่มต้น 888888)</label>
+            <input type="password" id="settingGateStaffPinInput" class="input-field holder-input" placeholder="เช่น 888888">
+          </div>
+        </div>
+
+        <!-- Google Drive Cloud Storage Settings -->
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong style="color:var(--color-accent); font-size:13px;">📁 ที่เก็บสลิป Google Drive (Cloud Storage)</strong>
+              <span style="font-size:11px; background:rgba(34,155,255,0.15); color:#229BFF; padding:2px 6px; border-radius:4px;">ไม่บังคับใส่ (Optional)</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <label for="settingDriveJsonFileInput" class="btn-outline" style="font-size:11px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="เลือกไฟล์ .json ที่ดาวน์โหลดจาก Google Cloud Console เพื่อกรอกให้อัตโนมัติ">
+                📂 นำเข้าจากไฟล์ .json
+              </label>
+              <input type="file" id="settingDriveJsonFileInput" accept=".json,application/json" style="display:none;">
+              <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:3px 8px;">🔌 ทดสอบเชื่อมต่อ Drive</button>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; margin-bottom:8px; font-size:12px; color:var(--color-muted); line-height:1.5;">
+            ℹ️ <strong>หมายเหตุ:</strong> หากเว้นว่างไว้ ระบบจะจัดเก็บสลิปการโอนเงินลงในฐานข้อมูล SQLite และ LocalStorage ของระบบอย่างสมบูรณ์แบบโดยไม่ต้องพึ่งพา Google Drive ครับ
+            <details style="margin-top:6px; cursor:pointer;">
+              <summary style="color:#229BFF; font-weight:600;">❓ ดูวิธีรับ Private Key จาก Google Cloud Console (คลิกเพื่อดูขั้นตอน)</summary>
+              <ol style="margin:6px 0 0 16px; padding:0; line-height:1.6; color:#DDD;">
+                <li>เข้าสู่ <strong>Google Cloud Console</strong> (<a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener" style="color:#229BFF;">console.cloud.google.com</a>) แล้วสร้างหรือเลือกโปรเจกต์</li>
+                <li>ไปที่เมนู <strong>IAM &amp; Admin &gt; Service Accounts</strong> แล้วกด <strong>Create Service Account</strong></li>
+                <li>คลิกที่ Service Account ที่สร้าง &gt; ไปที่แท็บ <strong>Keys &gt; Add Key &gt; Create new key &gt; เลือก JSON</strong> แล้วดาวน์โหลดไฟล์ลงเครื่อง</li>
+                <li>กดปุ่ม <strong>"📂 นำเข้าจากไฟล์ .json"</strong> ด้านบนนี้ เพื่อเลือกไฟล์ที่โหลดมา ระบบจะดึง Client Email และ Private Key กรอกลงช่องให้อัตโนมัติทันที</li>
+                <li><em>(สำคัญ)</em> แชร์โฟลเดอร์ Google Drive ของคุณให้กับอีเมล Client Email ที่ได้ โดยให้สิทธิ์ <strong>Editor</strong></li>
+              </ol>
+            </details>
+          </div>
+          <div>
+            <label class="field-label" for="settingDriveFolderInput">Google Drive Folder ID (โฟลเดอร์สำหรับเก็บสลิป)</label>
+            <input type="text" id="settingDriveFolderInput" class="input-field holder-input" placeholder="เช่น 1A2b3C4d5E_... หรือเว้นว่างเพื่อใช้ที่เก็บในระบบ">
+          </div>
+          <div class="holder-grid" style="margin-top:8px;">
+            <div>
+              <label class="field-label" for="settingDriveEmailInput">Service Account Client Email</label>
+              <input type="text" id="settingDriveEmailInput" class="input-field holder-input" placeholder="เช่น your-service-account@project.iam.gserviceaccount.com">
+            </div>
+            <div>
+              <label class="field-label" for="settingDriveKeyInput">Service Account Private Key (PEM / JSON)</label>
+              <input type="password" id="settingDriveKeyInput" class="input-field holder-input" placeholder="-----BEGIN PRIVATE KEY----- ...">
+            </div>
+          </div>
+          <p class="text-muted" id="driveTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+        </div>
+
+        <!-- Automated Slip Verification Settings -->
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:var(--color-accent); font-size:13px;">⚡ ตรวจสอบสลิปอัตโนมัติ (Bank Slip Verification)</strong>
+            <button type="button" class="btn-outline" id="btnTestSlip" style="font-size:11px; padding:3px 8px;">🔍 ทดสอบตรวจสลิป</button>
+          </div>
+          <div style="margin-bottom:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="settingSlipAutoApprove" style="width:16px; height:16px;">
+              <span style="font-size:13px; font-weight:600;">เปิดระบบอนุมัติอัตโนมัติ (Auto-Approve & ส่งบัตรเข้า LINE ทันทีเมื่อสลิปถูกต้อง)</span>
+            </label>
+          </div>
+          <div class="holder-grid">
+            <div>
+              <label class="field-label" for="settingSlipProviderInput">ผู้ให้บริการตรวจสลิป (Provider)</label>
+              <select id="settingSlipProviderInput" class="input-field holder-input">
+                <option value="simulator">Smart Simulator (ทดสอบในระบบ / โหมดสาธิต)</option>
+                <option value="slipok">SlipOK (เชื่อมโยงธนาคารตรง)</option>
+                <option value="easyslip">EasySlip (API ตรวจสลิป)</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="settingSlipApiKeyInput">API Key ผู้ให้บริการ</label>
+              <input type="password" id="settingSlipApiKeyInput" class="input-field holder-input" placeholder="วาง API Key จาก SlipOK / EasySlip">
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <label class="field-label" for="settingSlipBranchInput">Branch ID / Merchant Code (ถ้ามี)</label>
+            <input type="text" id="settingSlipBranchInput" class="input-field holder-input" placeholder="เช่น branch_01 หรือเว้นว่าง">
+          </div>
+          <p class="text-muted" id="slipTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+        </div>
+
+        <!-- Admin Instant Notification Settings -->
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:var(--color-accent); font-size:13px;">🔔 ระบบแจ้งเตือนฝั่งแอดมิน (Admin Instant Notifications)</strong>
+            <button type="button" class="btn-outline" id="btnTestAdminAlert" style="font-size:11px; padding:3px 8px;">📲 ทดสอบยิงเข้า LINE แอดมิน</button>
+          </div>
+          <div>
+            <label class="field-label" for="settingAdminLineUserInput">LINE User ID ของแอดมินสำหรับรับการแจ้งเตือนสลิปใหม่ (Admin Alert)</label>
+            <input type="text" id="settingAdminLineUserInput" class="input-field holder-input" placeholder="เช่น U4af4980629... (รหัส User ID ของแอดมิน)">
+            <p class="text-muted" style="font-size:11px; margin-top:4px;">เมื่อมีลูกค้าจองบัตรและแนบสลิป ระบบจะยิงการแจ้งเตือนพร้อมยอดเงินเข้า LINE แอดมินทันที</p>
+          </div>
+          <p class="text-muted" id="adminAlertTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+        </div>
+
+        <button class="btn-primary btn-block" id="saveSettingsBtn" style="margin-top:12px;">บันทึกการตั้งค่า</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event & Zone Quota Manager Modal -->
+  <div class="modal-backdrop" id="eventManagerModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="eventManagerTitle">
+    <div class="modal-box" style="max-width:720px;">
+      <div class="modal-header">
+        <h3 id="eventManagerTitle" style="font-weight:700;">🎤 จัดการรอบการแสดงและโควตาบัตรแยกโซน (Event & Quota Manager)</h3>
+        <button class="modal-close" id="closeEventManagerBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div style="background:#262626; padding:14px; border-radius:8px; border:1px solid var(--color-border-subtle);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong id="evFormModeTitle" style="font-size:13px; color:var(--color-accent);">+ เพิ่มคอนเสิร์ตใหม่ / แก้ไขโควตาที่นั่ง</strong>
+            <button type="button" class="btn-text" id="evResetFormBtn" style="font-size:12px;">ล้างฟอร์ม (สร้างใหม่)</button>
+          </div>
+          <input type="hidden" id="evIdInput" value="">
+          <div class="holder-grid">
+            <div>
+              <label class="holder-sub-label" for="evTitleInput">ชื่อคอนเสิร์ต / การแสดง *</label>
+              <input type="text" id="evTitleInput" class="input-field holder-input" placeholder="เช่น SUMMER FEST LIVE BKK 2026">
+            </div>
+            <div>
+              <label class="holder-sub-label" for="evVenueInput">สถานที่จัดแสดง *</label>
+              <input type="text" id="evVenueInput" class="input-field holder-input" placeholder="เช่น อิมแพ็ค อารีน่า เมืองทองธานี">
+            </div>
+          </div>
+          <div class="holder-grid" style="margin-top:8px;">
+            <div>
+              <label class="holder-sub-label" for="evDateInput">วันที่แสดง *</label>
+              <input type="text" id="evDateInput" class="input-field holder-input" placeholder="เช่น 20 ธ.ค. 2026">
+            </div>
+            <div>
+              <label class="holder-sub-label" for="evPriceRangeInput">ช่วงราคาบัตร *</label>
+              <input type="text" id="evPriceRangeInput" class="input-field holder-input" value="1,800 - 6,500 THB">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:8px;">
+            <div>
+              <label class="holder-sub-label" for="evQuotaVip">โควตา VIP</label>
+              <input type="number" id="evQuotaVip" class="input-field holder-input" value="50" min="1">
+            </div>
+            <div>
+              <label class="holder-sub-label" for="evQuotaA">โควตา Zone A</label>
+              <input type="number" id="evQuotaA" class="input-field holder-input" value="100" min="1">
+            </div>
+            <div>
+              <label class="holder-sub-label" for="evQuotaB">โควตา Zone B</label>
+              <input type="number" id="evQuotaB" class="input-field holder-input" value="120" min="1">
+            </div>
+            <div>
+              <label class="holder-sub-label" for="evQuotaC">โควตา Zone C</label>
+              <input type="number" id="evQuotaC" class="input-field holder-input" value="150" min="1">
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+            <button type="button" class="btn-primary" id="saveEventBtn" style="flex:1;">บันทึกข้อมูลคอนเสิร์ตและโควตาที่นั่ง</button>
+            <button type="button" class="btn-outline" id="deleteEventBtn" hidden style="border-color:rgba(255,107,107,0.5); color:#FF6B6B; padding:10px 16px;">🗑️ ลบคอนเสิร์ตนี้</button>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-muted" style="font-size:12px;">คลิกเลือกรายการด้านล่างเพื่อแก้ไขโควตา หรือกดปุ่ม 🗑️ ลบ เพื่อลบรอบการแสดง:</span>
+          <div id="adminEventsList" style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:6px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1-Click Database Backup & Restore Modal -->
+  <div class="modal-backdrop" id="backupModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="backupModalTitle">
+    <div class="modal-box" style="max-width:520px;">
+      <div class="modal-header">
+        <h3 id="backupModalTitle" style="font-weight:700;">💾 สำรองและกู้คืนฐานข้อมูลอัตโนมัติ (Backup & Restore)</h3>
+        <button class="modal-close" id="closeBackupModalBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div class="zone-chip" style="flex-direction:column; align-items:flex-start; gap:8px;">
+          <strong>1. ดาวน์โหลดไฟล์สำรองข้อมูลทั้งหมด (JSON Snapshot)</strong>
+          <p class="text-muted" style="font-size:12px;">รวมข้อมูลคำสั่งซื้อ รูปสลิป สถานะเช็กอิน การตั้งค่าพร้อมเพย์/LINE OA รอบคอนเสิร์ต และประวัติแอดมินทั้งหมดไว้ในไฟล์เดียว</p>
+          <a href="/api/admin/backup.json" class="btn-primary btn-block" id="downloadBackupBtn" style="text-align:center;">⬇️ ดาวน์โหลดไฟล์สำรองฐานข้อมูล (.json)</a>
+        </div>
+        <div class="zone-chip" style="flex-direction:column; align-items:flex-start; gap:8px;">
+          <strong>2. กู้คืนฐานข้อมูลจากไฟล์สำรอง (Restore JSON)</strong>
+          <p class="text-muted" style="font-size:12px;">เลือกไฟล์ <code>thaiticket-backup.json</code> ที่สำรองไว้เพื่อนำข้อมูลทั้งหมดกลับเข้าสู่ระบบทันที</p>
+          <input type="file" id="restoreBackupInput" accept="application/json,.json" class="input-field holder-input">
+          <button type="button" class="btn-default btn-block" id="confirmRestoreBtn">📂 กู้คืนข้อมูลจากไฟล์ที่เลือก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Audit Log Modal -->
+  <div class="modal-backdrop" id="auditLogModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="auditLogTitle">
+    <div class="modal-box" style="max-width:680px;">
+      <div class="modal-header">
+        <h3 id="auditLogTitle" style="font-weight:700;">📋 ประวัติการทำงานแอดมินและจุดสแกนหน้างาน (Audit Trail)</h3>
+        <button class="modal-close" id="closeAuditLogBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <input type="text" id="auditSearchInput" class="input-field holder-input" placeholder="ค้นหาจากรหัสจอง (TT...), ชื่อลูกค้า, หรือประเภทคำสั่ง...">
+        <div id="auditLogList" style="max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin LINE Flex Preview Modal (Interactive Smartphone Mockup) -->
+  <div class="modal-backdrop" id="adminLinePreviewModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="linePreviewModalTitle">
+    <div class="modal-box" style="max-width:440px;">
+      <div class="modal-header">
+        <h3 id="linePreviewModalTitle" style="font-weight:700;">📱 พรีวิว E-Ticket บนสมาร์ทโฟน (LINE OA)</h3>
+        <button class="modal-close" id="closeAdminLinePreviewBtn" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content" style="padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+          <label class="holder-sub-label" for="linePreviewOrderSelect" style="margin:0;">เลือกคำสั่งซื้อเพื่อดูพรีวิว:</label>
+          <button type="button" class="copy-pp-btn" id="copyLineFlexJsonBtn">📋 คัดลอก JSON Flex</button>
+        </div>
+        <select id="linePreviewOrderSelect" class="input-field holder-input" style="font-size:12px; margin-bottom:12px;"></select>
+
+        <div class="phone-mockup-wrapper">
+          <div class="phone-mockup-frame">
+            <div class="phone-notch-bar">
+              <div class="phone-speaker-notch"></div>
+            </div>
+            <div class="phone-status-bar">
+              <span>09:41</span>
+              <span>5G 📶 100% 🔋</span>
+            </div>
+            <div class="phone-line-header">
+              <div class="phone-line-account">
+                <div class="phone-line-avatar">TT</div>
+                <div class="phone-line-name-wrap">
+                  <div class="phone-line-title">
+                    THAI TICKET <span class="phone-line-badge">✔ บัญชีทางการ</span>
+                  </div>
+                  <div class="phone-line-sub">@ThaiTicketHub · ตอบกลับอัตโนมัติ</div>
+                </div>
+              </div>
+            </div>
+            <div class="phone-chat-body" id="adminLinePreviewBody">
+              <!-- Rendered Flex bubble goes here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Promoter Analytics, Heatmap & Printable Settlement Report Modal -->
+  <div class="modal-backdrop" id="analyticsModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="analyticsModalTitle">
+    <div class="modal-box" style="max-width:860px;">
+      <div class="modal-header" style="gap:12px; flex-wrap:wrap;">
+        <h3 id="analyticsModalTitle" style="font-weight:700;">📊 รายงานสรุปยอดปิดรอบการแสดง & แดชบอร์ดการเงิน (Settlement & Analytics)</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn-primary" id="printSettlementBtn" style="padding:6px 12px; font-size:12px;">🖨️ พิมพ์ใบสรุปยอด / บันทึก PDF</button>
+          <button class="modal-close" id="closeAnalyticsModalBtn" aria-label="ปิด">&times;</button>
+        </div>
+      </div>
+      <div class="modal-content" id="analyticsModalContent" style="max-height:80vh; overflow-y:auto;">
+        <!-- Dynamically rendered by admin.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Gate Throughput & Queue Monitor Modal -->
+  <div class="modal-backdrop" id="gateMonitorModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="gateMonitorModalTitle">
+    <div class="modal-box" style="max-width:860px;">
+      <div class="modal-header" style="gap:12px; flex-wrap:wrap;">
+        <h3 id="gateMonitorModalTitle" style="font-weight:700;">🚦 มอนิเตอร์ความเร็วการเข้าฮอลล์แยกตามประตู (Live Gate Throughput & Queue Monitor)</h3>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn-primary" id="btnExportAttendanceCsv" style="padding:6px 12px; font-size:12px;">📥 Export รายชื่อผู้เข้างาน (CSV)</button>
+          <button type="button" class="btn-outline" id="refreshGateMonitorBtn" style="padding:6px 12px; font-size:12px;">🔄 อัปเดตเรียลไทม์</button>
+          <button type="button" class="btn-primary" id="switchToScannerFromMonitorBtn" style="padding:6px 12px; font-size:12px;">📷 เปิดกล้องสแกนบัตร</button>
+          <button class="modal-close" id="closeGateMonitorBtn" aria-label="ปิด">&times;</button>
+        </div>
+      </div>
+      <div class="modal-content" id="gateMonitorContent" style="max-height:80vh; overflow-y:auto;">
+        <!-- Dynamically rendered by admin.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#229BFF" stroke-width="2">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+    </svg>
+    <span id="toastMsg">บันทึกสำเร็จ</span>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/vendor/jsQR.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

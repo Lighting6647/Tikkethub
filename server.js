@@ -1389,11 +1389,11 @@ async function handleApi(req, res, url) {
 function serveStatic(req, res, url) {
   let reqPath = decodeURIComponent(url.pathname);
   if (reqPath === '/') reqPath = '/index.html';
-  if (reqPath === '/manage' || reqPath === '/manage/' || reqPath === '/manage.html') reqPath = '/admin.html';
+  if (reqPath === '/manage' || reqPath === '/manage/' || reqPath === '/manage.html') reqPath = '/manage.html';
   if (reqPath === '/ticket' || reqPath === '/ticket/') reqPath = '/ticket.html';
 
   // Hide /admin from public probing
-  if (reqPath === '/admin' || reqPath === '/admin/') {
+  if (reqPath === '/admin' || reqPath === '/admin/' || reqPath === '/admin.html') {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('404 Not Found');
   }
