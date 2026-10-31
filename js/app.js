@@ -728,6 +728,20 @@ if (typeof document !== 'undefined') {
   });
 }
 
+function openContactModal() {
+  if (typeof UI !== 'undefined') {
+    UI.open('contactModal');
+  }
+}
+
+function openMyTicketsModal() {
+  if (window.TicketViewer && typeof window.TicketViewer.openList === 'function') {
+    window.TicketViewer.openList();
+  } else if (typeof UI !== 'undefined') {
+    UI.open('myTicketsModal');
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.validateThaiCitizenId = validateThaiCitizenId;
   window.formatPhoneInput = formatPhoneInput;
@@ -736,6 +750,8 @@ if (typeof window !== 'undefined') {
   window.filterCategory = filterCategory;
   window.onHeroSearch = onHeroSearch;
   window.updateHeroCardForCategory = updateHeroCardForCategory;
+  window.openContactModal = openContactModal;
+  window.openMyTicketsModal = openMyTicketsModal;
 }
 if (typeof module !== 'undefined') {
   module.exports = {

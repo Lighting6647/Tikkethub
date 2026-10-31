@@ -1568,3 +1568,187 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(16px);
 }
+
+/* ==========================================================================
+   Contact Channels Modal (LineOA, Facebook, IG)
+   ========================================================================== */
+.contact-modal-intro {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.contact-channels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contact-channel-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-card);
+  text-decoration: none;
+  color: #FFFFFF;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.contact-channel-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+.contact-channel-card.line-channel:hover {
+  border-color: rgba(6, 199, 85, 0.5);
+  box-shadow: 0 10px 24px rgba(6, 199, 85, 0.15), 0 0 12px rgba(6, 199, 85, 0.1);
+}
+
+.contact-channel-card.fb-channel:hover {
+  border-color: rgba(24, 119, 242, 0.5);
+  box-shadow: 0 10px 24px rgba(24, 119, 242, 0.15), 0 0 12px rgba(24, 119, 242, 0.1);
+}
+
+.contact-channel-card.ig-channel:hover {
+  border-color: rgba(220, 39, 67, 0.5);
+  box-shadow: 0 10px 24px rgba(220, 39, 67, 0.18), 0 0 12px rgba(220, 39, 67, 0.1);
+}
+
+.contact-channel-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.contact-channel-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.contact-channel-icon.line-icon {
+  background: #06C755;
+  color: #FFFFFF;
+}
+
+.contact-channel-icon.fb-icon {
+  background: #1877F2;
+  color: #FFFFFF;
+}
+
+.contact-channel-icon.ig-icon {
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);
+  color: #FFFFFF;
+}
+
+.contact-channel-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contact-channel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contact-channel-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  line-height: 1.4;
+}
+
+.contact-channel-desc {
+  font-size: 11.5px;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-channel-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.line-action {
+  background: rgba(6, 199, 85, 0.15);
+  color: #06C755;
+  border: 1px solid rgba(6, 199, 85, 0.35);
+}
+
+.contact-channel-card.line-channel:hover .line-action {
+  background: #06C755;
+  color: #FFFFFF;
+}
+
+.fb-action {
+  background: rgba(24, 119, 242, 0.15);
+  color: #5da8ff;
+  border: 1px solid rgba(24, 119, 242, 0.35);
+}
+
+.contact-channel-card.fb-channel:hover .fb-action {
+  background: #1877F2;
+  color: #FFFFFF;
+}
+
+.ig-action {
+  background: rgba(220, 39, 67, 0.15);
+  color: #ff6584;
+  border: 1px solid rgba(220, 39, 67, 0.35);
+}
+
+.contact-channel-card.ig-channel:hover .ig-action {
+  background: linear-gradient(45deg, #f09433, #dc2743, #bc1888);
+  color: #FFFFFF;
+}
+
+.contact-modal-footer {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+@media (max-width: 520px) {
+  .contact-channel-action {
+    display: none;
+  }
+  .contact-channel-desc {
+    white-space: normal;
+  }
+}

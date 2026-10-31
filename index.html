@@ -16,10 +16,10 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2C16 2 26 12 26 20C26 25.5 21.5 30 16 30C10.5 30 6 25.5 6 20C6 12 16 2 16 2Z' fill='%23e50914'/%3E%3Cpath d='M16 8C16 8 22 15 22 20C22 23.3 19.3 26 16 26C12.7 26 10 23.3 10 20C10 15 16 8 16 8Z' fill='%23ff5a1f'/%3E%3C/svg%3E">
 
   <!-- Core & Theme Styles -->
-  <link rel="stylesheet" href="tokens.css?v=20261031_resp3">
-  <link rel="stylesheet" href="css/checkout.css?v=20261031_resp3">
-  <link rel="stylesheet" href="css/virgin-theme.css?v=20261031_resp3">
-  <link rel="stylesheet" href="css/gsap-themes.css?v=20261031_resp3">
+  <link rel="stylesheet" href="tokens.css?v=20261031_contact">
+  <link rel="stylesheet" href="css/checkout.css?v=20261031_contact">
+  <link rel="stylesheet" href="css/virgin-theme.css?v=20261031_contact">
+  <link rel="stylesheet" href="css/gsap-themes.css?v=20261031_contact">
 </head>
 <body data-nav="home">
 
@@ -62,8 +62,8 @@
 
       <!-- Action Controls -->
       <div class="header-actions">
-        <button class="nav-cta-btn" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า เมืองทองธานี', 2500)" type="button">
-          Call to action
+        <button class="nav-cta-btn" onclick="openContactModal()" type="button" id="navContactBtn" aria-label="ช่องทางติดต่อ">
+          💬 ติดต่อเรา
         </button>
         <button class="icon-btn" id="soundToggleBtn" type="button" title="เปิด/ปิดเสียง" aria-label="เปิด/ปิดเสียง">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -108,10 +108,14 @@
         <a href="#how" class="drawer__link" data-drawer-close>วิธีการจอง<span>03</span></a>
         <a href="#artists" class="drawer__link" data-drawer-close>ศิลปิน<span>04</span></a>
         <a href="#news" class="drawer__link" data-drawer-close>ข่าวสาร & บทความ<span>05</span></a>
-        <a href="#" class="drawer__link" onclick="openMyTicketsModal()" data-drawer-close>ตรวจสอบการจอง<span>06</span></a>
-        <a href="user-manual.html" class="drawer__link" id="userManualNavLink">คู่มือการใช้งาน (PDF)<span>07</span></a>
+        <a href="#" class="drawer__link" onclick="openContactModal();" data-drawer-close>ช่องทางติดต่อ (LINE / FB / IG)<span>06</span></a>
+        <a href="#" class="drawer__link" onclick="openMyTicketsModal()" data-drawer-close>ตรวจสอบการจอง<span>07</span></a>
+        <a href="user-manual.html" class="drawer__link" id="userManualNavLink">คู่มือการใช้งาน (PDF)<span>08</span></a>
       </nav>
-      <div style="margin-top:auto; padding-top:20px; border-top:1px solid rgba(255,255,255,0.08);">
+      <div style="margin-top:auto; padding-top:20px; border-top:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:8px;">
+        <button type="button" class="btn-fire" onclick="openContactModal()" data-drawer-close style="width:100%; justify-content:center; padding:10px 16px; border-radius:9999px; font-weight:600; font-size:13px; display:inline-flex; align-items:center; gap:8px;">
+          💬 ช่องทางติดต่อ (LINE / FB / IG)
+        </button>
         <a href="https://line.me/R/ti/p/@thaiticket" target="_blank" rel="noopener" class="btn-line-oa" style="width:100%; justify-content:center;">
           LINE Official Account
         </a>
@@ -796,6 +800,102 @@
     </div>
   </div>
 
+  <!-- Contact Channels Modal (LINE OA, Facebook, IG) -->
+  <div class="modal-backdrop" id="contactModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="contactModalHeading">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <div>
+          <h3 id="contactModalHeading" style="font-weight:700; display:flex; align-items:center; gap:8px;">
+            <span>💬</span> ช่องทางติดต่อเรา
+          </h3>
+          <p style="font-size:12px; color:var(--color-muted); margin-top:2px;">STAGE PASS Official Support & Social Media</p>
+        </div>
+        <button class="modal-close" onclick="UI.close('contactModal')" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content" style="padding: 20px;">
+        <p class="contact-modal-intro">
+          ติดต่อทีมงาน STAGE PASS สอบถามรอบการแสดง จองโต๊ะ VIP หรือติดตามข่าวสารคอนเสิร์ตผ่านช่องทางอย่างเป็นทางการ:
+        </p>
+
+        <div class="contact-channels-list">
+          <!-- LINE Official Account -->
+          <a href="https://line.me/R/ti/p/@thaiticket" target="_blank" rel="noopener" class="contact-channel-card line-channel" title="เปิด LINE OA @thaiticket">
+            <div class="contact-channel-left">
+              <div class="contact-channel-icon line-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.066.477.199l2.484 3.373V8.108c0-.345.282-.63.63-.63.345 0 .626.285.626.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                </svg>
+              </div>
+              <div class="contact-channel-info">
+                <div class="contact-channel-title">
+                  <span>LINE Official Account</span>
+                  <span class="contact-channel-badge" style="background:rgba(6,199,85,0.15); color:#06C755;">🟢 24 ชม.</span>
+                </div>
+                <div style="font-size:12px; font-weight:600; color:#06C755;">@thaiticket</div>
+                <div class="contact-channel-desc">สอบถามแอดมิน ตรวจสอบสลิป จองโต๊ะ VIP ด่วน</div>
+              </div>
+            </div>
+            <div class="contact-channel-action line-action">
+              <span>แชท LINE</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- Facebook Official -->
+          <a href="https://facebook.com/stagepass.official" target="_blank" rel="noopener" class="contact-channel-card fb-channel" title="เปิด Facebook Page STAGE PASS">
+            <div class="contact-channel-left">
+              <div class="contact-channel-icon fb-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              </div>
+              <div class="contact-channel-info">
+                <div class="contact-channel-title">
+                  <span>Facebook</span>
+                  <span class="contact-channel-badge" style="background:rgba(24,119,242,0.15); color:#4da0ff;">Verified</span>
+                </div>
+                <div style="font-size:12px; font-weight:600; color:#4da0ff;">STAGE PASS Official</div>
+                <div class="contact-channel-desc">ติดตามผังคอนเสิร์ต กิจกรรมแจกบัตร ประกาศด่วน</div>
+              </div>
+            </div>
+            <div class="contact-channel-action fb-action">
+              <span>ไปที่เพจ</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- Instagram (IG) -->
+          <a href="https://instagram.com/stagepass.th" target="_blank" rel="noopener" class="contact-channel-card ig-channel" title="เปิด Instagram @stagepass.th">
+            <div class="contact-channel-left">
+              <div class="contact-channel-icon ig-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+              </div>
+              <div class="contact-channel-info">
+                <div class="contact-channel-title">
+                  <span>Instagram</span>
+                  <span class="contact-channel-badge" style="background:rgba(220,39,67,0.15); color:#ff6584;">Official</span>
+                </div>
+                <div style="font-size:12px; font-weight:600; color:#ff6584;">@stagepass.th</div>
+                <div class="contact-channel-desc">ไฮไลท์คอนเสิร์ต สตอรี่บรรยากาศสด รูปศิลปิน</div>
+              </div>
+            </div>
+            <div class="contact-channel-action ig-action">
+              <span>ติดตาม IG</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        </div>
+
+        <div class="contact-modal-footer">
+          <span>🔒 บัญชีทางการ STAGE PASS</span>
+          <span style="color:var(--fire); cursor:pointer; font-weight:600;" onclick="navigator.clipboard.writeText('@thaiticket'); if(typeof UI!=='undefined') UI.toast('คัดลอก LINE ID @thaiticket เรียบร้อย');">📋 คัดลอก LINE ID: @thaiticket</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast-wrap" id="toasts"></div>
   <div class="toast" id="toast" role="status" aria-live="polite" style="display:none;">
@@ -874,6 +974,6 @@
   <script src="js/checkout.js?v=20261031_2"></script>
   <script src="js/vendor/gsap.min.js"></script>
   <script src="js/gsap-themes.js?v=20261031_2"></script>
-  <script src="js/app.js?v=20261031_catfix"></script>
+  <script src="js/app.js?v=20261031_contact"></script>
 </body>
 </html>
