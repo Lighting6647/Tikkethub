@@ -368,8 +368,9 @@
 
 @media (max-width: 480px) {
   body .modal-backdrop { padding: 0; align-items: flex-end; }
-  body .modal-box { border-radius: var(--radius-card) var(--radius-card) 0 0; max-height: 94vh; }
+  body .modal-box { width: 100% !important; max-width: 100vw !important; border-radius: var(--radius-card) var(--radius-card) 0 0; max-height: 94vh; }
   body .zone-selection-grid { grid-template-columns: 1fr; }
+  body .holder-grid { grid-template-columns: 1fr; gap: 8px; }
   body .toast { left: 16px; right: 16px; bottom: 16px; }
   .nav-actions .btn-outline { display: none; }
   .my-ticket { flex-direction: column; align-items: stretch; }
