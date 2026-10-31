@@ -120,7 +120,7 @@ async function run() {
   const adminPage = await ctx.newPage();
   adminPage.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   adminPage.on('pageerror', (e) => errors.push(e.message));
-  await adminPage.goto(`${BASE_URL}/admin.html`, { waitUntil: 'networkidle' });
+  await adminPage.goto(`${BASE_URL}/manage`, { waitUntil: 'networkidle' });
 
   await adminPage.waitForSelector('#adminLoginModal.active');
   // Test wrong PIN first

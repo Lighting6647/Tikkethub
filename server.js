@@ -1081,7 +1081,7 @@ async function handleApi(req, res, url) {
   // Admin 1-Click Database Backup JSON
   if (method === 'GET' && pathname === '/api/admin/backup.json') {
     if (!isAdminAuthenticated(req)) {
-      res.writeHead(302, { Location: '/admin.html' });
+      res.writeHead(302, { Location: '/manage' });
       return res.end();
     }
     const snapshot = db.exportBackupSnapshot();
@@ -1146,7 +1146,7 @@ async function handleApi(req, res, url) {
   // Admin CSV Export
   if (method === 'GET' && pathname === '/api/admin/export.csv') {
     if (!isAdminAuthenticated(req)) {
-      res.writeHead(302, { Location: '/admin.html' });
+      res.writeHead(302, { Location: '/manage' });
       return res.end();
     }
     const orders = db.listOrders({ includeSlipData: false });
@@ -1162,7 +1162,7 @@ async function handleApi(req, res, url) {
   // Admin Guest List CSV Export (for on-site gate check-in & citizen ID verification)
   if (method === 'GET' && (pathname === '/api/admin/guest-list.csv' || pathname === '/api/admin/export-attendance' || pathname === '/api/admin/attendance.csv')) {
     if (!isAdminAuthenticated(req)) {
-      res.writeHead(302, { Location: '/admin.html' });
+      res.writeHead(302, { Location: '/manage' });
       return res.end();
     }
     const filterStatus = url.searchParams.get('status') || 'approved';
@@ -1389,8 +1389,14 @@ async function handleApi(req, res, url) {
 function serveStatic(req, res, url) {
   let reqPath = decodeURIComponent(url.pathname);
   if (reqPath === '/') reqPath = '/index.html';
-  if (reqPath === '/admin' || reqPath === '/admin/') reqPath = '/admin.html';
+  if (reqPath === '/manage' || reqPath === '/manage/' || reqPath === '/manage.html') reqPath = '/admin.html';
   if (reqPath === '/ticket' || reqPath === '/ticket/') reqPath = '/ticket.html';
+
+  // Hide /admin from public probing
+  if (reqPath === '/admin' || reqPath === '/admin/') {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('404 Not Found');
+  }
 
   const safePath = path.normalize(reqPath).replace(/^(\.\.[/\\])+/, '');
   const filePath = path.join(ROOT, safePath);

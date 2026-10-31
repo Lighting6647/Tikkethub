@@ -118,3 +118,9 @@ test('Feature 2 & 3 (UX & Data): Fast-Scan mode, Torch, Turnstile & Attendance C
   assert.ok(!viewerJs.includes('href="admin.html"'), 'Customer ticket view must NOT link to admin.html');
 });
 
+test('Secret Path /manage: server routes /manage to admin.html and hides /admin from public', () => {
+  const serverCode = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(serverCode.includes("reqPath === '/manage'"), 'server.js maps /manage');
+  assert.ok(serverCode.includes("reqPath === '/admin'"), 'server.js hides /admin');
+});
+
