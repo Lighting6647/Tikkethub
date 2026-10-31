@@ -161,6 +161,7 @@
           <button class="btn-outline" id="openAuditLogBtn" data-admin-only="true">📋 ประวัติแอดมิน</button>
           <button class="btn-outline" id="openBackupModalBtn" data-admin-only="true">💾 สำรองข้อมูล</button>
           <button class="btn-outline" id="openLineSettingsBtn" data-admin-only="true">⚙️ ตั้งค่าพร้อมเพย์</button>
+          <button class="btn-outline" id="openStorefrontSettingsBtn" data-admin-only="true" style="border-color:var(--fire); color:var(--fire);">🎨 ตั้งค่าหน้าขายบัตร</button>
           <a href="/api/admin/guest-list.csv?status=approved" class="btn-primary" id="exportGuestListBtn" title="ดาวน์โหลดรายชื่อผู้ถือบัตรและเลขบัตรประชาชนสำหรับตรวจบัตรหน้างาน">📋 Guest List (ตรวจบัตร)</a>
           <a href="/api/admin/export.csv" class="btn-default" id="exportCsvBtn" data-admin-only="true">Export CSV</a>
           <a href="user-manual.html" class="btn-outline" id="adminManualLink" title="คู่มือการใช้งานระบบ 1 หน้า (PDF)">📖 คู่มือ (PDF 1 หน้า)</a>
@@ -624,6 +625,53 @@
         </div>
 
         <button class="btn-primary btn-block" id="saveSettingsBtn" style="margin-top:12px;">บันทึกการตั้งค่า</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Storefront Settings Modal (ตั้งค่าหน้าขายบัตร) -->
+  <div class="modal-backdrop" id="storefrontSettingsModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="storefrontSettingsTitle">
+    <div class="modal-box" style="max-width:540px;">
+      <div class="modal-header">
+        <h3 id="storefrontSettingsTitle" style="font-weight:700;">🎨 ตั้งค่าเนื้อหาหน้าขายบัตร (Storefront Content)</h3>
+        <button class="modal-close" onclick="UI.close('storefrontSettingsModal')" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div>
+          <label class="field-label" for="sfHeadlineInput">ข้อความพาดหัวหลัก (Hero Headline)</label>
+          <input type="text" id="sfHeadlineInput" class="input-field holder-input" placeholder="ELEVATE YOUR NIGHT">
+          <p class="text-muted" style="font-size:11px; margin-top:3px;">แสดงเป็นข้อความตัวพิมพ์ใหญ่ตรงกลางส่วนบนของหน้าขายบัตร</p>
+        </div>
+        <div>
+          <label class="field-label" for="sfSearchPlaceholderInput">ข้อความค้นหา (Search Placeholder)</label>
+          <input type="text" id="sfSearchPlaceholderInput" class="input-field holder-input" placeholder="Search concerts, artists or VIP tables...">
+        </div>
+        <div class="holder-grid">
+          <div>
+            <label class="field-label" for="sfLineOaUrlInput">ลิงก์ LINE Official Account</label>
+            <input type="text" id="sfLineOaUrlInput" class="input-field holder-input" placeholder="https://line.me/R/ti/p/@thaiticket">
+          </div>
+          <div>
+            <label class="field-label" for="sfFacebookUrlInput">ลิงก์ Facebook Page</label>
+            <input type="text" id="sfFacebookUrlInput" class="input-field holder-input" placeholder="https://facebook.com/stagepass.official">
+          </div>
+        </div>
+        <div>
+          <label class="field-label" for="sfInstagramUrlInput">ลิงก์ Instagram (IG)</label>
+          <input type="text" id="sfInstagramUrlInput" class="input-field holder-input" placeholder="https://instagram.com/stagepass.th">
+        </div>
+        <div>
+          <label class="field-label" for="sfAnnouncementInput">ข้อความประกาศหน้าเว็บ (Announcement Bar · เว้นว่างไว้หากไม่มี)</label>
+          <input type="text" id="sfAnnouncementInput" class="input-field holder-input" placeholder="เช่น 🔥 เปิดจำหน่ายบัตรคอนเสิร์ตรอบพิเศษแล้ววันนี้!">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button type="button" class="btn-primary" id="saveStorefrontSettingsBtn" style="flex:1;">
+            💾 บันทึกเนื้อหาหน้าขายบัตร
+          </button>
+          <a href="index.html" target="_blank" class="btn-outline" style="text-decoration:none; display:inline-flex; align-items:center;">
+            🌐 ดูหน้าขายบัตรจริง
+          </a>
+        </div>
       </div>
     </div>
   </div>

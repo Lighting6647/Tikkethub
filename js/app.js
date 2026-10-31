@@ -725,6 +725,30 @@ if (typeof document !== 'undefined') {
     renderEvents();
     syncEventsFromServer();
     TicketStore.syncAll().then(refreshCartCount);
+
+    try {
+      const rawSf = localStorage.getItem('stagepass_storefront_settings');
+      if (rawSf) {
+        const sf = JSON.parse(rawSf);
+        if (sf.headline) {
+          const hl = document.querySelector('.hero-headline-elevate');
+          if (hl) hl.textContent = sf.headline;
+        }
+        if (sf.searchPlaceholder) {
+          const searchInput = document.getElementById('searchInput');
+          if (searchInput) searchInput.placeholder = sf.searchPlaceholder;
+        }
+        if (sf.lineOaUrl) {
+          document.querySelectorAll('a[href*="line.me"]').forEach(a => a.href = sf.lineOaUrl);
+        }
+        if (sf.facebookUrl) {
+          document.querySelectorAll('a[href*="facebook.com"]').forEach(a => a.href = sf.facebookUrl);
+        }
+        if (sf.instagramUrl) {
+          document.querySelectorAll('a[href*="instagram.com"]').forEach(a => a.href = sf.instagramUrl);
+        }
+      }
+    } catch (_) {}
   });
 }
 

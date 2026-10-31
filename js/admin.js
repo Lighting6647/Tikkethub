@@ -2754,6 +2754,40 @@
     }
   }
 
+  function openStorefrontSettings() {
+    let local = {};
+    try {
+      const raw = localStorage.getItem('stagepass_storefront_settings');
+      if (raw) local = JSON.parse(raw);
+    } catch (_) {}
+
+    if ($('sfHeadlineInput')) $('sfHeadlineInput').value = local.headline || 'ELEVATE YOUR NIGHT';
+    if ($('sfSearchPlaceholderInput')) $('sfSearchPlaceholderInput').value = local.searchPlaceholder || 'Search concerts, artists or VIP tables...';
+    if ($('sfLineOaUrlInput')) $('sfLineOaUrlInput').value = local.lineOaUrl || 'https://line.me/R/ti/p/@thaiticket';
+    if ($('sfFacebookUrlInput')) $('sfFacebookUrlInput').value = local.facebookUrl || 'https://facebook.com/stagepass.official';
+    if ($('sfInstagramUrlInput')) $('sfInstagramUrlInput').value = local.instagramUrl || 'https://instagram.com/stagepass.th';
+    if ($('sfAnnouncementInput')) $('sfAnnouncementInput').value = local.announcement || '';
+
+    window.UI.open('storefrontSettingsModal');
+  }
+
+  function saveStorefrontSettings() {
+    const headline = ($('sfHeadlineInput') ? $('sfHeadlineInput').value : '').trim() || 'ELEVATE YOUR NIGHT';
+    const searchPlaceholder = ($('sfSearchPlaceholderInput') ? $('sfSearchPlaceholderInput').value : '').trim() || 'Search concerts, artists or VIP tables...';
+    const lineOaUrl = ($('sfLineOaUrlInput') ? $('sfLineOaUrlInput').value : '').trim() || 'https://line.me/R/ti/p/@thaiticket';
+    const facebookUrl = ($('sfFacebookUrlInput') ? $('sfFacebookUrlInput').value : '').trim() || 'https://facebook.com/stagepass.official';
+    const instagramUrl = ($('sfInstagramUrlInput') ? $('sfInstagramUrlInput').value : '').trim() || 'https://instagram.com/stagepass.th';
+    const announcement = ($('sfAnnouncementInput') ? $('sfAnnouncementInput').value : '').trim();
+
+    const data = { headline, searchPlaceholder, lineOaUrl, facebookUrl, instagramUrl, announcement };
+    try {
+      localStorage.setItem('stagepass_storefront_settings', JSON.stringify(data));
+    } catch (_) {}
+
+    window.UI.close('storefrontSettingsModal');
+    window.UI.toast('บันทึกเนื้อหาหน้าขายบัตรเรียบร้อยแล้ว');
+  }
+
   async function testDriveConnection() {
     const statusEl = $('driveTestStatus');
     const folderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
@@ -3514,6 +3548,13 @@
     $('openLineSettingsBtn').addEventListener('click', openSettingsModal);
     $('saveSettingsBtn').addEventListener('click', saveSettings);
     $('closeSettingsBtn').addEventListener('click', () => window.UI.close('lineSettingsModal'));
+
+    if ($('openStorefrontSettingsBtn')) {
+      $('openStorefrontSettingsBtn').addEventListener('click', openStorefrontSettings);
+    }
+    if ($('saveStorefrontSettingsBtn')) {
+      $('saveStorefrontSettingsBtn').addEventListener('click', saveStorefrontSettings);
+    }
 
     $('confirmRejectBtn').addEventListener('click', confirmReject);
     $('closeRejectBtn').addEventListener('click', () => window.UI.close('rejectModal'));
