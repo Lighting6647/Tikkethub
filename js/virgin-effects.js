@@ -52,6 +52,9 @@
         if (barEl) barEl.style.width = '100%';
         setTimeout(() => {
           preloader.classList.add('fade-out');
+          if (window.GSAPLiquidGlass && typeof window.GSAPLiquidGlass.playEntrance === 'function') {
+            window.GSAPLiquidGlass.playEntrance();
+          }
           setTimeout(() => preloader.remove(), 400);
         }, 300);
       } else {

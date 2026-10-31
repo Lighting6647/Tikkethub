@@ -1,273 +1,280 @@
 /**
- * GSAP Motion Engine & Design System Studio
- * Supports 3 Production Styles:
- * 1. 'classic' -> 🎬 Crimson Arena Stage (Dark arena with spotlight sweep & dynamic tilt)
- * 2. 'cyber'   -> ⚡ Cyber Equalizer & Neon Stage (Festival Obsidian/Emerald with live 24-bar audio equalizer)
- * 3. 'vip'     -> ✨ Editorial Gold & Velvet Hall (Symphony VIP hall with champagne gold & floating orbs)
+ * ==========================================================================
+ * GSAP MOTION & LIQUID GLASS ENGINE
+ * Stage Pass Ultra-Luxury Interactive Studio
+ * ==========================================================================
  */
 
 (function () {
   'use strict';
 
-  const STORAGE_KEY = 'thaiticket.gsapTheme.v1';
-  let currentTheme = 'classic';
-  let ambientTimeline = null;
-  let equalizerTimeline = null;
-  let orbsTimeline = null;
-
   function getGsap() {
     return window.gsap || null;
   }
 
-  function initThemes() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved && ['classic', 'cyber', 'vip'].includes(saved)) {
-        currentTheme = saved;
-      }
-    } catch {
-      currentTheme = 'classic';
-    }
-    applyTheme(currentTheme, false);
-    setupStudioUi();
-  }
-
-  function applyTheme(themeKey, animate = true) {
-    currentTheme = themeKey;
-    try {
-      localStorage.setItem(STORAGE_KEY, themeKey);
-    } catch {}
-
-    const body = document.body;
-    body.classList.remove('theme-classic', 'theme-cyber', 'theme-vip');
-    body.classList.add(`theme-${themeKey}`);
-
-    document.querySelectorAll('[data-theme-btn]').forEach((btn) => {
-      const isActive = btn.dataset.themeBtn === themeKey;
-      btn.classList.toggle('active', isActive);
-      btn.setAttribute('aria-selected', String(isActive));
-    });
-
-    // Cleanup previous theme ambient loops
-    if (ambientTimeline) {
-      ambientTimeline.kill();
-      ambientTimeline = null;
-    }
-    if (equalizerTimeline) {
-      equalizerTimeline.kill();
-      equalizerTimeline = null;
-    }
-    if (orbsTimeline) {
-      orbsTimeline.kill();
-      orbsTimeline = null;
-    }
-
+  // 1. Ambient Liquid Blobs Floating Animation
+  function initLiquidBlobs() {
     const gsap = getGsap();
     if (!gsap) return;
 
-    if (themeKey === 'cyber') {
-      setupCyberEqualizer();
-    } else if (themeKey === 'vip') {
-      setupVipOrbs();
-    } else {
-      setupClassicSpotlight();
-    }
+    const b1 = document.querySelector('.liquid-blob-1');
+    const b2 = document.querySelector('.liquid-blob-2');
+    const b3 = document.querySelector('.liquid-blob-3');
 
-    if (animate) {
-      playEntranceAnimation();
-    }
-    setupTiltCards();
-  }
-
-  // 1. Classic Crimson Arena Spotlight Animation
-  function setupClassicSpotlight() {
-    const gsap = getGsap();
-    if (!gsap) return;
-    const heroPoster = document.querySelector('.hero-poster');
-    if (!heroPoster) return;
-
-    ambientTimeline = gsap.timeline({ repeat: -1, yoyo: true });
-    ambientTimeline.to(heroPoster, {
-      boxShadow: '0 20px 45px rgba(180, 0, 0, 0.45)',
-      duration: 2.2,
-      ease: 'sine.inOut'
-    });
-  }
-
-  // 2. Cyber Equalizer Animation
-  function setupCyberEqualizer() {
-    const gsap = getGsap();
-    if (!gsap) return;
-
-    let eqContainer = document.getElementById('cyberLiveEqualizer');
-    if (!eqContainer) {
-      const hero = document.querySelector('.hero .container');
-      if (hero) {
-        eqContainer = document.createElement('div');
-        eqContainer.id = 'cyberLiveEqualizer';
-        eqContainer.className = 'cyber-equalizer-bar';
-        for (let i = 0; i < 24; i++) {
-          const bar = document.createElement('span');
-          bar.className = 'cyber-eq-col';
-          eqContainer.appendChild(bar);
-        }
-        hero.appendChild(eqContainer);
-      }
-    }
-
-    if (!eqContainer) return;
-    const cols = eqContainer.querySelectorAll('.cyber-eq-col');
-    if (!cols.length) return;
-
-    equalizerTimeline = gsap.timeline({ repeat: -1 });
-    cols.forEach((col, idx) => {
-      equalizerTimeline.to(
-        col,
-        {
-          scaleY: () => 0.2 + Math.random() * 0.8,
-          duration: 0.25 + (idx % 3) * 0.1,
-          repeat: -1,
-          yoyo: true,
-          ease: 'power1.inOut'
-        },
-        idx * 0.04
-      );
-    });
-  }
-
-  // 3. VIP Gold Floating Orbs
-  function setupVipOrbs() {
-    const gsap = getGsap();
-    if (!gsap) return;
-
-    let orbsWrap = document.getElementById('vipFloatingOrbs');
-    if (!orbsWrap) {
-      const hero = document.querySelector('.hero');
-      if (hero) {
-        orbsWrap = document.createElement('div');
-        orbsWrap.id = 'vipFloatingOrbs';
-        orbsWrap.className = 'vip-orbs-container';
-        for (let i = 0; i < 6; i++) {
-          const orb = document.createElement('div');
-          orb.className = 'vip-orb';
-          orbsWrap.appendChild(orb);
-        }
-        hero.appendChild(orbsWrap);
-      }
-    }
-
-    if (!orbsWrap) return;
-    const orbs = orbsWrap.querySelectorAll('.vip-orb');
-    orbsTimeline = gsap.timeline({ repeat: -1, yoyo: true });
-    orbs.forEach((orb, i) => {
-      gsap.set(orb, {
-        x: (i * 180) % 700,
-        y: 20 + (i * 30),
-        scale: 0.8 + (i % 3) * 0.3,
-        opacity: 0.35 + (i % 2) * 0.25
+    if (b1) {
+      gsap.to(b1, {
+        x: '+=80',
+        y: '+=60',
+        scale: 1.15,
+        duration: 8,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut'
       });
-      orbsTimeline.to(
-        orb,
-        {
-          y: '+=40',
-          x: '+=30',
-          duration: 3 + i * 0.6,
-          ease: 'sine.inOut'
-        },
-        i * 0.3
-      );
-    });
+    }
+
+    if (b2) {
+      gsap.to(b2, {
+        x: '-=70',
+        y: '+=80',
+        scale: 0.9,
+        duration: 10,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut'
+      });
+    }
+
+    if (b3) {
+      gsap.to(b3, {
+        x: '+=60',
+        y: '-=50',
+        scale: 1.2,
+        duration: 12,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut'
+      });
+    }
   }
 
-  // Interactive 3D Tilt for Event Cards
-  function setupTiltCards() {
-    const cards = document.querySelectorAll('.event-card');
+  // 2. Liquid Glass Dynamic Specular Light & 3D Tilt
+  function setupLiquidGlassTilt() {
+    const gsap = getGsap();
+    const cards = document.querySelectorAll('.mockup-card, .event-card, .table-preview-card, .liquid-glass');
+
     cards.forEach((card) => {
-      if (card.dataset.tiltBound) return;
-      card.dataset.tiltBound = 'true';
+      if (card.dataset.liquidTiltBound) return;
+      card.dataset.liquidTiltBound = 'true';
 
       card.addEventListener('mousemove', (e) => {
         const rect = card.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+
+        // Set CSS variables for liquid specular light reflection
+        card.style.setProperty('--mouse-x', `${x.toFixed(1)}px`);
+        card.style.setProperty('--mouse-y', `${y.toFixed(1)}px`);
+
+        // Calculate 3D tilt angles
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
-        const rotateX = ((y - centerY) / centerY) * -6;
-        const rotateY = ((x - centerX) / centerX) * 6;
+        const rotateX = ((y - centerY) / centerY) * -7;
+        const rotateY = ((x - centerX) / centerX) * 7;
 
-        card.style.transform = `perspective(800px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-4px)`;
+        if (gsap) {
+          gsap.to(card, {
+            rotateX: rotateX,
+            rotateY: rotateY,
+            transformPerspective: 900,
+            duration: 0.2,
+            ease: 'power1.out',
+            overwrite: 'auto'
+          });
+        } else {
+          card.style.transform = `perspective(900px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
+        }
       });
 
       card.addEventListener('mouseleave', () => {
-        card.style.transform = '';
+        if (gsap) {
+          gsap.to(card, {
+            rotateX: 0,
+            rotateY: 0,
+            duration: 0.5,
+            ease: 'power2.out',
+            overwrite: 'auto'
+          });
+        } else {
+          card.style.transform = '';
+        }
       });
     });
   }
 
-  // Entrance Stagger Animation
+  // 3. Hero Staggered Entrance Choreography
   function playEntranceAnimation() {
     const gsap = getGsap();
     if (!gsap) return;
 
-    const heroContent = document.querySelector('.hero-content');
-    const heroPoster = document.querySelector('.hero-poster');
-    const cards = document.querySelectorAll('.event-card');
+    const headline = document.querySelector('.hero-headline-elevate');
+    const searchPill = document.querySelector('.hero-search-pill');
+    const pills = document.querySelectorAll('.category-pills .pill-btn');
+    const heroCards = document.querySelectorAll('.mockup-cards-row > div');
+    const eventCards = document.querySelectorAll('.event-card');
 
     const tl = gsap.timeline();
-    if (heroContent) {
+
+    if (headline) {
       tl.fromTo(
-        heroContent,
-        { opacity: 0, y: 24 },
-        { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }
+        headline,
+        { opacity: 0, y: 35, scale: 0.95 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power3.out' }
       );
     }
-    if (heroPoster) {
+
+    if (searchPill) {
       tl.fromTo(
-        heroPoster,
-        { opacity: 0, scale: 0.94 },
-        { opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(1.4)' },
+        searchPill,
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' },
+        '-=0.5'
+      );
+    }
+
+    if (pills && pills.length) {
+      tl.fromTo(
+        pills,
+        { opacity: 0, y: 16, scale: 0.9 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.4, stagger: 0.05, ease: 'back.out(1.5)' },
         '-=0.4'
       );
     }
-    if (cards.length) {
+
+    if (heroCards && heroCards.length) {
       tl.fromTo(
-        cards,
+        heroCards,
+        { opacity: 0, y: 40, rotateX: 6 },
+        { opacity: 1, y: 0, rotateX: 0, duration: 0.7, stagger: 0.15, ease: 'power3.out' },
+        '-=0.3'
+      );
+    }
+
+    if (eventCards && eventCards.length) {
+      tl.fromTo(
+        eventCards,
         { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: 'power2.out' },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power2.out' },
         '-=0.2'
       );
     }
   }
 
-  function setupStudioUi() {
-    document.querySelectorAll('[data-theme-btn]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const target = btn.dataset.themeBtn;
-        if (target && target !== currentTheme) {
-          applyTheme(target, true);
-        }
+  // 4. Liquid Magnetic Button Pull Micro-Interaction
+  function setupMagneticButtons() {
+    const gsap = getGsap();
+    if (!gsap) return;
+
+    const magneticTargets = document.querySelectorAll('.nav-cta-btn, .btn-fire, .pill-btn');
+
+    magneticTargets.forEach((btn) => {
+      if (btn.dataset.magneticBound) return;
+      btn.dataset.magneticBound = 'true';
+
+      btn.addEventListener('mousemove', (e) => {
+        const rect = btn.getBoundingClientRect();
+        const relX = e.clientX - (rect.left + rect.width / 2);
+        const relY = e.clientY - (rect.top + rect.height / 2);
+
+        gsap.to(btn, {
+          x: relX * 0.28,
+          y: relY * 0.28,
+          duration: 0.25,
+          ease: 'power1.out',
+          overwrite: 'auto'
+        });
+      });
+
+      btn.addEventListener('mouseleave', () => {
+        gsap.to(btn, {
+          x: 0,
+          y: 0,
+          duration: 0.45,
+          ease: 'elastic.out(1, 0.4)',
+          overwrite: 'auto'
+        });
       });
     });
-
-    const replayBtn = document.getElementById('themeReplayBtn');
-    if (replayBtn) {
-      replayBtn.addEventListener('click', () => {
-        playEntranceAnimation();
-      });
-    }
   }
 
-  // Export to window for dynamic calls
+  // 5. Tactile Liquid Droplet Click Ripple
+  function setupLiquidRipple() {
+    const gsap = getGsap();
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('.nav-cta-btn, .btn-fire, .btn-primary, .pill-btn, .mockup-card');
+      if (!target) return;
+
+      const rect = target.getBoundingClientRect();
+      const ripple = document.createElement('span');
+      ripple.className = 'liquid-ripple';
+
+      const size = Math.max(rect.width, rect.height) * 2;
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+      ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+
+      target.appendChild(ripple);
+
+      if (gsap) {
+        gsap.fromTo(
+          ripple,
+          { scale: 0, opacity: 0.7 },
+          {
+            scale: 1,
+            opacity: 0,
+            duration: 0.6,
+            ease: 'power2.out',
+            onComplete: () => ripple.remove()
+          }
+        );
+      } else {
+        setTimeout(() => ripple.remove(), 600);
+      }
+    });
+  }
+
+  // Master Initializer
+  function initEngine() {
+    initLiquidBlobs();
+    setupLiquidGlassTilt();
+    setupMagneticButtons();
+    setupLiquidRipple();
+
+    // Trigger hero entrance either on preloader finish or DOM ready
+    setTimeout(() => {
+      playEntranceAnimation();
+    }, 400);
+  }
+
+  // Export to window
+  window.GSAPLiquidGlass = {
+    playEntrance: playEntranceAnimation,
+    setupTiltCards: setupLiquidGlassTilt,
+    init: initEngine
+  };
+
+  // Backwards compatibility with app.js and legacy calls
   window.GSAPThemeStudio = {
-    applyTheme,
-    playEntranceAnimation,
-    setupTiltCards,
-    getCurrentTheme: () => currentTheme
+    setupTiltCards: setupLiquidGlassTilt,
+    playEntranceAnimation: playEntranceAnimation,
+    applyTheme: () => {},
+    getCurrentTheme: () => 'arena'
   };
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initThemes);
+    document.addEventListener('DOMContentLoaded', initEngine);
   } else {
-    initThemes();
+    initEngine();
   }
 })();
