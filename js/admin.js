@@ -194,7 +194,7 @@
   function getAuthHeaders(extra) {
     const headers = Object.assign({}, extra || {});
     try {
-      const token = sessionStorage.getItem(TOKEN_KEY);
+      const token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
       if (token) headers['Authorization'] = `Bearer ${token}`;
     } catch {
       /* ignore */
@@ -249,6 +249,11 @@
   }
 
   async function checkAdminSession() {
+    const token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      showLoginModal('');
+      return;
+    }
     try {
       const res = await fetch('/api/admin/session', { headers: getAuthHeaders() });
       const data = await res.json();
@@ -258,10 +263,16 @@
         window.UI.close('adminLoginModal');
         await Promise.all([loadStats(), loadOrders()]);
       } else {
-        showLoginModal('');
+        // Clear expired token and prompt login
+        sessionStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+        showLoginModal('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
       }
     } catch {
-      showLoginModal('');
+      // Offline / transient network glitch: don't blank out UI, keep existing cached data visible
+      if (ordersCache.length) {
+        renderOrders();
+      }
     }
   }
 
@@ -292,7 +303,11 @@
         return;
       }
       try {
-        if (data.token) sessionStorage.setItem(TOKEN_KEY, data.token);
+        if (data.token) {
+          sessionStorage.setItem(TOKEN_KEY, data.token);
+          localStorage.setItem(TOKEN_KEY, data.token);
+          if (data.role) localStorage.setItem('thaiticket.adminRole.v1', data.role);
+        }
       } catch {
         /* ignore */
       }
@@ -316,10 +331,12 @@
   async function logoutAdmin() {
     try {
       await fetch('/api/admin/logout', { method: 'POST', headers: getAuthHeaders() });
-      sessionStorage.removeItem(TOKEN_KEY);
     } catch {
       /* ignore */
     }
+    sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('thaiticket.adminRole.v1');
     showLoginModal('ออกจากระบบเรียบร้อยแล้ว');
   }
 
@@ -461,6 +478,10 @@
         )
         .join('');
     }
+
+    try {
+      localStorage.setItem('stagepass_admin_stats_cache', JSON.stringify(stats));
+    } catch (_) {}
   }
 
   async function loadStats() {
@@ -521,13 +542,21 @@
             ? recovered.orders
             : [];
       ordersCache = mergeOrdersWithLocalBrowser(baseOrders, currentFilter);
+      try {
+        localStorage.setItem('stagepass_admin_orders_cache', JSON.stringify(ordersCache));
+      } catch (_) {}
       if (recovered && recovered.stats) {
         applyStatsToDom(recovered.stats);
       }
       renderOrders();
       renderQuickScanChips();
     } catch (err) {
-      container.innerHTML = `<div class="empty-state"><p class="empty-title">ไม่สามารถโหลดข้อมูลได้</p><p class="text-muted">${window.UI.escapeHtml(err.message)}</p></div>`;
+      if (ordersCache && ordersCache.length > 0) {
+        // Keep existing rendered orders
+        renderOrders();
+      } else {
+        container.innerHTML = `<div class="empty-state"><p class="empty-title">ไม่สามารถโหลดข้อมูลได้</p><p class="text-muted">${window.UI.escapeHtml(err.message)}</p></div>`;
+      }
     }
   }
 
@@ -3808,11 +3837,52 @@
     });
   }
 
+  function restoreAdminCacheFromStorage() {
+    try {
+      const token = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
+      if (token) {
+        sessionStorage.setItem(TOKEN_KEY, token);
+        const savedRole = localStorage.getItem('thaiticket.adminRole.v1') || 'admin';
+        applyRolePermissions(savedRole);
+        if ($('adminLogoutBtn')) $('adminLogoutBtn').hidden = false;
+        if (window.UI && typeof window.UI.close === 'function') {
+          window.UI.close('adminLoginModal');
+        }
+      }
+
+      const rawStats = localStorage.getItem('stagepass_admin_stats_cache');
+      if (rawStats) {
+        const parsed = JSON.parse(rawStats);
+        if (parsed && typeof parsed === 'object') applyStatsToDom(parsed);
+      }
+
+      const rawOrders = localStorage.getItem('stagepass_admin_orders_cache');
+      if (rawOrders) {
+        const list = JSON.parse(rawOrders);
+        if (Array.isArray(list) && list.length) {
+          ordersCache = list;
+          renderOrders();
+          renderQuickScanChips();
+        }
+      }
+
+      const rawEvents = localStorage.getItem('thaiticket.customEvents.v1');
+      if (rawEvents) {
+        const evs = JSON.parse(rawEvents);
+        if (Array.isArray(evs) && evs.length) {
+          adminEventsCache = filterDeletedEvents(evs);
+          renderAdminEvents();
+        }
+      }
+    } catch (_) {}
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     bind();
     initSoundSetting();
     initSoundPackControls();
     updateNotifyBtnUi();
+    restoreAdminCacheFromStorage();
     checkAdminSession();
     startLivePolling();
     loadOfflineStorage();

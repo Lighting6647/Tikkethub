@@ -1003,13 +1003,18 @@ function getSetting(key, fallback = '') {
     const row = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key);
     if (row && typeof row.value !== 'undefined' && row.value !== null) return row.value;
   } catch (_) {}
-  try {
-    const jsonPath = path.join(DATA_DIR, 'settings.json');
-    if (fs.existsSync(jsonPath)) {
-      const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-      if (typeof parsed[key] !== 'undefined') return String(parsed[key]);
-    }
-  } catch (_) {}
+  const candidatePaths = [
+    path.join(DATA_DIR, 'settings.json'),
+    path.join(__dirname, '..', 'data', 'settings.json')
+  ];
+  for (const jsonPath of candidatePaths) {
+    try {
+      if (fs.existsSync(jsonPath)) {
+        const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+        if (typeof parsed[key] !== 'undefined') return String(parsed[key]);
+      }
+    } catch (_) {}
+  }
   return fallback;
 }
 
@@ -1020,15 +1025,20 @@ function setSetting(key, value) {
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `).run(key, String(value));
   } catch (_) {}
-  try {
-    const jsonPath = path.join(DATA_DIR, 'settings.json');
-    let parsed = {};
-    if (fs.existsSync(jsonPath)) {
-      try { parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch (_) {}
-    }
-    parsed[key] = String(value);
-    fs.writeFileSync(jsonPath, JSON.stringify(parsed, null, 2), 'utf8');
-  } catch (_) {}
+  const candidatePaths = [
+    path.join(DATA_DIR, 'settings.json'),
+    path.join(__dirname, '..', 'data', 'settings.json')
+  ];
+  for (const jsonPath of candidatePaths) {
+    try {
+      let parsed = {};
+      if (fs.existsSync(jsonPath)) {
+        try { parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch (_) {}
+      }
+      parsed[key] = String(value);
+      fs.writeFileSync(jsonPath, JSON.stringify(parsed, null, 2), 'utf8');
+    } catch (_) {}
+  }
 }
 
 function addAuditLog({ action, targetRef = '', detail = '', actor = 'Admin' }) {
