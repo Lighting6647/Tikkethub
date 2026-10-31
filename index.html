@@ -395,7 +395,7 @@
           </div>
           <span class="wizard-step-label">เลือกโต๊ะ/บัตร</span>
         </div>
-        <div class="wizard-step-item" id="stepPill3">
+        <div class="wizard-step-item" id="stepPill3" onclick="confirmBooking()">
           <div class="wizard-step-top">
             <span class="wizard-step-num">03</span>
             <span class="wizard-step-icon">⚡</span>
@@ -676,8 +676,11 @@
               </svg>
               <p style="font-size:13px;">ลากไฟล์สลิปมาวาง หรือ <strong>คลิกเพื่อเลือกไฟล์</strong></p>
             </div>
-            <div id="slipPreviewWrap" hidden>
-              <img id="slipPreviewImg" alt="พรีวิวสลิป">
+            <div id="slipPreviewWrap" hidden style="text-align:center; padding:10px 0;">
+              <img id="slipPreviewImg" alt="พรีวิวสลิป" style="max-height:180px; max-width:100%; border-radius:8px; object-fit:contain; border:1px solid rgba(255,255,255,0.15);">
+              <div style="margin-top:8px;">
+                <button type="button" class="btn-outline" id="slipRemove" style="font-size:11px; padding:4px 12px; border-radius:9999px;">🔄 เปลี่ยนรูปสลิป</button>
+              </div>
             </div>
           </div>
           <p class="slip-error" id="slipError" role="alert" style="color:var(--fire); font-size:12px; margin-top:4px;"></p>
@@ -961,9 +964,9 @@
   <script src="js/ticket-store.js?v=20261031_2"></script>
   <script src="js/ticket-renderer.js?v=20261031_2"></script>
   <script src="js/ticket-viewer.js?v=20261031_2"></script>
-  <script src="js/checkout.js?v=20261031_2"></script>
+  <script src="js/checkout.js?v=20261031_step3fix"></script>
   <script src="js/vendor/gsap.min.js"></script>
   <script src="js/gsap-themes.js?v=20261031_2"></script>
-  <script src="js/app.js?v=20261031_contact"></script>
+  <script src="js/app.js?v=20261031_step3fix"></script>
 </body>
 </html>
