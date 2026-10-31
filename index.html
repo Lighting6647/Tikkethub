@@ -43,9 +43,9 @@
     </div>
   </div>
 
-  <!-- Site Header -->
+  <!-- Site Header (Floating Pill Glass Architecture) -->
   <header class="site-header" id="siteHeader">
-    <div class="container-x site-header__inner">
+    <div class="site-header__inner">
       <a href="#home" class="site-logo" aria-label="หน้าแรก">
         <div class="site-logo-icon">🔥</div>
         <span>VIRGIN</span> OFFICIAL
@@ -53,34 +53,35 @@
 
       <!-- Desktop Navigation Menu -->
       <nav class="nav-links" aria-label="เมนูหลัก">
-        <a href="#home" class="nav-link is-active">หน้าแรก</a>
-        <a href="#events" class="nav-link">อีเวนต์</a>
-        <a href="#how" class="nav-link">วิธีการจอง</a>
-        <a href="#artists" class="nav-link">ศิลปิน</a>
-        <a href="#news" class="nav-link">ข่าวสาร</a>
-        <a href="https://line.me/R/ti/p/@thaiticket" target="_blank" rel="noopener" class="btn-line-oa" id="lineOaNavLink" title="ติดต่อสอบถามหรือรับบัตรผ่าน LINE Official Account">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="#06C755">
+        <a href="#events" class="nav-link is-active">Concerts</a>
+        <a href="#vip-tables" class="nav-link">VIP Tables</a>
+        <a href="#events" class="nav-link">Festivals</a>
+        <a href="https://line.me/R/ti/p/@thaiticket" target="_blank" rel="noopener" class="nav-link btn-line-oa" id="lineOaNavLink" title="Concierge Support">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#06C755">
             <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
           </svg>
-          <span>LINE Official</span>
+          <span>Concierge</span>
         </a>
       </nav>
 
-      <!-- Header Action Controls -->
+      <!-- Action Controls -->
       <div class="header-actions">
-        <button class="icon-btn" id="soundToggleBtn" type="button" title="เปิด/ปิดเสียงเอฟเฟกต์" aria-label="เปิด/ปิดเสียงเอฟเฟกต์">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="nav-cta-btn" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า เมืองทองธานี', 2500)" type="button">
+          Call to action
+        </button>
+        <button class="icon-btn" id="soundToggleBtn" type="button" title="เปิด/ปิดเสียง" aria-label="เปิด/ปิดเสียง">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
             <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
             <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
           </svg>
         </button>
-        <button class="btn-outline hidden sm:inline-flex" id="myTicketsBtn" onclick="openMyTicketsModal()" type="button" style="font-size:12px; padding:7px 12px;">
+        <button class="btn-outline hidden sm:inline-flex" id="myTicketsBtn" onclick="openMyTicketsModal()" type="button" style="font-size:11px; padding:6px 12px; border-radius:9999px;">
           🎟️ บัตรของฉัน
         </button>
-        <a href="admin.html" class="btn-outline hidden sm:inline-flex" id="adminNavLink" style="font-size:12px; padding:7px 12px;">แอดมิน</a>
+        <a href="admin.html" class="btn-outline hidden sm:inline-flex" id="adminNavLink" style="font-size:11px; padding:6px 12px; border-radius:9999px;">แอดมิน</a>
         <button class="icon-btn" type="button" data-drawer-open aria-label="เปิดเมนู">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="21" y2="6"></line>
             <line x1="3" y1="18" x2="21" y2="18"></line>
@@ -124,63 +125,107 @@
     </aside>
   </div>
 
-  <!-- Hero Highlight Section (Virgin Official Style) -->
+  <!-- Hero Section (Style 1: Velvet Noir & Radiant Crimson) -->
   <section class="hero" id="home">
+    <div class="hero-lasers" aria-hidden="true"></div>
     <div class="container-x">
-      <div>
-        <div class="hero-badge">
-          <span>🔥</span> VIRGIN OFFICIAL · SMART BOOKING
-        </div>
-        <h1 class="hero-headline">
-          ค้นหาความมันส์ครั้งต่อไป<br>
-          <span>ครบเครื่อง เรื่องความมันส์</span>
+      <div style="position:relative; z-index:2;">
+        
+        <!-- Big Centered Headline (From Image 2) -->
+        <h1 class="hero-headline-elevate">
+          ELEVATE YOUR NIGHT
         </h1>
-        <p class="hero-subtitle">
-          จองโต๊ะและบัตรคอนเสิร์ตออนไลน์แบบเรียลไทม์ เลือกรอบการแสดง ผังโต๊ะ VIP พร้อมระบบตรวจสอบสลิปอัตโนมัติและรับ E-Ticket Dynamic Pass ได้ทันที
-        </p>
 
-        <!-- Search Bar with token input & button -->
-        <div class="hero-search">
-          <input type="text" id="searchInput" class="input-field" placeholder="ค้นหาคอนเสิร์ต ศิลปิน หรือสถานที่จัดแสดง...">
-          <button type="button" aria-label="ค้นหา" onclick="renderEvents()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
+        <!-- Centered Search Pill (From Image 2) -->
+        <div class="hero-search-pill">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Search concerts, artists or VIP tables..." oninput="onHeroSearch(this.value)">
         </div>
 
-        <!-- Category Filter Pills (Integrated with existing JS filterCategory) -->
-        <div class="category-pills">
-          <button class="pill-btn active subnav-item" onclick="filterCategory('all', this)">ทั้งหมด</button>
+        <!-- Filter Subnav Pills -->
+        <div class="category-pills" style="justify-content:center; margin-bottom:36px;">
+          <button class="pill-btn active subnav-item" onclick="filterCategory('all', this)">All Events</button>
           <button class="pill-btn subnav-item" onclick="filterCategory('kpop', this)">K-POP</button>
-          <button class="pill-btn subnav-item" onclick="filterCategory('thai', this)">คอนเสิร์ตไทย</button>
+          <button class="pill-btn subnav-item" onclick="filterCategory('thai', this)">Thai Rock</button>
           <button class="pill-btn subnav-item" onclick="filterCategory('world', this)">World Tour</button>
-          <button class="pill-btn subnav-item" onclick="filterCategory('fest', this)">มิวสิคเฟสติวัล</button>
-          <button class="pill-btn subnav-item" onclick="filterCategory('fanmeeting', this)">แฟนมีตติ้ง</button>
+          <button class="pill-btn subnav-item" onclick="filterCategory('fest', this)">Festival</button>
         </div>
 
-        <!-- Featured Event Card -->
-        <div class="hero-highlight-card">
-          <div class="hero-highlight-img" style="background-image: url('https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=1200&q=80');">
-            <div class="hero-highlight-badge">🔥 HOT EVENT · WORLD TOUR</div>
-          </div>
-          <div class="hero-highlight-info">
-            <span class="badge-accent" style="margin-bottom:12px; align-self:flex-start;">14 - 15 พฤศจิกายน 2026</span>
-            <h2 style="font-size:24px; font-weight:700; margin-bottom:8px; color:#fff;">ECHOES OF ASIA WORLD TOUR 2026</h2>
-            <p style="color:var(--color-muted); font-size:13px; line-height:1.6; margin-bottom:16px;">
-              อิมแพ็ค อารีน่า เมืองทองธานี · สัมผัสปรากฏการณ์คอนเสิร์ตระดับโลก แสง สี เสียงเต็มรูปแบบ อิ่มเอมกับเพลงฮิตกว่า 3 ชั่วโมงเต็ม
-            </p>
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-              <div>
-                <span class="price-label">ราคาเริ่มต้น</span>
-                <div class="price-value" style="color:var(--fire); font-size:20px;">1,800 - 6,500 THB</div>
-              </div>
-              <button class="btn-primary" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า เมืองทองธานี', 2500)">
-                จองโต๊ะ / ซื้อบัตร
-              </button>
+        <!-- Side-by-Side Mockup Showcase Cards (1:1 with Image 2) -->
+        <div class="mockup-cards-row">
+          
+          <!-- Card 1: International Artist -->
+          <div class="mockup-card artist-hero-card" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า เมืองทองธานี', 2500)" title="คลิกเพื่อจองบัตร">
+            <div class="card-tags">
+              <span class="tag-pill">Sun Sep</span>
+              <span class="tag-pill">Date 11, 2026</span>
+            </div>
+            <div class="artist-hero-body">
+              <div class="artist-hero-sub">INTERNATIONAL</div>
+              <h3 class="artist-hero-title">International Artist</h3>
+              <div class="artist-hero-genre">Echoes of Asia World Tour · Live in BKK</div>
+            </div>
+            <div class="artist-hero-price">
+              <span>Starting at</span>
+              <b>$440 / 1,800 THB</b>
             </div>
           </div>
+
+          <!-- Card 2: VIP Table Reservation Preview -->
+          <div class="mockup-card" id="vip-tables">
+            <div class="vip-tables-header">
+              <div class="vip-artist-info">
+                <div class="vip-avatar">🎤</div>
+                <div>
+                  <h4>Limnted Micros</h4>
+                  <span class="sub">International Music · Live Night</span>
+                </div>
+              </div>
+              <div class="vip-price">
+                <span>Starting at</span>
+                <b>$590 / 2,500 THB</b>
+              </div>
+            </div>
+
+            <div class="vip-table-preview-label">
+              <span>VIP Table reservation preview</span>
+              <div class="table-legend">
+                <span><b class="dot-red"></b> Booked</span>
+                <span><b class="dot-green"></b> Available</span>
+              </div>
+            </div>
+
+            <!-- Interactive Table Map Grid (Image 2) -->
+            <div class="vip-tables-grid">
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE A1', '14 พ.ย. 2026', 'โซนหน้าเวที VIP', 2500)">A1</button>
+              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE K6', '14 พ.ย. 2026', 'โซนกลาง K6', 2500)">K6</button>
+              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H8', '14 พ.ย. 2026', 'โซนข้าง H8', 2500)">H8</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE KK', '14 พ.ย. 2026', 'โซน KK', 2500)">KK</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE M5', '14 พ.ย. 2026', 'โซน M5', 2500)">M5</button>
+
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H8-2', '14 พ.ย. 2026', 'โซน H8', 2500)">H8</button>
+              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H8-3', '14 พ.ย. 2026', 'โซน H8', 2500)">H8</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE K9', '14 พ.ย. 2026', 'โซน K9', 2500)">K9</button>
+              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE N8', '14 พ.ย. 2026', 'โซน N8', 2500)">N8</button>
+              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
+
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE K1', '14 พ.ย. 2026', 'โซน K1', 2500)">K1</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H2', '14 พ.ย. 2026', 'โซน H2', 2500)">H2</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE N3', '14 พ.ย. 2026', 'โซน N3', 2500)">N3</button>
+              <button type="button" class="tbl-btn tbl-vip" onclick="openBookingModal('ULTRA VIP V18', '14 พ.ย. 2026', 'โซนพิเศษ V18', 4500)" title="Ultra VIP Gold Table">V18</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE W5', '14 พ.ย. 2026', 'โซน W5', 2500)">W5</button>
+              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
+              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE W10', '14 พ.ย. 2026', 'โซน W10', 2500)">W10</button>
+            </div>
+          </div>
+
         </div>
 
       </div>

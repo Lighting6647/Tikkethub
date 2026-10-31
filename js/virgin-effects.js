@@ -5,6 +5,13 @@
 (function() {
   window.VIRGIN = window.VIRGIN || {};
 
+  window.onHeroSearch = function(val) {
+    if (typeof searchQuery !== 'undefined') {
+      searchQuery = val || '';
+      if (typeof renderEvents === 'function') renderEvents();
+    }
+  };
+
   // Toast System with Fire / Lucide icons
   VIRGIN.toast = function(msg, isSuccess = true) {
     let wrap = document.getElementById('toasts');
