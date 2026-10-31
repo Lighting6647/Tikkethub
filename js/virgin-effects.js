@@ -34,35 +34,6 @@
     }, 3200);
   };
 
-  // Cursor Ring & Dot
-  function initCursor() {
-    const dot = document.querySelector('.cursor-dot');
-    const ring = document.querySelector('.cursor-ring');
-    if (!dot || !ring) return;
-
-    let mouseX = 0, mouseY = 0;
-    let ringX = 0, ringY = 0;
-
-    window.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      dot.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0)`;
-    }, { passive: true });
-
-    function renderRing() {
-      ringX += (mouseX - ringX) * 0.18;
-      ringY += (mouseY - ringY) * 0.18;
-      ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0)`;
-      requestAnimationFrame(renderRing);
-    }
-    requestAnimationFrame(renderRing);
-
-    document.querySelectorAll('a, button, input, .event-card, .how-card, .artist-card').forEach((el) => {
-      el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
-      el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
-    });
-  }
-
   // Preloader Counter
   function initPreloader() {
     const preloader = document.getElementById('preloader');
@@ -121,7 +92,6 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     initPreloader();
-    initCursor();
     initNavigation();
   });
 })();
