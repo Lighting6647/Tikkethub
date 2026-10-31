@@ -1389,6 +1389,8 @@ async function handleApi(req, res, url) {
 function serveStatic(req, res, url) {
   let reqPath = decodeURIComponent(url.pathname);
   if (reqPath === '/') reqPath = '/index.html';
+  if (reqPath === '/admin' || reqPath === '/admin/') reqPath = '/admin.html';
+  if (reqPath === '/ticket' || reqPath === '/ticket/') reqPath = '/ticket.html';
 
   const safePath = path.normalize(reqPath).replace(/^(\.\.[/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
