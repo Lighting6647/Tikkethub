@@ -49,10 +49,10 @@
   align-items: center;
   justify-content: space-between;
   height: 60px;
-  max-width: 1060px;
+  max-width: 960px;
   width: 100%;
   margin: 0 auto;
-  padding: 0 16px 0 22px;
+  padding: 0 16px 0 24px;
   background: rgba(14, 16, 23, 0.78);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
