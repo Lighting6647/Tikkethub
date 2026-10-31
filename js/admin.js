@@ -2580,6 +2580,12 @@
   let auditLogsCache = [];
 
   async function openSettingsModal() {
+    let localCache = null;
+    try {
+      const raw = localStorage.getItem('stagepass_admin_settings');
+      if (raw) localCache = JSON.parse(raw);
+    } catch (_) {}
+
     try {
       const res = await fetch('/api/settings', { headers: getAuthHeaders() });
       const data = await res.json();
@@ -2587,33 +2593,51 @@
         showLoginModal();
         return;
       }
-      $('settingTokenStatus').textContent = data.hasLineToken
-        ? `ตั้งค่าแล้ว (${data.lineTokenMasked})`
+
+      const promptpayId = (data.promptpayId && data.promptpayId !== '0954654698')
+        ? data.promptpayId
+        : ((localCache && localCache.promptpayId) || data.promptpayId || '0954654698');
+
+      const merchantName = (data.merchantName && data.merchantName !== 'Thai Ticket Concert Co., Ltd.')
+        ? data.merchantName
+        : ((localCache && localCache.merchantName) || data.merchantName || 'Thai Ticket Concert Co., Ltd.');
+
+      const bankName = data.bankName || (localCache && localCache.bankName) || '';
+      const bankAccount = data.bankAccount || (localCache && localCache.bankAccount) || '';
+      const driveFolder = data.googleDriveFolderId || (localCache && localCache.googleDriveFolderId) || '';
+      const driveEmail = data.googleServiceAccountEmail || (localCache && localCache.googleServiceAccountEmail) || '';
+      const adminLineUser = data.adminLineUserId || (localCache && localCache.adminLineUserId) || '';
+      const slipProvider = data.slipVerifyProvider || (localCache && localCache.slipVerifyProvider) || 'simulator';
+      const slipBranch = data.slipVerifyBranchId || (localCache && localCache.slipVerifyBranchId) || '';
+      const slipAuto = typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : (localCache ? localCache.slipAutoApproveEnabled : false);
+
+      $('settingTokenStatus').textContent = (data.hasLineToken || (localCache && localCache.hasLineToken))
+        ? `ตั้งค่าแล้ว (${data.lineTokenMasked || '••••••••'})`
         : 'ยังไม่ได้ตั้งค่า (ทำงานในโหมดพรีวิว Flex Message อัตโนมัติ)';
-      $('settingPromptpayInput').value = data.promptpayId || '0954654698';
+      $('settingPromptpayInput').value = promptpayId;
       if ($('settingMerchantNameInput')) {
-        $('settingMerchantNameInput').value = data.merchantName || 'Thai Ticket Concert Co., Ltd.';
+        $('settingMerchantNameInput').value = merchantName;
       }
       if ($('settingBankNameInput')) {
-        $('settingBankNameInput').value = data.bankName || '';
+        $('settingBankNameInput').value = bankName;
       }
       if ($('settingBankAccountInput')) {
-        $('settingBankAccountInput').value = data.bankAccount || '';
+        $('settingBankAccountInput').value = bankAccount;
       }
       if ($('settingDriveFolderInput')) {
-        $('settingDriveFolderInput').value = data.googleDriveFolderId || '';
+        $('settingDriveFolderInput').value = driveFolder;
       }
       if ($('settingDriveEmailInput')) {
-        $('settingDriveEmailInput').value = data.googleServiceAccountEmail || '';
+        $('settingDriveEmailInput').value = driveEmail;
       }
       if ($('settingDriveKeyInput')) {
         $('settingDriveKeyInput').value = '';
-        $('settingDriveKeyInput').placeholder = data.hasGooglePrivateKey
+        $('settingDriveKeyInput').placeholder = (data.hasGooglePrivateKey || (localCache && localCache.hasGooglePrivateKey))
           ? '•••••••• (ตั้งค่าแล้ว · เว้นว่างไว้หากไม่ต้องการเปลี่ยน)'
           : '-----BEGIN PRIVATE KEY----- ...';
       }
       if ($('settingSlipProviderInput')) {
-        $('settingSlipProviderInput').value = data.slipVerifyProvider || 'simulator';
+        $('settingSlipProviderInput').value = slipProvider;
       }
       if ($('settingSlipApiKeyInput')) {
         $('settingSlipApiKeyInput').value = '';
@@ -2622,13 +2646,13 @@
           : 'วาง API Key จาก SlipOK / EasySlip';
       }
       if ($('settingSlipBranchInput')) {
-        $('settingSlipBranchInput').value = data.slipVerifyBranchId || '';
+        $('settingSlipBranchInput').value = slipBranch;
       }
       if ($('settingSlipAutoApprove')) {
-        $('settingSlipAutoApprove').checked = Boolean(data.slipAutoApproveEnabled);
+        $('settingSlipAutoApprove').checked = Boolean(slipAuto);
       }
       if ($('settingAdminLineUserInput')) {
-        $('settingAdminLineUserInput').value = data.adminLineUserId || '';
+        $('settingAdminLineUserInput').value = adminLineUser;
       }
       if ($('adminAlertTestStatus')) {
         $('adminAlertTestStatus').hidden = true;
@@ -2636,8 +2660,22 @@
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
       if ($('settingGateStaffPinInput')) $('settingGateStaffPinInput').value = '';
+
+      // If server returned default values but localStorage has customized values, background sync to server!
+      if (localCache && ((localCache.promptpayId && localCache.promptpayId !== '0954654698' && data.promptpayId === '0954654698') || (localCache.bankAccount && !data.bankAccount))) {
+        fetch('/api/settings', {
+          method: 'PUT',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(localCache)
+        }).catch(() => {});
+      }
     } catch {
-      /* ignore */
+      if (localCache) {
+        if ($('settingPromptpayInput')) $('settingPromptpayInput').value = localCache.promptpayId || '0954654698';
+        if ($('settingMerchantNameInput')) $('settingMerchantNameInput').value = localCache.merchantName || '';
+        if ($('settingBankNameInput')) $('settingBankNameInput').value = localCache.bankName || '';
+        if ($('settingBankAccountInput')) $('settingBankAccountInput').value = localCache.bankAccount || '';
+      }
     }
     window.UI.open('lineSettingsModal');
   }
@@ -2690,8 +2728,27 @@
         return;
       }
       if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+      
+      // Persist to localStorage so settings are never lost across server restarts
+      try {
+        const cacheObj = {
+          promptpayId: data.promptpayId || promptpayId,
+          merchantName: data.merchantName || merchantName,
+          bankName: data.bankName || bankName,
+          bankAccount: data.bankAccount || bankAccount,
+          googleDriveFolderId,
+          googleServiceAccountEmail,
+          slipVerifyProvider,
+          slipVerifyBranchId,
+          slipAutoApproveEnabled,
+          adminLineUserId,
+          hasLineToken: Boolean(data.hasLineToken || token)
+        };
+        localStorage.setItem('stagepass_admin_settings', JSON.stringify(cacheObj));
+      } catch (_) {}
+
       window.UI.close('lineSettingsModal');
-      window.UI.toast(`บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId}${data.bankAccount ? ' · บัญชี: ' + data.bankAccount : ''} · Cloud: Google Drive & ตรวจสลิป)`);
+      window.UI.toast(`บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId}${data.bankAccount ? ' · บัญชี: ' + data.bankAccount : ''} · บันทึกถาวรลงเครื่องและระบบ)`);
     } catch (err) {
       window.UI.toast(err.message, 'error');
     }

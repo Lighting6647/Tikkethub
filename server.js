@@ -355,9 +355,13 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, {
       ok: true,
       promptpayId,
+      promptpay_id: promptpayId,
       merchantName,
+      merchant_name: merchantName,
       bankAccount,
-      bankName
+      bank_account: bankAccount,
+      bankName,
+      bank_name: bankName
     });
   }
 

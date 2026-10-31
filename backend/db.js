@@ -13,6 +13,17 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const isUnitTest = process.execArgv.includes('--test') || Boolean(process.env.NODE_TEST_CONTEXT);
 const dbPath = isUnitTest ? ':memory:' : path.join(DATA_DIR, 'tickets.db');
+
+// Seed SQLite on Vercel ephemeral container from bundled data/tickets.db if not already present
+if (!isUnitTest && process.env.VERCEL && !fs.existsSync(dbPath)) {
+  const seedPath = path.join(__dirname, '..', 'data', 'tickets.db');
+  if (fs.existsSync(seedPath)) {
+    try {
+      fs.copyFileSync(seedPath, dbPath);
+    } catch (_) {}
+  }
+}
+
 const db = new DatabaseSync(dbPath);
 
 const journalMode = process.env.VERCEL ? 'MEMORY' : 'WAL';
@@ -988,15 +999,36 @@ function getLatestLineContact() {
 }
 
 function getSetting(key, fallback = '') {
-  const row = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key);
-  return row ? row.value : fallback;
+  try {
+    const row = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key);
+    if (row && typeof row.value !== 'undefined' && row.value !== null) return row.value;
+  } catch (_) {}
+  try {
+    const jsonPath = path.join(DATA_DIR, 'settings.json');
+    if (fs.existsSync(jsonPath)) {
+      const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      if (typeof parsed[key] !== 'undefined') return String(parsed[key]);
+    }
+  } catch (_) {}
+  return fallback;
 }
 
 function setSetting(key, value) {
-  db.prepare(`
-    INSERT INTO settings (key, value) VALUES (?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value
-  `).run(key, String(value));
+  try {
+    db.prepare(`
+      INSERT INTO settings (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(key, String(value));
+  } catch (_) {}
+  try {
+    const jsonPath = path.join(DATA_DIR, 'settings.json');
+    let parsed = {};
+    if (fs.existsSync(jsonPath)) {
+      try { parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch (_) {}
+    }
+    parsed[key] = String(value);
+    fs.writeFileSync(jsonPath, JSON.stringify(parsed, null, 2), 'utf8');
+  } catch (_) {}
 }
 
 function addAuditLog({ action, targetRef = '', detail = '', actor = 'Admin' }) {

@@ -31,17 +31,37 @@
   }
 
   async function syncPromptPayConfig() {
+    // 1. Check local cache first for instant update
     try {
-      const res = await fetch('/api/settings');
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data && data.promptpay_id) {
-        activePromptPayId = data.promptpay_id;
-        activeMerchantName = data.merchant_name || 'STAGE PASS';
+      const raw = localStorage.getItem('stagepass_admin_settings');
+      if (raw) {
+        const local = JSON.parse(raw);
+        if (local.promptpayId) activePromptPayId = local.promptpayId;
+        if (local.merchantName) activeMerchantName = local.merchantName;
+        if (local.bankAccount) activeBankAccount = local.bankAccount;
+        if (local.bankName) activeBankName = local.bankName;
       }
-      if (data && data.bank_account) {
-        activeBankAccount = data.bank_account;
-        activeBankName = data.bank_name || '';
+    } catch (_) {}
+
+    // 2. Fetch public payment config from server
+    try {
+      const res = await fetch('/api/payment-config');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ok) {
+          if (data.promptpayId || data.promptpay_id) {
+            activePromptPayId = data.promptpayId || data.promptpay_id;
+          }
+          if (data.merchantName || data.merchant_name) {
+            activeMerchantName = data.merchantName || data.merchant_name;
+          }
+          if (data.bankAccount || data.bank_account) {
+            activeBankAccount = data.bankAccount || data.bank_account;
+          }
+          if (data.bankName || data.bank_name) {
+            activeBankName = data.bankName || data.bank_name;
+          }
+        }
       }
     } catch {
       /* use fallback config */
