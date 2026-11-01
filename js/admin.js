@@ -3572,27 +3572,101 @@
     const esc = window.UI.escapeHtml;
     const stageIcons = { standard: '🎪', t_stage: '🌟', center_360: '⭕', intimate_club: '🎸' };
     const typeIcons = { table: '🍽️ ผังโต๊ะ', seated: '🪑 เก้าอี้นั่ง', standing: '🧍 ตั๋วยืน', hybrid: '🔀 ผสมผสาน' };
+    const typeShortBadge = (type) => {
+      if (type === 'seated') return '🪑 ที่นั่ง';
+      if (type === 'standing') return '🧍 ยืน';
+      return '🍽️ โต๊ะ';
+    };
+
     box.innerHTML = adminEventsCache
       .map(
-        (ev) => `
-        <div class="zone-chip" style="cursor:pointer; gap:10px;" data-edit-event-id="${ev.id}">
-          <div style="flex:1;">
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <strong style="color:#fff; font-size:13px;">${esc(ev.title)}</strong>
-              <span class="badge-accent" style="font-size:10px; padding:1px 6px;">
-                ${stageIcons[ev.stageLayout] || '🎪'} ${typeIcons[ev.seatingType] || 'ผังโต๊ะ'}
-              </span>
+        (ev) => {
+          const typeVip = ev.zoneTypeVip || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+          const typeA = ev.zoneTypeA || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+          const typeB = ev.zoneTypeB || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+          const typeC = ev.zoneTypeC || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+
+          return `
+        <div class="zone-chip" style="cursor:pointer; flex-direction:column; align-items:stretch; gap:10px; padding:12px;" data-edit-event-id="${ev.id}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+            <div style="flex:1;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <strong style="color:#fff; font-size:13px;">${esc(ev.title)}</strong>
+                <span class="badge-accent" style="font-size:10px; padding:2px 8px;">
+                  ${stageIcons[ev.stageLayout] || '🎪'} ${typeIcons[ev.seatingType] || 'ผังโต๊ะ'}
+                </span>
+                <span style="font-size:11px; color:var(--color-accent);">
+                  (คงเหลือรวม ${ev.remainingTotal}/${ev.totalQuota})
+                </span>
+              </div>
+              <div class="text-muted" style="font-size:12px; margin-top:2px;">${esc(ev.date)} · ${esc(ev.venue)}</div>
             </div>
-            <div class="text-muted" style="font-size:12px; margin-top:2px;">${esc(ev.date)} · ${esc(ev.venue)}</div>
-            <div style="font-size:11px; color:var(--color-accent); margin-top:2px;">
-              คงเหลือรวม ${ev.remainingTotal}/${ev.totalQuota} ที่/โต๊ะ (VIP: ${ev.remainingVip}/${ev.quotaVip} @${Number(ev.priceVip || 6500).toLocaleString('th-TH')}.- · A: ${ev.remainingA}/${ev.quotaA} @${Number(ev.priceA || 4500).toLocaleString('th-TH')}.- · B: ${ev.remainingB}/${ev.quotaB} @${Number(ev.priceB || 3200).toLocaleString('th-TH')}.- · C: ${ev.remainingC}/${ev.quotaC} @${Number(ev.priceC || 1800).toLocaleString('th-TH')}.-)
+            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+              <button type="button" class="btn-outline btn-sm" data-edit-event-btn="${ev.id}">แก้ไขผังเวที/ราคา</button>
+              <button type="button" class="btn-outline btn-sm" data-delete-event-id="${ev.id}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบ</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-            <button type="button" class="btn-outline btn-sm" data-edit-event-btn="${ev.id}">แก้ไขผังเวที/ราคา</button>
-            <button type="button" class="btn-outline btn-sm" data-delete-event-id="${ev.id}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบ</button>
+
+          <!-- ผังแยก 4 โซน (4-Zone Layout Separated Cards) -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px;">
+            <!-- VIP Zone -->
+            <div style="border:1px solid rgba(229,9,20,0.35); background:rgba(229,9,20,0.08); border-radius:6px; padding:6px 8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:#ff5a1f; font-size:11px;">👑 โซน VIP</strong>
+                <span style="font-size:9px; background:rgba(0,0,0,0.45); color:#fff; padding:1px 4px; border-radius:3px;">
+                  ${typeShortBadge(typeVip)}
+                </span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:10px;">
+                <span style="color:#fff; font-weight:700;">฿${Number(ev.priceVip || 6500).toLocaleString('th-TH')}</span>
+                <span style="color:#cbd5e1;">เหลือ ${ev.remainingVip}/${ev.quotaVip}</span>
+              </div>
+            </div>
+
+            <!-- Zone A -->
+            <div style="border:1px solid rgba(56,189,248,0.35); background:rgba(56,189,248,0.08); border-radius:6px; padding:6px 8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:#38bdf8; font-size:11px;">🥇 โซน A</strong>
+                <span style="font-size:9px; background:rgba(0,0,0,0.45); color:#fff; padding:1px 4px; border-radius:3px;">
+                  ${typeShortBadge(typeA)}
+                </span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:10px;">
+                <span style="color:#fff; font-weight:700;">฿${Number(ev.priceA || 4500).toLocaleString('th-TH')}</span>
+                <span style="color:#cbd5e1;">เหลือ ${ev.remainingA}/${ev.quotaA}</span>
+              </div>
+            </div>
+
+            <!-- Zone B -->
+            <div style="border:1px solid rgba(251,191,36,0.35); background:rgba(251,191,36,0.08); border-radius:6px; padding:6px 8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:#fbbf24; font-size:11px;">🥈 โซน B</strong>
+                <span style="font-size:9px; background:rgba(0,0,0,0.45); color:#fff; padding:1px 4px; border-radius:3px;">
+                  ${typeShortBadge(typeB)}
+                </span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:10px;">
+                <span style="color:#fff; font-weight:700;">฿${Number(ev.priceB || 3200).toLocaleString('th-TH')}</span>
+                <span style="color:#cbd5e1;">เหลือ ${ev.remainingB}/${ev.quotaB}</span>
+              </div>
+            </div>
+
+            <!-- Zone C -->
+            <div style="border:1px solid rgba(52,211,153,0.35); background:rgba(52,211,153,0.08); border-radius:6px; padding:6px 8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong style="color:#34d399; font-size:11px;">🥉 โซน C</strong>
+                <span style="font-size:9px; background:rgba(0,0,0,0.45); color:#fff; padding:1px 4px; border-radius:3px;">
+                  ${typeShortBadge(typeC)}
+                </span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:10px;">
+                <span style="color:#fff; font-weight:700;">฿${Number(ev.priceC || 1800).toLocaleString('th-TH')}</span>
+                <span style="color:#cbd5e1;">เหลือ ${ev.remainingC}/${ev.quotaC}</span>
+              </div>
+            </div>
           </div>
-        </div>`
+        </div>`;
+        }
       )
       .join('');
   }

@@ -579,7 +579,32 @@
 .seat-zone-block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.seat-zone-block:has(.seat-grid-vip) {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.seat-zone-block:has(.seat-grid-a) {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.seat-zone-block:has(.seat-grid-b) {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.04);
+}
+
+.seat-zone-block:has(.seat-grid-c) {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.04);
 }
 
 .zone-header-label {
