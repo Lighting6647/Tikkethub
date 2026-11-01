@@ -96,10 +96,41 @@
       const totalAmount = order.total || order.unitPrice || 0;
       const payload = window.PromptPay ? window.PromptPay.buildPayload(activePromptPayId, totalAmount) : '';
       if (typeof qrcode !== 'undefined' && payload) {
-        const qr = qrcode(0, 'M');
-        qr.addData(payload);
-        qr.make();
-        qrEl.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true, alt: 'PromptPay QR' });
+        try {
+          const qr = qrcode(0, 'M');
+          qr.addData(payload);
+          qr.make();
+          // Generate SVG with explicit dimensions and scalable attributes
+          qrEl.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 0, alt: 'PromptPay QR' });
+          const svg = qrEl.querySelector('svg');
+          if (svg) {
+            svg.setAttribute('width', '220');
+            svg.setAttribute('height', '220');
+            svg.style.width = '220px';
+            svg.style.height = '220px';
+            svg.style.maxWidth = '100%';
+            svg.style.maxHeight = '100%';
+            svg.style.display = 'block';
+            svg.style.margin = '0 auto';
+          }
+        } catch {
+          // Fallback to data URI img tag
+          try {
+            const qr = qrcode(0, 'M');
+            qr.addData(payload);
+            qr.make();
+            qrEl.innerHTML = qr.createImgTag(5, 0);
+            const img = qrEl.querySelector('img');
+            if (img) {
+              img.style.width = '220px';
+              img.style.height = '220px';
+              img.style.display = 'block';
+              img.style.margin = '0 auto';
+            }
+          } catch {
+            qrEl.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=0&data=${encodeURIComponent(payload)}" alt="PromptPay QR" style="width:220px;height:220px;display:block;margin:0 auto;">`;
+          }
+        }
       } else {
         qrEl.innerHTML = `<p style="padding:20px; color:#333; font-size:12px;">พร้อมเพย์: ${formatPromptPayId(activePromptPayId)}<br>ยอดชำระ: ${totalAmount.toLocaleString('th-TH')} THB</p>`;
       }
