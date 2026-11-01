@@ -2606,6 +2606,50 @@
     await loadGateMonitorData();
   }
 
+  let currentSettingsStep = 1;
+  const totalSettingsSteps = 4;
+
+  function setSettingsWizardStep(step) {
+    if (step < 1) step = 1;
+    if (step > totalSettingsSteps) step = totalSettingsSteps;
+    currentSettingsStep = step;
+
+    for (let i = 1; i <= totalSettingsSteps; i++) {
+      const pane = $('settingsStep' + i);
+      const pill = $('settingsStepPill' + i);
+      if (pane) pane.style.display = (i === step) ? 'block' : 'none';
+      if (pill) {
+        pill.classList.toggle('active', i === step);
+        pill.classList.toggle('completed', i < step);
+      }
+    }
+
+    const prevBtn = $('settingsPrevBtn');
+    const nextBtn = $('settingsNextBtn');
+    if (prevBtn) prevBtn.style.display = (step > 1) ? 'inline-flex' : 'none';
+    if (nextBtn) {
+      if (step < totalSettingsSteps) {
+        nextBtn.style.display = 'inline-flex';
+        const nextLabels = [
+          '',
+          'ถัดไป: พร้อมเพย์/บัญชี →',
+          'ถัดไป: Google Drive →',
+          'ถัดไป: ตรวจสลิป & PIN →'
+        ];
+        nextBtn.textContent = nextLabels[step] || 'ถัดไป →';
+      } else {
+        nextBtn.style.display = 'none';
+      }
+    }
+  }
+
+  function switchSettingsStep(delta) {
+    setSettingsWizardStep(currentSettingsStep + delta);
+  }
+
+  window.setSettingsWizardStep = setSettingsWizardStep;
+  window.switchSettingsStep = switchSettingsStep;
+
   let auditLogsCache = [];
 
   async function openSettingsModal() {
@@ -2737,6 +2781,7 @@
       }
     }
     window.UI.open('lineSettingsModal');
+    setSettingsWizardStep(1);
   }
 
   let autoSaveTimeout = null;

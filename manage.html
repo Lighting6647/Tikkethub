@@ -475,129 +475,177 @@
     </div>
   </div>
 
-  <!-- LINE OA Settings Modal -->
+  <!-- LINE OA Settings Modal (Wizard 4 Steps) -->
   <div class="modal-backdrop" id="lineSettingsModal" data-dismissable="true" role="dialog" aria-modal="true">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:680px;">
       <div class="modal-header">
-        <h3 style="font-weight:700;">ตั้งค่าพร้อมเพย์, ชื่อบัญชีรับเงิน, LINE OA & PIN</h3>
+        <div>
+          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS SETTINGS WIZARD</span>
+          <h3 style="font-weight:700; margin-top:2px;">ศูนย์ตั้งค่าระบบ & เชื่อมต่อคลาวด์</h3>
+        </div>
         <div style="display:flex; align-items:center; gap:10px;">
           <button type="button" class="btn-fire" id="quickSaveSettingsBtn" style="font-size:12px; padding:5px 14px; border-radius:9999px; font-weight:700;" title="บันทึกการตั้งค่าทันที">💾 บันทึก</button>
           <button class="modal-close" id="closeSettingsBtn" aria-label="ปิด">&times;</button>
         </div>
       </div>
-      <div class="modal-content">
-        <!-- System Readiness Status Card -->
-        <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; margin-bottom:14px;">
-          <div style="font-size:12px; font-weight:700; color:var(--color-accent); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-            <span>🛡️ สถานะระบบจัดเก็บข้อมูล & คลาวด์ (System Cloud Readiness)</span>
+
+      <!-- 4-Step Wizard Header Bar -->
+      <div class="wizard-steps-header" style="grid-template-columns: repeat(4, 1fr); padding: 10px 14px; background: rgba(10, 12, 18, 0.9);">
+        <div class="wizard-step-item active" id="settingsStepPill1" onclick="window.setSettingsWizardStep(1)" style="cursor:pointer;">
+          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
+            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">01</span>
+            <span>💬</span>
           </div>
-          <div style="font-size:12px; display:grid; grid-template-columns:1fr; gap:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
-              <span class="text-muted">🗄️ ฐานข้อมูล (Database):</span>
-              <span id="settingDbStatus" style="font-size:11px; font-weight:600;">กำลังตรวจสอบ...</span>
+          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">LINE OA</span>
+        </div>
+        <div class="wizard-step-item" id="settingsStepPill2" onclick="window.setSettingsWizardStep(2)" style="cursor:pointer;">
+          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
+            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">02</span>
+            <span>💳</span>
+          </div>
+          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">พร้อมเพย์/บัญชี</span>
+        </div>
+        <div class="wizard-step-item" id="settingsStepPill3" onclick="window.setSettingsWizardStep(3)" style="cursor:pointer;">
+          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
+            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">03</span>
+            <span>📁</span>
+          </div>
+          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">Google Drive</span>
+        </div>
+        <div class="wizard-step-item" id="settingsStepPill4" onclick="window.setSettingsWizardStep(4)" style="cursor:pointer;">
+          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
+            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">04</span>
+            <span>⚡</span>
+          </div>
+          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">ตรวจสลิป/PIN</span>
+        </div>
+      </div>
+
+      <div class="modal-content" style="padding:18px 24px;">
+
+        <!-- STEP 1: LINE OA & การแจ้งเตือน -->
+        <div id="settingsStep1" class="settings-wizard-pane">
+          <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:700; color:var(--color-accent); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+              <span>🛡️ สถานะระบบจัดเก็บข้อมูล & คลาวด์</span>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
-              <span class="text-muted">💬 LINE Messaging API:</span>
-              <span id="settingTokenStatus" style="font-size:11px; font-weight:600; color:var(--color-accent);">ยังไม่ได้ตั้งค่า</span>
+            <div style="font-size:12px; display:grid; grid-template-columns:1fr; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+                <span class="text-muted">🗄️ ฐานข้อมูล (Database):</span>
+                <span id="settingDbStatus" style="font-size:11px; font-weight:600;">กำลังตรวจสอบ...</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+                <span class="text-muted">💬 LINE Messaging API:</span>
+                <span id="settingTokenStatus" style="font-size:11px; font-weight:600; color:var(--color-accent);">ยังไม่ได้ตั้งค่า</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div>
-          <label class="field-label" for="settingLineTokenInput">LINE Channel Access Token (Long-lived)</label>
-          <input type="password" id="settingLineTokenInput" class="input-field holder-input" placeholder="วาง Channel Access Token จาก LINE Developers Console...">
-          <p class="text-muted" style="font-size:11px;margin-top:4px;">Webhook URL สำหรับตั้งค่าใน LINE Developers: <code>/api/line/webhook</code></p>
-        </div>
-        <div class="holder-grid">
+
           <div>
-            <label class="field-label" for="settingPromptpayInput">เบอร์พร้อมเพย์ / เลขผู้เสียภาษี *</label>
-            <input type="text" id="settingPromptpayInput" class="input-field holder-input" placeholder="0954654698">
+            <label class="field-label" for="settingLineTokenInput">LINE Channel Access Token (Long-lived)</label>
+            <input type="password" id="settingLineTokenInput" class="input-field holder-input" placeholder="วาง Channel Access Token จาก LINE Developers Console...">
+            <p class="text-muted" style="font-size:11px;margin-top:4px;">Webhook URL สำหรับตั้งค่าใน LINE Developers: <code>/api/line/webhook</code></p>
           </div>
-          <div>
-            <label class="field-label" for="settingMerchantNameInput">ชื่อบัญชีรับเงิน (แสดงใต้ QR) *</label>
-            <input type="text" id="settingMerchantNameInput" class="input-field holder-input" placeholder="เช่น Thai Ticket Concert Co., Ltd.">
-          </div>
-        </div>
-        <div class="holder-grid" style="margin-top:8px;">
-          <div>
-            <label class="field-label" for="settingBankNameInput">ธนาคาร (ทางเลือกสำหรับโอนผ่านเลขบัญชี)</label>
-            <select id="settingBankNameInput" class="input-field holder-input">
-              <option value="">-- ไม่ระบุ / ใช้พร้อมเพย์อย่างเดียว --</option>
-              <option value="ธนาคารกสิกรไทย (KBANK)">ธนาคารกสิกรไทย (KBANK)</option>
-              <option value="ธนาคารไทยพาณิชย์ (SCB)">ธนาคารไทยพาณิชย์ (SCB)</option>
-              <option value="ธนาคารกรุงเทพ (BBL)">ธนาคารกรุงเทพ (BBL)</option>
-              <option value="ธนาคารกรุงไทย (KTB)">ธนาคารกรุงไทย (KTB)</option>
-              <option value="ธนาคารกรุงศรีอยุธยา (BAY)">ธนาคารกรุงศรีอยุธยา (BAY)</option>
-              <option value="ธนาคารทหารไทยธนชาต (TTB)">ธนาคารทหารไทยธนชาต (TTB)</option>
-              <option value="ธนาคารออมสิน (GSB)">ธนาคารออมสิน (GSB)</option>
-            </select>
-          </div>
-          <div>
-            <label class="field-label" for="settingBankAccountInput">เลขที่บัญชีธนาคาร (แสดงใต้ QR สำหรับคัดลอก)</label>
-            <input type="text" id="settingBankAccountInput" class="input-field holder-input" placeholder="เช่น 012-3-45678-9">
-          </div>
-        </div>
-        <div class="holder-grid">
-          <div>
-            <label class="field-label" for="settingAdminPinInput">เปลี่ยนรหัส PIN แอดมินหลัก (อย่างน้อย 4 หลัก · เว้นว่างหากไม่เปลี่ยน)</label>
-            <input type="password" id="settingAdminPinInput" class="input-field holder-input" placeholder="เช่น 123456">
-          </div>
-          <div>
-            <label class="field-label" for="settingGateStaffPinInput">เปลี่ยนรหัส PIN เจ้าหน้าที่หน้าประตู (Gate Staff · เริ่มต้น 888888)</label>
-            <input type="password" id="settingGateStaffPinInput" class="input-field holder-input" placeholder="เช่น 888888">
+
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <strong style="color:var(--color-accent); font-size:13px;">🔔 ระบบแจ้งเตือนฝั่งแอดมิน (Admin Instant Notifications)</strong>
+              <button type="button" class="btn-outline" id="btnTestAdminAlert" style="font-size:11px; padding:3px 8px;">📲 ทดสอบยิงเข้า LINE แอดมิน</button>
+            </div>
+            <div>
+              <label class="field-label" for="settingAdminLineUserInput">LINE User ID ของแอดมินสำหรับรับการแจ้งเตือนสลิปใหม่ (Admin Alert)</label>
+              <input type="text" id="settingAdminLineUserInput" class="input-field holder-input" placeholder="เช่น U4af4980629... (รหัส User ID ของแอดมิน)">
+              <p class="text-muted" style="font-size:11px; margin-top:4px;">เมื่อมีลูกค้าจองบัตรและแนบสลิป ระบบจะยิงการแจ้งเตือนพร้อมยอดเงินเข้า LINE แอดมินทันที</p>
+            </div>
+            <p class="text-muted" id="adminAlertTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
           </div>
         </div>
 
-        <!-- Google Drive Cloud Storage Settings -->
-        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+        <!-- STEP 2: พร้อมเพย์ & บัญชีรับเงิน -->
+        <div id="settingsStep2" class="settings-wizard-pane" style="display:none;">
+          <div class="holder-grid">
+            <div>
+              <label class="field-label" for="settingPromptpayInput">เบอร์พร้อมเพย์ / เลขผู้เสียภาษี *</label>
+              <input type="text" id="settingPromptpayInput" class="input-field holder-input" placeholder="0954654698">
+            </div>
+            <div>
+              <label class="field-label" for="settingMerchantNameInput">ชื่อบัญชีรับเงิน (แสดงใต้ QR) *</label>
+              <input type="text" id="settingMerchantNameInput" class="input-field holder-input" placeholder="เช่น บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด">
+            </div>
+          </div>
+          <div class="holder-grid" style="margin-top:12px;">
+            <div>
+              <label class="field-label" for="settingBankNameInput">ธนาคาร (ทางเลือกสำหรับโอนผ่านเลขบัญชี)</label>
+              <select id="settingBankNameInput" class="input-field holder-input">
+                <option value="">-- ไม่ระบุ / ใช้พร้อมเพย์อย่างเดียว --</option>
+                <option value="ธนาคารกสิกรไทย (KBANK)">ธนาคารกสิกรไทย (KBANK)</option>
+                <option value="ธนาคารไทยพาณิชย์ (SCB)">ธนาคารไทยพาณิชย์ (SCB)</option>
+                <option value="ธนาคารกรุงเทพ (BBL)">ธนาคารกรุงเทพ (BBL)</option>
+                <option value="ธนาคารกรุงไทย (KTB)">ธนาคารกรุงไทย (KTB)</option>
+                <option value="ธนาคารกรุงศรีอยุธยา (BAY)">ธนาคารกรุงศรีอยุธยา (BAY)</option>
+                <option value="ธนาคารทหารไทยธนชาต (TTB)">ธนาคารทหารไทยธนชาต (TTB)</option>
+                <option value="ธนาคารออมสิน (GSB)">ธนาคารออมสิน (GSB)</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="settingBankAccountInput">เลขที่บัญชีธนาคาร (แสดงใต้ QR สำหรับคัดลอก)</label>
+              <input type="text" id="settingBankAccountInput" class="input-field holder-input" placeholder="เช่น 012-3-45678-9">
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: Google Drive เก็บสลิป -->
+        <div id="settingsStep3" class="settings-wizard-pane" style="display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
             <div style="display:flex; align-items:center; gap:8px;">
               <strong style="color:var(--color-accent); font-size:13px;">📁 ที่เก็บสลิป Google Drive (Cloud Storage)</strong>
               <span style="font-size:11px; background:rgba(34,155,255,0.15); color:#229BFF; padding:2px 6px; border-radius:4px;">ไม่บังคับใส่ (Optional)</span>
             </div>
-            <div style="display:flex; gap:6px; align-items:center;">
-              <label for="settingDriveJsonFileInput" class="btn-outline" style="font-size:11px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="เลือกไฟล์ .json ที่ดาวน์โหลดจาก Google Cloud Console เพื่อกรอกให้อัตโนมัติ">
-                📂 นำเข้าจากไฟล์ .json
-              </label>
-              <input type="file" id="settingDriveJsonFileInput" accept=".json,application/json" style="display:none;">
-              <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:3px 8px;">🔌 ทดสอบเชื่อมต่อ Drive</button>
-            </div>
+            <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:3px 8px;">🔌 ทดสอบเชื่อมต่อ Drive</button>
           </div>
-          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; margin-bottom:8px; font-size:12px; color:var(--color-muted); line-height:1.5;">
-            ℹ️ <strong>หมายเหตุ:</strong> หากเว้นว่างไว้ ระบบจะจัดเก็บสลิปการโอนเงินลงในฐานข้อมูล SQLite และ LocalStorage ของระบบอย่างสมบูรณ์แบบโดยไม่ต้องพึ่งพา Google Drive ครับ
-            <details style="margin-top:6px; cursor:pointer;">
-              <summary style="color:#229BFF; font-weight:600;">❓ ดูวิธีรับ Private Key จาก Google Cloud Console (คลิกเพื่อดูขั้นตอน)</summary>
-              <ol style="margin:6px 0 0 16px; padding:0; line-height:1.6; color:#DDD;">
-                <li>เข้าสู่ <strong>Google Cloud Console</strong> (<a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener" style="color:#229BFF;">console.cloud.google.com</a>) แล้วสร้างหรือเลือกโปรเจกต์</li>
-                <li>ไปที่เมนู <strong>IAM &amp; Admin &gt; Service Accounts</strong> แล้วกด <strong>Create Service Account</strong></li>
-                <li>คลิกที่ Service Account ที่สร้าง &gt; ไปที่แท็บ <strong>Keys &gt; Add Key &gt; Create new key &gt; เลือก JSON</strong> แล้วดาวน์โหลดไฟล์ลงเครื่อง</li>
-                <li>กดปุ่ม <strong>"📂 นำเข้าจากไฟล์ .json"</strong> ด้านบนนี้ เพื่อเลือกไฟล์ที่โหลดมา ระบบจะดึง Client Email และ Private Key กรอกลงช่องให้อัตโนมัติทันที</li>
-                <li><em>(สำคัญ)</em> แชร์โฟลเดอร์ Google Drive ของคุณให้กับอีเมล Client Email ที่ได้ โดยให้สิทธิ์ <strong>Editor</strong></li>
-              </ol>
-            </details>
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:12px; color:var(--color-muted); line-height:1.5;">
+            ℹ️ <strong>หมายเหตุ:</strong> หากเว้นว่างไว้ ระบบจะจัดเก็บสลิปลงในฐานข้อมูลอย่างสมบูรณ์แบบโดยไม่ต้องพึ่ง Google Drive ครับ
           </div>
-          <div style="margin-top:8px;">
-            <label class="field-label" for="settingDriveWebhookUrlInput">⚡ หรือใช้ Google Apps Script Webhook URL (ทางเลือกที่ง่ายที่สุด · ไม่ต้องใช้ Service Account)</label>
+
+          <!-- ทางเลือกที่ 1 (ง่ายที่สุด): Google Apps Script Webhook URL -->
+          <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:12px; margin-bottom:12px;">
+            <label class="field-label" for="settingDriveWebhookUrlInput" style="color:#10B981; font-weight:700;">⚡ วิธีที่ 1: Google Apps Script Webhook URL (ทางเลือกที่ง่ายที่สุด · แนะนำ)</label>
             <input type="url" id="settingDriveWebhookUrlInput" class="input-field holder-input" placeholder="https://script.google.com/macros/s/.../exec">
+            <p class="text-muted" style="font-size:11px; margin-top:4px;">แค่วาง Webhook URL ช่องเดียว ไม่ต้องใช้ Service Account หรือ Private Key ใดๆ</p>
           </div>
-          <div>
-            <label class="field-label" for="settingDriveFolderInput">หรือ Google Drive Folder ID (สำหรับวิธี Service Account)</label>
-            <input type="text" id="settingDriveFolderInput" class="input-field holder-input" placeholder="เช่น 1A2b3C4d5E_... หรือเว้นว่างเพื่อใช้ที่เก็บในระบบ">
-          </div>
-          <div class="holder-grid" style="margin-top:8px;">
-            <div>
-              <label class="field-label" for="settingDriveEmailInput">Service Account Client Email</label>
-              <input type="text" id="settingDriveEmailInput" class="input-field holder-input" placeholder="เช่น your-service-account@project.iam.gserviceaccount.com">
+
+          <!-- ทางเลือกที่ 2: Service Account (Details) -->
+          <details style="margin-top:6px; cursor:pointer;">
+            <summary style="color:#229BFF; font-weight:600; font-size:12px;">🔧 หรือวิธีที่ 2: ใช้ Service Account (Google Cloud Console)</summary>
+            <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label for="settingDriveJsonFileInput" class="btn-outline" style="font-size:11px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                  📂 นำเข้าจากไฟล์ .json
+                </label>
+                <input type="file" id="settingDriveJsonFileInput" accept=".json,application/json" style="display:none;">
+              </div>
+              <div>
+                <label class="field-label" for="settingDriveFolderInput">Google Drive Folder ID</label>
+                <input type="text" id="settingDriveFolderInput" class="input-field holder-input" placeholder="เช่น 1slZkrxCv9KJ6M76Pf7l2zSHzm...">
+              </div>
+              <div class="holder-grid" style="margin-top:8px;">
+                <div>
+                  <label class="field-label" for="settingDriveEmailInput">Service Account Client Email</label>
+                  <input type="text" id="settingDriveEmailInput" class="input-field holder-input" placeholder="เช่น your-bot@project.iam.gserviceaccount.com">
+                </div>
+                <div>
+                  <label class="field-label" for="settingDriveKeyInput">Service Account Private Key (PEM / JSON)</label>
+                  <input type="password" id="settingDriveKeyInput" class="input-field holder-input" placeholder="-----BEGIN PRIVATE KEY----- ...">
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="field-label" for="settingDriveKeyInput">Service Account Private Key (PEM / JSON)</label>
-              <input type="password" id="settingDriveKeyInput" class="input-field holder-input" placeholder="-----BEGIN PRIVATE KEY----- ...">
-            </div>
-          </div>
-          <p class="text-muted" id="driveTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+          </details>
+
+          <p class="text-muted" id="driveTestStatus" style="font-size:11px; margin-top:8px;" hidden></p>
         </div>
 
-        <!-- Automated Slip Verification Settings -->
-        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
+        <!-- STEP 4: ตรวจสลิป & PIN -->
+        <div id="settingsStep4" class="settings-wizard-pane" style="display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <strong style="color:var(--color-accent); font-size:13px;">⚡ ตรวจสอบสลิปอัตโนมัติ (Bank Slip Verification)</strong>
             <button type="button" class="btn-outline" id="btnTestSlip" style="font-size:11px; padding:3px 8px;">🔍 ทดสอบตรวจสลิป</button>
@@ -627,28 +675,36 @@
             <input type="text" id="settingSlipBranchInput" class="input-field holder-input" placeholder="เช่น branch_01 หรือเว้นว่าง">
           </div>
           <p class="text-muted" id="slipTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">
+            <strong style="color:var(--color-accent); font-size:13px; display:block; margin-bottom:8px;">🔐 รหัสความปลอดภัย (Security PINs)</strong>
+            <div class="holder-grid">
+              <div>
+                <label class="field-label" for="settingAdminPinInput">เปลี่ยนรหัส PIN แอดมินหลัก (อย่างน้อย 4 หลัก)</label>
+                <input type="password" id="settingAdminPinInput" class="input-field holder-input" placeholder="เช่น 123456">
+              </div>
+              <div>
+                <label class="field-label" for="settingGateStaffPinInput">เปลี่ยนรหัส PIN หน้าประตู (Gate Staff · เริ่มต้น 888888)</label>
+                <input type="password" id="settingGateStaffPinInput" class="input-field holder-input" placeholder="เช่น 888888">
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Admin Instant Notification Settings -->
-        <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <strong style="color:var(--color-accent); font-size:13px;">🔔 ระบบแจ้งเตือนฝั่งแอดมิน (Admin Instant Notifications)</strong>
-            <button type="button" class="btn-outline" id="btnTestAdminAlert" style="font-size:11px; padding:3px 8px;">📲 ทดสอบยิงเข้า LINE แอดมิน</button>
-          </div>
+        <!-- Sticky Footer Navigation -->
+        <div style="position:sticky; bottom:-20px; background:rgba(13,16,24,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); padding:14px 0 6px; border-top:1px solid rgba(255,255,255,0.12); z-index:10; display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:8px; flex-wrap:wrap;">
           <div>
-            <label class="field-label" for="settingAdminLineUserInput">LINE User ID ของแอดมินสำหรับรับการแจ้งเตือนสลิปใหม่ (Admin Alert)</label>
-            <input type="text" id="settingAdminLineUserInput" class="input-field holder-input" placeholder="เช่น U4af4980629... (รหัส User ID ของแอดมิน)">
-            <p class="text-muted" style="font-size:11px; margin-top:4px;">เมื่อมีลูกค้าจองบัตรและแนบสลิป ระบบจะยิงการแจ้งเตือนพร้อมยอดเงินเข้า LINE แอดมินทันที</p>
+            <button type="button" class="btn-outline" id="settingsPrevBtn" onclick="window.switchSettingsStep(-1)" style="display:none; font-size:12px; padding:8px 14px;">← ย้อนกลับ</button>
           </div>
-          <p class="text-muted" id="adminAlertTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="settingsAutoSaveStatus" style="font-size:11px; color:#10B981; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+              <span>✓</span> จำค่าอัตโนมัติ
+            </span>
+            <button type="button" class="btn-outline" id="settingsNextBtn" onclick="window.switchSettingsStep(1)" style="font-size:12px; padding:8px 14px; color:var(--fire); border-color:var(--fire);">ถัดไป: พร้อมเพย์/บัญชี →</button>
+            <button type="button" class="btn-primary" id="saveSettingsBtn" style="padding:8px 20px; min-width:140px; font-weight:700; font-size:13px;">💾 บันทึกการตั้งค่า</button>
+          </div>
         </div>
 
-        <div style="position:sticky; bottom:-20px; background:rgba(13,16,24,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); padding:14px 0 6px; border-top:1px solid rgba(255,255,255,0.12); z-index:10; display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
-          <span id="settingsAutoSaveStatus" style="font-size:12px; color:#10B981; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
-            <span>✓</span> ระบบจำการตั้งค่าในเครื่องอัตโนมัติ
-          </span>
-          <button class="btn-primary" id="saveSettingsBtn" style="padding:10px 24px; min-width:170px; font-weight:700;">💾 บันทึกการตั้งค่า</button>
-        </div>
       </div>
     </div>
   </div>
