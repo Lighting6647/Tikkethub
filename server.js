@@ -1230,17 +1230,17 @@ async function handleApi(req, res, url) {
     }
     if (method === 'GET') {
       const token = db.getSetting('line_channel_access_token', '');
-      const promptpayId = db.getSetting('promptpay_id', '0804711301');
-      const merchantName = db.getSetting('merchant_name', 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด');
-      const bankAccount = db.getSetting('bank_account', '1638790587');
-      const bankName = db.getSetting('bank_name', 'ธนาคารกสิกรไทย (KBANK)');
+      const promptpayId = db.getSetting('promptpay_id', '');
+      const merchantName = db.getSetting('merchant_name', '');
+      const bankAccount = db.getSetting('bank_account', '');
+      const bankName = db.getSetting('bank_name', '');
       const googleDriveFolderId = db.getSetting('google_drive_folder_id', process.env.GOOGLE_DRIVE_FOLDER_ID || '');
       const googleServiceAccountEmail = db.getSetting('google_service_account_email', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '');
       const hasGooglePrivateKey = Boolean(db.getSetting('google_service_account_private_key', process.env.GOOGLE_PRIVATE_KEY || ''));
-      const slipVerifyProvider = db.getSetting('slip_verify_provider', process.env.SLIP_VERIFY_PROVIDER || 'easyslip');
+      const slipVerifyProvider = db.getSetting('slip_verify_provider', process.env.SLIP_VERIFY_PROVIDER || 'simulator');
       const slipVerifyApiKey = db.getSetting('slip_verify_api_key', process.env.SLIP_VERIFY_API_KEY || '');
       const slipVerifyBranchId = db.getSetting('slip_verify_branch_id', process.env.SLIP_VERIFY_BRANCH_ID || '');
-      const slipAutoApproveEnabled = db.getSetting('slip_auto_approve_enabled', 'true') === 'true';
+      const slipAutoApproveEnabled = db.getSetting('slip_auto_approve_enabled', 'false') === 'true';
 
       return sendJson(res, 200, {
         ok: true,
@@ -1258,7 +1258,7 @@ async function handleApi(req, res, url) {
         slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
         slipVerifyBranchId,
         slipAutoApproveEnabled,
-        adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4'),
+        adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || ''),
         hasGateStaffPin: Boolean(db.getSetting('gate_staff_pin', '888888'))
       });
     }
@@ -1354,19 +1354,19 @@ async function handleApi(req, res, url) {
         ok: true,
         hasLineToken: Boolean(token),
         lineTokenMasked: maskToken(token),
-        promptpayId: db.getSetting('promptpay_id', '0804711301'),
-        merchantName: db.getSetting('merchant_name', 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด'),
-        bankAccount: db.getSetting('bank_account', '1638790587'),
-        bankName: db.getSetting('bank_name', 'ธนาคารกสิกรไทย (KBANK)'),
+        promptpayId: db.getSetting('promptpay_id', ''),
+        merchantName: db.getSetting('merchant_name', ''),
+        bankAccount: db.getSetting('bank_account', ''),
+        bankName: db.getSetting('bank_name', ''),
         googleDriveFolderId: db.getSetting('google_drive_folder_id', ''),
         googleServiceAccountEmail: db.getSetting('google_service_account_email', ''),
         hasGooglePrivateKey: Boolean(db.getSetting('google_service_account_private_key', '')),
-        slipVerifyProvider: db.getSetting('slip_verify_provider', 'easyslip'),
+        slipVerifyProvider: db.getSetting('slip_verify_provider', 'simulator'),
         slipVerifyBranchId: db.getSetting('slip_verify_branch_id', ''),
-        slipAutoApproveEnabled: db.getSetting('slip_auto_approve_enabled', 'true') === 'true',
+        slipAutoApproveEnabled: db.getSetting('slip_auto_approve_enabled', 'false') === 'true',
         hasSlipVerifyApiKey: Boolean(slipVerifyApiKey),
         slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
-        adminLineUserId: db.getSetting('admin_line_user_id', 'U22e8f8c71ad28f6ae4c3eece3f6c39d4')
+        adminLineUserId: db.getSetting('admin_line_user_id', '')
       });
     }
   }

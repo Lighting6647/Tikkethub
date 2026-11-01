@@ -2623,25 +2623,17 @@
         return;
       }
 
-      const promptpayId = (localCache && localCache.promptpayId)
-        || (data.promptpayId && data.promptpayId !== '0954654698' ? data.promptpayId : '0804711301');
-
-      const merchantName = (localCache && localCache.merchantName)
-        || (data.merchantName && data.merchantName !== 'Thai Ticket Concert Co., Ltd.' ? data.merchantName : 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด');
-
-      const bankName = (localCache && localCache.bankName)
-        || data.bankName
-        || 'ธนาคารกสิกรไทย (KBANK)';
-
-      const bankAccount = (localCache && localCache.bankAccount)
-        || data.bankAccount
-        || '1638790587';
-      const driveFolder = (localCache && localCache.googleDriveFolderId) || data.googleDriveFolderId || '';
-      const driveEmail = (localCache && localCache.googleServiceAccountEmail) || data.googleServiceAccountEmail || '';
-      const adminLineUser = (localCache && localCache.adminLineUserId) || data.adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4';
-      const slipProvider = (localCache && localCache.slipVerifyProvider) || data.slipVerifyProvider || 'easyslip';
-      const slipBranch = (localCache && localCache.slipVerifyBranchId) || data.slipVerifyBranchId || '';
-      const slipAuto = localCache && typeof localCache.slipAutoApproveEnabled !== 'undefined' ? localCache.slipAutoApproveEnabled : (typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : true);
+      // Read directly from what is saved in the system (data)
+      const promptpayId = typeof data.promptpayId !== 'undefined' ? data.promptpayId : (localCache ? localCache.promptpayId || '' : '');
+      const merchantName = typeof data.merchantName !== 'undefined' ? data.merchantName : (localCache ? localCache.merchantName || '' : '');
+      const bankName = typeof data.bankName !== 'undefined' ? data.bankName : (localCache ? localCache.bankName || '' : '');
+      const bankAccount = typeof data.bankAccount !== 'undefined' ? data.bankAccount : (localCache ? localCache.bankAccount || '' : '');
+      const driveFolder = typeof data.googleDriveFolderId !== 'undefined' ? data.googleDriveFolderId : (localCache ? localCache.googleDriveFolderId || '' : '');
+      const driveEmail = typeof data.googleServiceAccountEmail !== 'undefined' ? data.googleServiceAccountEmail : (localCache ? localCache.googleServiceAccountEmail || '' : '');
+      const adminLineUser = typeof data.adminLineUserId !== 'undefined' ? data.adminLineUserId : (localCache ? localCache.adminLineUserId || '' : '');
+      const slipProvider = typeof data.slipVerifyProvider !== 'undefined' ? data.slipVerifyProvider : (localCache ? localCache.slipVerifyProvider || 'simulator' : 'simulator');
+      const slipBranch = typeof data.slipVerifyBranchId !== 'undefined' ? data.slipVerifyBranchId : (localCache ? localCache.slipVerifyBranchId || '' : '');
+      const slipAuto = typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : (localCache && typeof localCache.slipAutoApproveEnabled !== 'undefined' ? localCache.slipAutoApproveEnabled : false);
 
       $('settingTokenStatus').textContent = (data.hasLineToken || (localCache && localCache.hasLineToken))
         ? `ตั้งค่าแล้ว (${data.lineTokenMasked || '••••••••'})`
@@ -2697,20 +2689,40 @@
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
       if ($('settingGateStaffPinInput')) $('settingGateStaffPinInput').value = '';
 
-      // If server returned default values but localStorage has customized values, background sync to server!
-      if (localCache && (localCache.promptpayId || localCache.bankAccount)) {
-        fetch('/api/settings', {
-          method: 'PUT',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify(localCache)
-        }).catch(() => {});
-      }
+      // Sync localCache to exactly reflect what is saved in the system
+      try {
+        const synced = {
+          promptpayId,
+          merchantName,
+          bankName,
+          bankAccount,
+          googleDriveFolderId: driveFolder,
+          googleServiceAccountEmail: driveEmail,
+          slipVerifyProvider: slipProvider,
+          slipVerifyBranchId: slipBranch,
+          slipAutoApproveEnabled: slipAuto,
+          adminLineUserId: adminLineUser,
+          hasLineToken: Boolean(data.hasLineToken),
+          hasSlipVerifyApiKey: Boolean(data.hasSlipVerifyApiKey)
+        };
+        if (localCache && localCache.slipVerifyApiKey) {
+          synced.slipVerifyApiKey = localCache.slipVerifyApiKey;
+        }
+        localStorage.setItem('stagepass_admin_settings', JSON.stringify(synced));
+      } catch (_) {}
     } catch {
       if (localCache) {
-        if ($('settingPromptpayInput')) $('settingPromptpayInput').value = localCache.promptpayId || '0804711301';
-        if ($('settingMerchantNameInput')) $('settingMerchantNameInput').value = localCache.merchantName || 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด';
-        if ($('settingBankNameInput')) $('settingBankNameInput').value = localCache.bankName || 'ธนาคารกสิกรไทย (KBANK)';
-        if ($('settingBankAccountInput')) $('settingBankAccountInput').value = localCache.bankAccount || '1638790587';
+        if ($('settingPromptpayInput') && typeof localCache.promptpayId !== 'undefined') $('settingPromptpayInput').value = localCache.promptpayId;
+        if ($('settingMerchantNameInput') && typeof localCache.merchantName !== 'undefined') $('settingMerchantNameInput').value = localCache.merchantName;
+        if ($('settingBankNameInput') && typeof localCache.bankName !== 'undefined') $('settingBankNameInput').value = localCache.bankName;
+        if ($('settingBankAccountInput') && typeof localCache.bankAccount !== 'undefined') $('settingBankAccountInput').value = localCache.bankAccount;
+        if ($('settingDriveFolderInput') && typeof localCache.googleDriveFolderId !== 'undefined') $('settingDriveFolderInput').value = localCache.googleDriveFolderId;
+        if ($('settingDriveEmailInput') && typeof localCache.googleServiceAccountEmail !== 'undefined') $('settingDriveEmailInput').value = localCache.googleServiceAccountEmail;
+        if ($('settingSlipProviderInput') && typeof localCache.slipVerifyProvider !== 'undefined') $('settingSlipProviderInput').value = localCache.slipVerifyProvider;
+        if ($('settingSlipBranchInput') && typeof localCache.slipVerifyBranchId !== 'undefined') $('settingSlipBranchInput').value = localCache.slipVerifyBranchId;
+        if ($('settingSlipApiKeyInput') && typeof localCache.slipVerifyApiKey !== 'undefined') $('settingSlipApiKeyInput').value = localCache.slipVerifyApiKey;
+        if ($('settingSlipAutoApprove') && typeof localCache.slipAutoApproveEnabled !== 'undefined') $('settingSlipAutoApprove').checked = Boolean(localCache.slipAutoApproveEnabled);
+        if ($('settingAdminLineUserInput') && typeof localCache.adminLineUserId !== 'undefined') $('settingAdminLineUserInput').value = localCache.adminLineUserId;
       }
     }
     window.UI.open('lineSettingsModal');
@@ -2724,10 +2736,10 @@
     const bankAccount = $('settingBankAccountInput') ? $('settingBankAccountInput').value.trim() : '';
     const googleDriveFolderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
     const googleServiceAccountEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
-    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'easyslip';
+    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : '';
     const slipVerifyApiKey = $('settingSlipApiKeyInput') ? $('settingSlipApiKeyInput').value.trim() : '';
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
-    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : true;
+    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
 
     try {
@@ -2736,23 +2748,23 @@
       if (raw) prev = JSON.parse(raw);
       const updated = {
         ...prev,
-        promptpayId: promptpayId || prev.promptpayId || '0804711301',
-        merchantName: merchantName || prev.merchantName || 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด',
-        bankName: bankName || prev.bankName || 'ธนาคารกสิกรไทย (KBANK)',
-        bankAccount: bankAccount || prev.bankAccount || '1638790587',
+        promptpayId,
+        merchantName,
+        bankName,
+        bankAccount,
         googleDriveFolderId,
         googleServiceAccountEmail,
-        slipVerifyProvider: slipVerifyProvider || 'easyslip',
+        slipVerifyProvider,
         slipVerifyBranchId,
         slipAutoApproveEnabled,
-        adminLineUserId: adminLineUserId || prev.adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4',
+        adminLineUserId,
         slipVerifyApiKey: slipVerifyApiKey || prev.slipVerifyApiKey || '',
         hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey)
       };
       localStorage.setItem('stagepass_admin_settings', JSON.stringify(updated));
       const statusEl = $('settingsAutoSaveStatus');
       if (statusEl) {
-        statusEl.innerHTML = '<span>✓</span> ระบบจำการตั้งค่าในเครื่องอัตโนมัติแล้ว';
+        statusEl.innerHTML = '<span>✓</span> จำการตั้งค่าชั่วคราวแล้ว';
         statusEl.style.color = '#10B981';
       }
     } catch (_) {}
@@ -2761,26 +2773,24 @@
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(() => {
       const cleanDigits = promptpayId.replace(/\D/g, '');
-      if (cleanDigits.length === 10 || cleanDigits.length === 13) {
-        const payload = {
-          promptpayId: cleanDigits,
-          merchantName,
-          bankName,
-          bankAccount,
-          googleDriveFolderId,
-          googleServiceAccountEmail,
-          slipVerifyProvider,
-          slipVerifyBranchId,
-          slipAutoApproveEnabled,
-          adminLineUserId: adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4'
-        };
-        if (slipVerifyApiKey) payload.slipVerifyApiKey = slipVerifyApiKey;
-        fetch('/api/settings', {
-          method: 'PUT',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify(payload)
-        }).catch(() => {});
-      }
+      const payload = {
+        promptpayId: cleanDigits,
+        merchantName,
+        bankName,
+        bankAccount,
+        googleDriveFolderId,
+        googleServiceAccountEmail,
+        slipVerifyProvider,
+        slipVerifyBranchId,
+        slipAutoApproveEnabled,
+        adminLineUserId
+      };
+      if (slipVerifyApiKey) payload.slipVerifyApiKey = slipVerifyApiKey;
+      fetch('/api/settings', {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload)
+      }).catch(() => {});
     }, 800);
   }
 
@@ -2795,10 +2805,10 @@
     const googleDriveFolderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
     const googleServiceAccountEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
     const googleServiceAccountPrivateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
-    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'easyslip';
+    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : '';
     const slipVerifyApiKey = $('settingSlipApiKeyInput') ? $('settingSlipApiKeyInput').value.trim() : '';
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
-    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : true;
+    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
 
     const payload = {
@@ -2811,7 +2821,7 @@
       slipVerifyProvider,
       slipVerifyBranchId,
       slipAutoApproveEnabled,
-      adminLineUserId: adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4'
+      adminLineUserId
     };
     if (token) payload.lineChannelAccessToken = token;
     if (adminPin) payload.adminPin = adminPin;
@@ -2840,16 +2850,16 @@
         if (raw) prev = JSON.parse(raw);
         const cacheObj = {
           ...prev,
-          promptpayId: data.promptpayId || promptpayId,
-          merchantName: data.merchantName || merchantName,
-          bankName: data.bankName || bankName,
-          bankAccount: data.bankAccount || bankAccount,
+          promptpayId: typeof data.promptpayId !== 'undefined' ? data.promptpayId : promptpayId,
+          merchantName: typeof data.merchantName !== 'undefined' ? data.merchantName : merchantName,
+          bankName: typeof data.bankName !== 'undefined' ? data.bankName : bankName,
+          bankAccount: typeof data.bankAccount !== 'undefined' ? data.bankAccount : bankAccount,
           googleDriveFolderId,
           googleServiceAccountEmail,
-          slipVerifyProvider,
-          slipVerifyBranchId,
-          slipAutoApproveEnabled,
-          adminLineUserId: adminLineUserId || data.adminLineUserId || prev.adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4',
+          slipVerifyProvider: typeof data.slipVerifyProvider !== 'undefined' ? data.slipVerifyProvider : slipVerifyProvider,
+          slipVerifyBranchId: typeof data.slipVerifyBranchId !== 'undefined' ? data.slipVerifyBranchId : slipVerifyBranchId,
+          slipAutoApproveEnabled: typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : slipAutoApproveEnabled,
+          adminLineUserId: typeof data.adminLineUserId !== 'undefined' ? data.adminLineUserId : adminLineUserId,
           slipVerifyApiKey: slipVerifyApiKey || prev.slipVerifyApiKey || '',
           hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey || data.hasSlipVerifyApiKey),
           hasLineToken: Boolean(data.hasLineToken || token || prev.hasLineToken)
@@ -2873,7 +2883,7 @@
         statusEl.style.color = '#10B981';
       }
 
-      window.UI.toast(`✅ บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId} · ระบบตรวจสลิป: ${slipVerifyProvider} · บันทึกถาวร)`);
+      window.UI.toast(`✅ บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId || promptpayId || '-'} · ระบบตรวจสลิป: ${data.slipVerifyProvider || slipVerifyProvider || '-'} · บันทึกถาวร)`);
 
       setTimeout(() => {
         saveBtns.forEach(btn => {
@@ -4015,23 +4025,18 @@
       if (rawSettings) {
         const s = JSON.parse(rawSettings);
         if (s && typeof s === 'object') {
-          if ($('settingPromptpayInput')) $('settingPromptpayInput').value = s.promptpayId || '0804711301';
-          if ($('settingMerchantNameInput')) $('settingMerchantNameInput').value = s.merchantName || 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด';
-          if ($('settingBankNameInput')) $('settingBankNameInput').value = s.bankName || 'ธนาคารกสิกรไทย (KBANK)';
-          if ($('settingBankAccountInput')) $('settingBankAccountInput').value = s.bankAccount || '1638790587';
-          if ($('settingDriveFolderInput') && s.googleDriveFolderId) $('settingDriveFolderInput').value = s.googleDriveFolderId;
-          if ($('settingDriveEmailInput') && s.googleServiceAccountEmail) $('settingDriveEmailInput').value = s.googleServiceAccountEmail;
-          if ($('settingSlipProviderInput') && s.slipVerifyProvider) $('settingSlipProviderInput').value = s.slipVerifyProvider;
-          if ($('settingSlipBranchInput') && s.slipVerifyBranchId) $('settingSlipBranchInput').value = s.slipVerifyBranchId;
-          if ($('settingSlipApiKeyInput') && s.slipVerifyApiKey) $('settingSlipApiKeyInput').value = s.slipVerifyApiKey;
+          if ($('settingPromptpayInput') && typeof s.promptpayId !== 'undefined') $('settingPromptpayInput').value = s.promptpayId;
+          if ($('settingMerchantNameInput') && typeof s.merchantName !== 'undefined') $('settingMerchantNameInput').value = s.merchantName;
+          if ($('settingBankNameInput') && typeof s.bankName !== 'undefined') $('settingBankNameInput').value = s.bankName;
+          if ($('settingBankAccountInput') && typeof s.bankAccount !== 'undefined') $('settingBankAccountInput').value = s.bankAccount;
+          if ($('settingDriveFolderInput') && typeof s.googleDriveFolderId !== 'undefined') $('settingDriveFolderInput').value = s.googleDriveFolderId;
+          if ($('settingDriveEmailInput') && typeof s.googleServiceAccountEmail !== 'undefined') $('settingDriveEmailInput').value = s.googleServiceAccountEmail;
+          if ($('settingSlipProviderInput') && typeof s.slipVerifyProvider !== 'undefined') $('settingSlipProviderInput').value = s.slipVerifyProvider;
+          if ($('settingSlipBranchInput') && typeof s.slipVerifyBranchId !== 'undefined') $('settingSlipBranchInput').value = s.slipVerifyBranchId;
+          if ($('settingSlipApiKeyInput') && typeof s.slipVerifyApiKey !== 'undefined') $('settingSlipApiKeyInput').value = s.slipVerifyApiKey;
           if ($('settingSlipAutoApprove') && typeof s.slipAutoApproveEnabled !== 'undefined') $('settingSlipAutoApprove').checked = Boolean(s.slipAutoApproveEnabled);
-          if ($('settingAdminLineUserInput') && s.adminLineUserId) $('settingAdminLineUserInput').value = s.adminLineUserId;
+          if ($('settingAdminLineUserInput') && typeof s.adminLineUserId !== 'undefined') $('settingAdminLineUserInput').value = s.adminLineUserId;
         }
-      } else {
-        if ($('settingPromptpayInput') && !$('settingPromptpayInput').value) $('settingPromptpayInput').value = '0804711301';
-        if ($('settingMerchantNameInput') && !$('settingMerchantNameInput').value) $('settingMerchantNameInput').value = 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด';
-        if ($('settingBankNameInput') && !$('settingBankNameInput').value) $('settingBankNameInput').value = 'ธนาคารกสิกรไทย (KBANK)';
-        if ($('settingBankAccountInput') && !$('settingBankAccountInput').value) $('settingBankAccountInput').value = '1638790587';
       }
     } catch (_) {}
   }
