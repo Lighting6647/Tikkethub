@@ -3274,8 +3274,26 @@
     $('evQuotaA').value = '100';
     $('evQuotaB').value = '120';
     $('evQuotaC').value = '150';
-    $('evFormModeTitle').textContent = '+ เพิ่มคอนเสิร์ตใหม่ / แก้ไขโควตาที่นั่ง';
+    if ($('evPriceVip')) $('evPriceVip').value = '6500';
+    if ($('evPriceA')) $('evPriceA').value = '4500';
+    if ($('evPriceB')) $('evPriceB').value = '3200';
+    if ($('evPriceC')) $('evPriceC').value = '1800';
+    $('evFormModeTitle').textContent = '+ เพิ่มคอนเสิร์ตใหม่ / กำหนดราคาและโควตาโต๊ะ';
     if ($('deleteEventBtn')) $('deleteEventBtn').hidden = true;
+  }
+
+  function recalculateEventPriceRange() {
+    const pVip = Number($('evPriceVip') ? $('evPriceVip').value : 6500) || 0;
+    const pA = Number($('evPriceA') ? $('evPriceA').value : 4500) || 0;
+    const pB = Number($('evPriceB') ? $('evPriceB').value : 3200) || 0;
+    const pC = Number($('evPriceC') ? $('evPriceC').value : 1800) || 0;
+    const arr = [pVip, pA, pB, pC].filter((x) => x > 0);
+    if (!arr.length) return;
+    const minP = Math.min(...arr);
+    const maxP = Math.max(...arr);
+    if ($('evPriceRangeInput')) {
+      $('evPriceRangeInput').value = minP === maxP ? `${minP.toLocaleString('th-TH')} THB` : `${minP.toLocaleString('th-TH')} - ${maxP.toLocaleString('th-TH')} THB`;
+    }
   }
 
   function renderAdminEvents() {
@@ -3294,11 +3312,11 @@
             <div style="font-weight:700; color:#fff;">${esc(ev.title)}</div>
             <div class="text-muted" style="font-size:12px;">${esc(ev.date)} · ${esc(ev.venue)}</div>
             <div style="font-size:11px; color:var(--color-accent); margin-top:2px;">
-              คงเหลือรวม ${ev.remainingTotal}/${ev.totalQuota} ที่นั่ง (VIP:${ev.remainingVip}/${ev.quotaVip} · A:${ev.remainingA}/${ev.quotaA} · B:${ev.remainingB}/${ev.quotaB} · C:${ev.remainingC}/${ev.quotaC})
+              คงเหลือรวม ${ev.remainingTotal}/${ev.totalQuota} โต๊ะ (โต๊ะ VIP: ${ev.remainingVip}/${ev.quotaVip} @${Number(ev.priceVip || 6500).toLocaleString('th-TH')}.- · โต๊ะ A: ${ev.remainingA}/${ev.quotaA} @${Number(ev.priceA || 4500).toLocaleString('th-TH')}.- · โต๊ะ B: ${ev.remainingB}/${ev.quotaB} @${Number(ev.priceB || 3200).toLocaleString('th-TH')}.- · โต๊ะ C: ${ev.remainingC}/${ev.quotaC} @${Number(ev.priceC || 1800).toLocaleString('th-TH')}.-)
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-            <button type="button" class="btn-outline btn-sm" data-edit-event-btn="${ev.id}">แก้ไขโควตา</button>
+            <button type="button" class="btn-outline btn-sm" data-edit-event-btn="${ev.id}">แก้ไขราคา/โควตาโต๊ะ</button>
             <button type="button" class="btn-outline btn-sm" data-delete-event-id="${ev.id}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบ</button>
           </div>
         </div>`
@@ -3331,6 +3349,10 @@
     const quotaA = Number($('evQuotaA').value || 100);
     const quotaB = Number($('evQuotaB').value || 120);
     const quotaC = Number($('evQuotaC').value || 150);
+    const priceVip = Number($('evPriceVip') ? $('evPriceVip').value : 6500) || 6500;
+    const priceA = Number($('evPriceA') ? $('evPriceA').value : 4500) || 4500;
+    const priceB = Number($('evPriceB') ? $('evPriceB').value : 3200) || 3200;
+    const priceC = Number($('evPriceC') ? $('evPriceC').value : 1800) || 1800;
     const image = $('evImageInput') ? $('evImageInput').value.trim() : '';
 
     if (!title || !venue || !date) {
@@ -3343,7 +3365,7 @@
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ id, title, venue, date, priceRange, quotaVip, quotaA, quotaB, quotaC, image })
+        body: JSON.stringify({ id, title, venue, date, priceRange, quotaVip, quotaA, quotaB, quotaC, priceVip, priceA, priceB, priceC, image })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -3367,7 +3389,7 @@
       } catch (_) {}
       renderAdminEvents();
       resetEventForm();
-      window.UI.toast('บันทึกข้อมูลคอนเสิร์ตและโควตาที่นั่งเรียบร้อยแล้ว (อัปเดตหน้าขายบัตรทันที)');
+      window.UI.toast('บันทึกข้อมูลคอนเสิร์ต ราคา และโควตาโต๊ะเรียบร้อยแล้ว (อัปเดตหน้าขายบัตรทันที)');
     } catch (err) {
       window.UI.toast(err.message, 'error');
     } finally {
@@ -3793,6 +3815,10 @@
     if ($('deleteEventBtn')) {
       $('deleteEventBtn').addEventListener('click', () => deleteAdminEvent());
     }
+    ['evPriceVip', 'evPriceA', 'evPriceB', 'evPriceC'].forEach((pid) => {
+      const el = $(pid);
+      if (el) el.addEventListener('input', recalculateEventPriceRange);
+    });
     if ($('adminEventsList')) {
       $('adminEventsList').addEventListener('click', (e) => {
         const delBtn = e.target.closest('[data-delete-event-id]');
@@ -3814,6 +3840,10 @@
         $('evQuotaA').value = String(ev.quotaA);
         $('evQuotaB').value = String(ev.quotaB);
         $('evQuotaC').value = String(ev.quotaC);
+        if ($('evPriceVip')) $('evPriceVip').value = String(ev.priceVip != null ? ev.priceVip : 6500);
+        if ($('evPriceA')) $('evPriceA').value = String(ev.priceA != null ? ev.priceA : 4500);
+        if ($('evPriceB')) $('evPriceB').value = String(ev.priceB != null ? ev.priceB : 3200);
+        if ($('evPriceC')) $('evPriceC').value = String(ev.priceC != null ? ev.priceC : 1800);
         if ($('evImageInput')) $('evImageInput').value = ev.image || '';
         if ($('evImagePreviewWrap')) {
           if (ev.image) {

@@ -468,10 +468,10 @@
           <!-- Mode Switch Tabs -->
           <div class="seat-mode-tabs" style="display:flex; gap:8px;">
             <button type="button" class="btn-outline active seat-mode-tab" id="tabSeatMap" onclick="setBookingMode('map')" style="flex:1;">
-              🗺️ ผังที่นั่งจริง (Map)
+              🗺️ ผังโต๊ะจริง (Table Map)
             </button>
             <button type="button" class="btn-outline seat-mode-tab" id="tabQuickZone" onclick="setBookingMode('zone')" style="flex:1;">
-              ⚡ เลือกโซนด่วน (Quick)
+              ⚡ เลือกประเภทโต๊ะด่วน (Quick Table)
             </button>
           </div>
 
@@ -483,23 +483,23 @@
           <!-- Quick Zone Selection View -->
           <div id="quickZoneView" hidden>
             <div>
-              <label style="font-weight:600; margin-bottom:8px; display:block;">เลือกโซนที่นั่ง / ยืน</label>
+              <label style="font-weight:600; margin-bottom:8px; display:block;">เลือกประเภทโต๊ะ (Table Selection)</label>
               <div class="zone-selection-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <button class="zone-btn selected" onclick="selectZone('VIP Standing', 6500, this)">
-                  <span class="zone-btn-name">VIP Standing (ยืน)</span>
-                  <span class="zone-btn-price">6,500 THB</span>
+                <button class="zone-btn selected" id="zoneBtnVip" onclick="selectZone('โต๊ะ VIP', currentTablePrices.vip, this)">
+                  <span class="zone-btn-name">👑 โต๊ะ VIP</span>
+                  <span class="zone-btn-price" id="zonePriceVip">6,500 THB</span>
                 </button>
-                <button class="zone-btn" onclick="selectZone('Zone A (บัตรนั่ง)', 4500, this)">
-                  <span class="zone-btn-name">Zone A (นั่ง)</span>
-                  <span class="zone-btn-price">4,500 THB</span>
+                <button class="zone-btn" id="zoneBtnA" onclick="selectZone('โต๊ะโซน A', currentTablePrices.a, this)">
+                  <span class="zone-btn-name">🥇 โต๊ะโซน A</span>
+                  <span class="zone-btn-price" id="zonePriceA">4,500 THB</span>
                 </button>
-                <button class="zone-btn" onclick="selectZone('Zone B (บัตรนั่ง)', 3200, this)">
-                  <span class="zone-btn-name">Zone B (นั่ง)</span>
-                  <span class="zone-btn-price">3,200 THB</span>
+                <button class="zone-btn" id="zoneBtnB" onclick="selectZone('โต๊ะโซน B', currentTablePrices.b, this)">
+                  <span class="zone-btn-name">🥈 โต๊ะโซน B</span>
+                  <span class="zone-btn-price" id="zonePriceB">3,200 THB</span>
                 </button>
-                <button class="zone-btn" onclick="selectZone('Zone C (ชั้นบน)', 1800, this)">
-                  <span class="zone-btn-name">Zone C (ชั้นบน)</span>
-                  <span class="zone-btn-price">1,800 THB</span>
+                <button class="zone-btn" id="zoneBtnC" onclick="selectZone('โต๊ะโซน C', currentTablePrices.c, this)">
+                  <span class="zone-btn-name">🥉 โต๊ะโซน C</span>
+                  <span class="zone-btn-price" id="zonePriceC">1,800 THB</span>
                 </button>
               </div>
             </div>
@@ -508,7 +508,7 @@
           <!-- Quantity Control -->
           <div>
             <div class="quantity-control" style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px;">
-              <span style="font-weight:600;">จำนวนบัตร / โต๊ะ</span>
+              <span style="font-weight:600;">จำนวนโต๊ะที่ต้องการจอง</span>
               <div style="display:flex; align-items:center; gap:12px;">
                 <button class="qty-btn icon-btn" onclick="changeQty(-1)" style="width:32px; height:32px;">-</button>
                 <span id="ticketQty" style="font-weight:700; min-width:24px; text-align:center; font-family:var(--font-tech); font-size:16px;">1</span>
@@ -519,7 +519,7 @@
 
           <!-- Holder Information Form -->
           <div class="holder-form">
-            <label style="font-weight:600; margin-bottom:8px; display:block;">ข้อมูลผู้ถือบัตร (แสดงบนบัตร & ส่งทาง LINE)</label>
+            <label style="font-weight:600; margin-bottom:8px; display:block;">ข้อมูลผู้จองโต๊ะ (แสดงบนบัตร & ส่งทาง LINE)</label>
             <div class="holder-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
               <div>
                 <label class="holder-sub-label" for="holderName">ชื่อ - นามสกุล <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>

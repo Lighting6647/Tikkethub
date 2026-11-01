@@ -547,17 +547,18 @@
 .seat-btn {
   aspect-ratio: 1;
   padding: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  background: #2a2a2a;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: #242424;
   color: #FFFFFF;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .seat-btn:hover:not(:disabled) {

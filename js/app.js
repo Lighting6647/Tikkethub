@@ -14,7 +14,9 @@ let currentCategory = 'all';
 let searchQuery = '';
 let selectedEvent = null;
 let selectedZonePrice = 6500;
-let selectedZoneName = 'VIP Standing';
+let selectedZoneName = 'โต๊ะ VIP';
+let currentTablePrices = { vip: 6500, a: 4500, b: 3200, c: 1800 };
+if (typeof window !== 'undefined') window.currentTablePrices = currentTablePrices;
 let currentQty = 1;
 let activePromo = null;
 
@@ -100,14 +102,14 @@ function renderEvents() {
         <div class="event-details">
           <div class="event-detail-item">${ICON_CAL}<span>${esc(ev.date)}</span></div>
           <div class="event-detail-item">${ICON_PIN}<span>${esc(ev.venue)}</span></div>
-          ${ev.remainingTotal !== undefined ? `<div class="event-detail-item"><span style="color:var(--color-accent);font-size:12px;font-weight:600;">🎟️ บัตรคงเหลือ ${Number(ev.remainingTotal).toLocaleString('th-TH')} ที่นั่ง</span></div>` : ''}
+          ${ev.remainingTotal !== undefined ? `<div class="event-detail-item"><span style="color:var(--color-accent);font-size:12px;font-weight:600;">🍽️ โต๊ะคงเหลือ ${Number(ev.remainingTotal).toLocaleString('th-TH')} โต๊ะ</span></div>` : ''}
         </div>
         <div class="event-price-box">
           <div>
             <span class="price-label">ราคาเริ่มต้น</span>
             <div class="price-value">${esc(ev.priceRange)}</div>
           </div>
-          <button class="btn-primary" data-event-id="${ev.id}">ซื้อบัตร</button>
+          <button class="btn-primary" data-event-id="${ev.id}">จองโต๊ะ</button>
         </div>
       </div>
     </div>`;
@@ -346,11 +348,36 @@ function openBookingModal(title, date, venue) {
   if (venueEl) venueEl.textContent = `${venue} · ${date}`;
 
   // Find matching event image
-  const ev = (eventsData || []).find(e => e.title === title || e.venue === venue);
+  const ev = (eventsData || []).find(e => e.title === title || e.venue === venue) || {};
   const posterEl = document.getElementById('wizardEventPoster');
   if (posterEl && ev && ev.image) {
     posterEl.style.backgroundImage = `url('${ev.image}')`;
   }
+
+  // Update dynamic table prices for this specific event
+  currentTablePrices = {
+    vip: Number(ev.priceVip != null ? ev.priceVip : 6500),
+    a: Number(ev.priceA != null ? ev.priceA : 4500),
+    b: Number(ev.priceB != null ? ev.priceB : 3200),
+    c: Number(ev.priceC != null ? ev.priceC : 1800)
+  };
+  window.currentTablePrices = currentTablePrices;
+
+  const pVipEl = document.getElementById('zonePriceVip');
+  if (pVipEl) pVipEl.textContent = `${currentTablePrices.vip.toLocaleString('th-TH')} THB`;
+  const pAEl = document.getElementById('zonePriceA');
+  if (pAEl) pAEl.textContent = `${currentTablePrices.a.toLocaleString('th-TH')} THB`;
+  const pBEl = document.getElementById('zonePriceB');
+  if (pBEl) pBEl.textContent = `${currentTablePrices.b.toLocaleString('th-TH')} THB`;
+  const pCEl = document.getElementById('zonePriceC');
+  if (pCEl) pCEl.textContent = `${currentTablePrices.c.toLocaleString('th-TH')} THB`;
+
+  if (window.SeatMap && typeof window.SeatMap.updateTablePrices === 'function') {
+    window.SeatMap.updateTablePrices(currentTablePrices);
+  }
+
+  selectedZoneName = 'โต๊ะ VIP';
+  selectedZonePrice = currentTablePrices.vip;
 
   currentQty = 1;
   activePromo = null;
@@ -434,10 +461,23 @@ function closeBookingModal() {
 
 function selectZone(name, price, btn) {
   selectedZoneName = name;
-  selectedZonePrice = price;
+  if (price != null) {
+    selectedZonePrice = price;
+  } else if (name.includes('VIP')) {
+    selectedZonePrice = currentTablePrices.vip;
+  } else if (name.includes('A')) {
+    selectedZonePrice = currentTablePrices.a;
+  } else if (name.includes('B')) {
+    selectedZonePrice = currentTablePrices.b;
+  } else if (name.includes('C')) {
+    selectedZonePrice = currentTablePrices.c;
+  }
   document.querySelectorAll('.zone-btn').forEach((b) => b.classList.remove('selected'));
-  btn.classList.add('selected');
+  if (btn) btn.classList.add('selected');
   updatePriceDisplay();
+}
+if (typeof window !== 'undefined') {
+  window.selectZone = selectZone;
 }
 
 function changeQty(delta) {

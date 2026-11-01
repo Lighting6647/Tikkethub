@@ -111,8 +111,17 @@ async function initPostgresTables() {
         quota_vip INTEGER NOT NULL DEFAULT 50,
         quota_a INTEGER NOT NULL DEFAULT 100,
         quota_b INTEGER NOT NULL DEFAULT 120,
-        quota_c INTEGER NOT NULL DEFAULT 150
+        quota_c INTEGER NOT NULL DEFAULT 150,
+        price_vip INTEGER NOT NULL DEFAULT 6500,
+        price_a INTEGER NOT NULL DEFAULT 4500,
+        price_b INTEGER NOT NULL DEFAULT 3200,
+        price_c INTEGER NOT NULL DEFAULT 1800
       );
+
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS price_vip INTEGER NOT NULL DEFAULT 6500;
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS price_a INTEGER NOT NULL DEFAULT 4500;
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS price_b INTEGER NOT NULL DEFAULT 3200;
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS price_c INTEGER NOT NULL DEFAULT 1800;
 
       CREATE TABLE IF NOT EXISTS promo_codes (
         code VARCHAR(64) PRIMARY KEY,
@@ -252,9 +261,9 @@ function syncEvent(e) {
   if (!e) return Promise.resolve(null);
   return queryAsync(
     `INSERT INTO events (
-      id, title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c
+      id, title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c, price_vip, price_a, price_b, price_c
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
     ) ON CONFLICT (id) DO UPDATE SET
       title = EXCLUDED.title,
       category = EXCLUDED.category,
@@ -268,7 +277,11 @@ function syncEvent(e) {
       quota_vip = EXCLUDED.quota_vip,
       quota_a = EXCLUDED.quota_a,
       quota_b = EXCLUDED.quota_b,
-      quota_c = EXCLUDED.quota_c`,
+      quota_c = EXCLUDED.quota_c,
+      price_vip = EXCLUDED.price_vip,
+      price_a = EXCLUDED.price_a,
+      price_b = EXCLUDED.price_b,
+      price_c = EXCLUDED.price_c`,
     [
       Number(e.id),
       String(e.title || ''),
@@ -283,7 +296,11 @@ function syncEvent(e) {
       Number(e.quotaVip) || 0,
       Number(e.quotaA) || 0,
       Number(e.quotaB) || 0,
-      Number(e.quotaC) || 0
+      Number(e.quotaC) || 0,
+      Number(e.priceVip != null ? e.priceVip : 6500),
+      Number(e.priceA != null ? e.priceA : 4500),
+      Number(e.priceB != null ? e.priceB : 3200),
+      Number(e.priceC != null ? e.priceC : 1800)
     ]
   );
 }

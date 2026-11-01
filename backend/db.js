@@ -188,6 +188,18 @@ const eventColumns = db.prepare(`PRAGMA table_info(events)`).all().map((c) => c.
 if (!eventColumns.includes('image')) {
   db.exec(`ALTER TABLE events ADD COLUMN image TEXT DEFAULT '';`);
 }
+if (!eventColumns.includes('price_vip')) {
+  db.exec(`ALTER TABLE events ADD COLUMN price_vip INTEGER NOT NULL DEFAULT 6500;`);
+}
+if (!eventColumns.includes('price_a')) {
+  db.exec(`ALTER TABLE events ADD COLUMN price_a INTEGER NOT NULL DEFAULT 4500;`);
+}
+if (!eventColumns.includes('price_b')) {
+  db.exec(`ALTER TABLE events ADD COLUMN price_b INTEGER NOT NULL DEFAULT 3200;`);
+}
+if (!eventColumns.includes('price_c')) {
+  db.exec(`ALTER TABLE events ADD COLUMN price_c INTEGER NOT NULL DEFAULT 1800;`);
+}
 
 const DEFAULT_EVENTS = [
   {
@@ -204,7 +216,11 @@ const DEFAULT_EVENTS = [
     quotaVip: 50,
     quotaA: 100,
     quotaB: 120,
-    quotaC: 150
+    quotaC: 150,
+    priceVip: 6500,
+    priceA: 4500,
+    priceB: 3200,
+    priceC: 1800
   },
   {
     id: 2,
@@ -220,7 +236,11 @@ const DEFAULT_EVENTS = [
     quotaVip: 40,
     quotaA: 80,
     quotaB: 100,
-    quotaC: 140
+    quotaC: 140,
+    priceVip: 7000,
+    priceA: 5000,
+    priceB: 3500,
+    priceC: 2200
   },
   {
     id: 3,
@@ -236,7 +256,11 @@ const DEFAULT_EVENTS = [
     quotaVip: 45,
     quotaA: 90,
     quotaB: 110,
-    quotaC: 150
+    quotaC: 150,
+    priceVip: 3500,
+    priceA: 2800,
+    priceB: 2000,
+    priceC: 1200
   },
   {
     id: 4,
@@ -252,7 +276,11 @@ const DEFAULT_EVENTS = [
     quotaVip: 60,
     quotaA: 120,
     quotaB: 150,
-    quotaC: 200
+    quotaC: 200,
+    priceVip: 2800,
+    priceA: 2400,
+    priceB: 1900,
+    priceC: 1500
   },
   {
     id: 5,
@@ -268,7 +296,11 @@ const DEFAULT_EVENTS = [
     quotaVip: 30,
     quotaA: 70,
     quotaB: 90,
-    quotaC: 120
+    quotaC: 120,
+    priceVip: 5900,
+    priceA: 4500,
+    priceB: 3500,
+    priceC: 2500
   },
   {
     id: 6,
@@ -284,7 +316,11 @@ const DEFAULT_EVENTS = [
     quotaVip: 40,
     quotaA: 80,
     quotaB: 100,
-    quotaC: 120
+    quotaC: 120,
+    priceVip: 3200,
+    priceA: 2600,
+    priceB: 2100,
+    priceC: 1600
   }
 ];
 
@@ -319,8 +355,8 @@ function ensureSeedData() {
   const evCount = db.prepare(`SELECT COUNT(*) AS cnt FROM events`).get().cnt;
   if (evCount === 0) {
     const ins = db.prepare(`
-      INSERT INTO events (id, title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO events (id, title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c, price_vip, price_a, price_b, price_c)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const ev of DEFAULT_EVENTS) {
       ins.run(
@@ -337,16 +373,29 @@ function ensureSeedData() {
         ev.quotaVip,
         ev.quotaA,
         ev.quotaB,
-        ev.quotaC
+        ev.quotaC,
+        ev.priceVip || 6500,
+        ev.priceA || 4500,
+        ev.priceB || 3200,
+        ev.priceC || 1800
       );
     }
   } else {
-    // Backfill images for default events if empty
+    // Backfill images and table prices for default events if empty
     const updateImg = db.prepare(`UPDATE events SET image = ? WHERE id = ? AND (image IS NULL OR image = '')`);
+    const updatePrices = db.prepare(`
+      UPDATE events 
+      SET price_vip = COALESCE(NULLIF(price_vip, 0), ?),
+          price_a = COALESCE(NULLIF(price_a, 0), ?),
+          price_b = COALESCE(NULLIF(price_b, 0), ?),
+          price_c = COALESCE(NULLIF(price_c, 0), ?)
+      WHERE id = ?
+    `);
     for (const ev of DEFAULT_EVENTS) {
       if (ev.image) {
         updateImg.run(ev.image, ev.id);
       }
+      updatePrices.run(ev.priceVip || 6500, ev.priceA || 4500, ev.priceB || 3200, ev.priceC || 1800, ev.id);
     }
   }
 
@@ -810,8 +859,8 @@ function listEventsWithQuota() {
     const count = Number(s.sold || 0);
     soldMap[key].totalSold += count;
     if (z.includes('vip')) soldMap[key].vip += count;
-    else if (z.includes('zone a')) soldMap[key].a += count;
-    else if (z.includes('zone b')) soldMap[key].b += count;
+    else if (z.includes('zone a') || z.includes('โต๊ะ a') || z.includes('table a')) soldMap[key].a += count;
+    else if (z.includes('zone b') || z.includes('โต๊ะ b') || z.includes('table b')) soldMap[key].b += count;
     else soldMap[key].c += count;
   }
 
@@ -834,6 +883,10 @@ function listEventsWithQuota() {
       quotaA: r.quota_a,
       quotaB: r.quota_b,
       quotaC: r.quota_c,
+      priceVip: Number(r.price_vip != null ? r.price_vip : 6500),
+      priceA: Number(r.price_a != null ? r.price_a : 4500),
+      priceB: Number(r.price_b != null ? r.price_b : 3200),
+      priceC: Number(r.price_c != null ? r.price_c : 1800),
       remainingVip: Math.max(0, r.quota_vip - sold.vip),
       remainingA: Math.max(0, r.quota_a - sold.a),
       remainingB: Math.max(0, r.quota_b - sold.b),
@@ -849,7 +902,6 @@ function saveEvent(input) {
   const category = String(input.category || 'world').trim();
   const date = String(input.date || '').trim();
   const venue = String(input.venue || '').trim();
-  const priceRange = String(input.priceRange || '1,500 - 5,000 THB').trim();
   const badge = String(input.badge || 'เปิดจำหน่าย').trim();
   const isAccent = input.isAccent === false || input.isAccent === 0 ? 0 : 1;
   const gradient = String(input.gradient || 'linear-gradient(135deg, #4d1313, #1f1f1f)').trim();
@@ -858,19 +910,30 @@ function saveEvent(input) {
   const quotaA = Math.max(1, Number(input.quotaA || 100));
   const quotaB = Math.max(1, Number(input.quotaB || 120));
   const quotaC = Math.max(1, Number(input.quotaC || 150));
+  const priceVip = Math.max(0, Number(input.priceVip != null ? input.priceVip : 6500));
+  const priceA = Math.max(0, Number(input.priceA != null ? input.priceA : 4500));
+  const priceB = Math.max(0, Number(input.priceB != null ? input.priceB : 3200));
+  const priceC = Math.max(0, Number(input.priceC != null ? input.priceC : 1800));
+
+  const validPrices = [priceVip, priceA, priceB, priceC].filter((p) => p > 0);
+  const minP = validPrices.length ? Math.min(...validPrices) : 0;
+  const maxP = validPrices.length ? Math.max(...validPrices) : 0;
+  const autoPriceRange = minP === maxP ? `${minP.toLocaleString('th-TH')} THB` : `${minP.toLocaleString('th-TH')} - ${maxP.toLocaleString('th-TH')} THB`;
+  const priceRange = String(input.priceRange || autoPriceRange).trim();
 
   if (input.id) {
     db.prepare(`
       UPDATE events
       SET title = ?, category = ?, date = ?, venue = ?, price_range = ?, badge = ?, is_accent = ?, gradient = ?, image = ?,
-          quota_vip = ?, quota_a = ?, quota_b = ?, quota_c = ?
+          quota_vip = ?, quota_a = ?, quota_b = ?, quota_c = ?,
+          price_vip = ?, price_a = ?, price_b = ?, price_c = ?
       WHERE id = ?
-    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC, Number(input.id));
+    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC, priceVip, priceA, priceB, priceC, Number(input.id));
   } else {
     db.prepare(`
-      INSERT INTO events (title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC);
+      INSERT INTO events (title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c, price_vip, price_a, price_b, price_c)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC, priceVip, priceA, priceB, priceC);
   }
 
   const allEvents = listEventsWithQuota();

@@ -90,7 +90,31 @@
   }
 
   function getAvailableSeatsForZone(zoneName) {
-    return SEATS_DATA.filter((s) => s.zone === zoneName && !s.occupied && !s.heldByOther);
+    const clean = String(zoneName || '').toLowerCase();
+    return SEATS_DATA.filter((s) => {
+      const match =
+        s.zone === zoneName ||
+        (clean.includes('vip') && s.zoneCode === 'VIP') ||
+        (clean.includes('zone a') && s.zoneCode === 'A') ||
+        (clean.includes('zone b') && s.zoneCode === 'B') ||
+        (clean.includes('zone c') && s.zoneCode === 'C') ||
+        (clean.includes('โต๊ะ a') && s.zoneCode === 'A') ||
+        (clean.includes('โต๊ะ b') && s.zoneCode === 'B') ||
+        (clean.includes('โต๊ะ c') && s.zoneCode === 'C') ||
+        (clean.includes('โต๊ะ vip') && s.zoneCode === 'VIP');
+      return match && !s.occupied && !s.heldByOther;
+    });
+  }
+
+  function updateTablePrices(prices) {
+    if (!prices) return;
+    for (const seat of SEATS_DATA) {
+      if (seat.zoneCode === 'VIP' && prices.vip != null) seat.price = Number(prices.vip);
+      else if (seat.zoneCode === 'A' && prices.a != null) seat.price = Number(prices.a);
+      else if (seat.zoneCode === 'B' && prices.b != null) seat.price = Number(prices.b);
+      else if (seat.zoneCode === 'C' && prices.c != null) seat.price = Number(prices.c);
+    }
+    render();
   }
 
   function updateCountdownDisplay() {
@@ -298,12 +322,12 @@
       else cls.push(`seat-zone-${s.zoneCode.toLowerCase()}`);
 
       const title = s.occupied
-        ? `${s.id}: จองแล้ว (Sold out)`
+        ? `โต๊ะ ${s.id}: จองแล้ว (Sold out)`
         : isHeldOther
-        ? `${s.id}: กำลังมีผู้ใช้อื่นเลือกอยู่ (Hold 10 นาที)`
+        ? `โต๊ะ ${s.id}: กำลังมีผู้ใช้อื่นเลือกอยู่ (Hold 10 นาที)`
         : isSelected
-        ? `${s.id}: เลือกแล้ว (${s.price.toLocaleString()} THB)`
-        : `${s.id}: ${s.zone} (${s.price.toLocaleString()} THB)`;
+        ? `โต๊ะ ${s.id}: เลือกแล้ว (${s.price.toLocaleString()} THB)`
+        : `โต๊ะ ${s.id}: ${s.zone} (${s.price.toLocaleString()} THB)`;
 
       const disabledAttr = s.occupied || isHeldOther ? 'disabled aria-disabled="true"' : '';
 
@@ -325,15 +349,20 @@
     const bSeats = SEATS_DATA.filter((s) => s.zoneCode === 'B');
     const cSeats = SEATS_DATA.filter((s) => s.zoneCode === 'C');
 
+    const pVip = vipSeats[0] ? vipSeats[0].price : 6500;
+    const pA = aSeats[0] ? aSeats[0].price : 4500;
+    const pB = bSeats[0] ? bSeats[0].price : 3200;
+    const pC = cSeats[0] ? cSeats[0].price : 1800;
+
     el.innerHTML = `
       <div class="seat-map-wrapper">
         ${
           selectedSeats.length > 0
             ? `
           <div class="seat-hold-live-ticker" id="seatHoldLiveTicker">
-            <span class="seat-hold-ticker-badge">🔒 ล็อกที่นั่งแล้ว</span>
+            <span class="seat-hold-ticker-badge">🔒 ล็อกโต๊ะแล้ว</span>
             <div class="seat-hold-ticker-msg">
-              ระบบกำลังล็อกที่นั่งสำหรับคุณ ป้องกันผู้อื่นแย่งซื้อ: 
+              ระบบกำลังล็อกโต๊ะสำหรับคุณ ป้องกันผู้อื่นแย่งซื้อ: 
               <strong id="seatHoldCountdownText" class="seat-hold-timer-text">10:00</strong> นาที
             </div>
           </div>
@@ -349,51 +378,51 @@
 
         <!-- Legend + Real-time SSE Sync Indicator -->
         <div class="seat-legend">
-          <div class="legend-item"><span class="legend-dot dot-available"></span>ว่าง (คลิกเลือกได้)</div>
-          <div class="legend-item"><span class="legend-dot dot-selected"></span>ที่นั่งที่คุณเลือก</div>
+          <div class="legend-item"><span class="legend-dot dot-available"></span>ว่าง (คลิกเลือกโต๊ะได้)</div>
+          <div class="legend-item"><span class="legend-dot dot-selected"></span>โต๊ะที่คุณเลือก</div>
           <div class="legend-item"><span class="legend-dot" style="background:#F5A623;"></span>กำลังถูกล็อกโดยผู้อื่น</div>
           <div class="legend-item"><span class="legend-dot dot-occupied"></span>จองแล้ว</div>
           <div class="legend-item" id="seatRealtimeBadge" style="color:var(--color-accent); font-weight:600;">
-            🟢 ซิงก์ผังที่นั่งเรียลไทม์ (Live SSE)
+            🟢 ซิงก์ผังโต๊ะเรียลไทม์ (Live SSE)
           </div>
         </div>
 
-        <!-- Zones Layout -->
+        <!-- Tables Layout by Zone -->
         <div class="seating-grid-container">
-          <!-- VIP Pit -->
+          <!-- VIP Tables -->
           <div class="seat-zone-block">
             <div class="zone-header-label">
-              <span class="badge-primary">VIP PIT</span> VIP Standing (6,500 THB)
+              <span class="badge-primary">👑 โต๊ะ VIP</span> โต๊ะหน้าเวที (${pVip.toLocaleString('th-TH')} THB/โต๊ะ)
             </div>
             <div class="seat-row-grid seat-grid-vip">
               ${vipSeats.map(renderSeatBtn).join('')}
             </div>
           </div>
 
-          <!-- Zone A -->
+          <!-- Zone A Tables -->
           <div class="seat-zone-block">
             <div class="zone-header-label">
-              <span class="badge-accent">ZONE A</span> Floor Seated (4,500 THB)
+              <span class="badge-accent">🥇 โต๊ะโซน A</span> โต๊ะแถวหน้า (${pA.toLocaleString('th-TH')} THB/โต๊ะ)
             </div>
             <div class="seat-row-grid seat-grid-a">
               ${aSeats.map(renderSeatBtn).join('')}
             </div>
           </div>
 
-          <!-- Zone B -->
+          <!-- Zone B Tables -->
           <div class="seat-zone-block">
             <div class="zone-header-label">
-              <span class="badge-accent" style="background:#0284c7;">ZONE B</span> Lower Tier (3,200 THB)
+              <span class="badge-accent" style="background:#0284c7;">🥈 โต๊ะโซน B</span> โต๊ะแถวกลาง (${pB.toLocaleString('th-TH')} THB/โต๊ะ)
             </div>
             <div class="seat-row-grid seat-grid-b">
               ${bSeats.map(renderSeatBtn).join('')}
             </div>
           </div>
 
-          <!-- Zone C -->
+          <!-- Zone C Tables -->
           <div class="seat-zone-block">
             <div class="zone-header-label">
-              <span class="badge-accent" style="background:#0f766e;">ZONE C</span> Upper Tier (1,800 THB)
+              <span class="badge-accent" style="background:#0f766e;">🥉 โต๊ะโซน C</span> โต๊ะชั้นบน/ริม (${pC.toLocaleString('th-TH')} THB/โต๊ะ)
             </div>
             <div class="seat-row-grid seat-grid-c">
               ${cSeats.map(renderSeatBtn).join('')}
@@ -401,15 +430,15 @@
           </div>
         </div>
 
-        <!-- Selected Seats Display Bar -->
+        <!-- Selected Tables Display Bar -->
         <div class="selected-seats-bar">
           <div class="selected-seats-summary">
-            <span class="text-muted" style="font-size:12px;">ที่นั่งที่เลือก (${selectedSeats.length}/${MAX_SEATS}):</span>
+            <span class="text-muted" style="font-size:12px;">โต๊ะที่เลือก (${selectedSeats.length}/${MAX_SEATS}):</span>
             <div class="selected-seats-tags">
               ${
                 selectedSeats.length
-                  ? selectedSeats.map((s) => `<span class="seat-tag">${s.id}</span>`).join('')
-                  : '<span class="text-muted" style="font-style:italic;">ยังไม่ได้เลือกที่นั่ง (คลิกที่นั่งด้านบน)</span>'
+                  ? selectedSeats.map((s) => `<span class="seat-tag">โต๊ะ ${s.id}</span>`).join('')
+                  : '<span class="text-muted" style="font-style:italic;">ยังไม่ได้เลือกโต๊ะ (คลิกโต๊ะบนผังด้านบน)</span>'
               }
             </div>
           </div>
@@ -434,6 +463,7 @@
     toggleSeat,
     clear,
     autoSelectForZone,
+    updateTablePrices,
     syncStatuses,
     getSessionId,
     getSelectedSeats: () => [...selectedSeats],
