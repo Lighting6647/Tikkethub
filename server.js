@@ -1250,10 +1250,15 @@ async function handleApi(req, res, url) {
         merchantName,
         bankAccount,
         bankName,
+        googleDriveWebhookUrl: db.getSetting('google_drive_webhook_url', process.env.GOOGLE_DRIVE_WEBHOOK_URL || ''),
         googleDriveFolderId,
         googleServiceAccountEmail,
         hasGooglePrivateKey,
-        hasGoogleDrive: Boolean(googleDriveFolderId && googleServiceAccountEmail && hasGooglePrivateKey),
+        hasGoogleDrive: Boolean(
+          db.getSetting('google_drive_webhook_url', process.env.GOOGLE_DRIVE_WEBHOOK_URL || '') ||
+          (googleDriveFolderId && googleDriveFolderId.startsWith('https://script.google.com')) ||
+          (googleDriveFolderId && googleServiceAccountEmail && hasGooglePrivateKey)
+        ),
         databaseStatus: db.postgres && db.postgres.isConnected() ? 'connected' : 'local_demo',
         databaseHost: db.postgres ? db.postgres.getDatabaseHost() : 'Local SQLite (Demo)',
         hasDatabaseUrl: Boolean(process.env.DATABASE_URL || process.env.POSTGRES_URL),
@@ -1303,6 +1308,10 @@ async function handleApi(req, res, url) {
       if (typeof body.bankName === 'string') {
         db.setSetting('bank_name', body.bankName.trim());
         changes.push(`ตั้งค่าธนาคารเป็น "${body.bankName.trim()}"`);
+      }
+      if (typeof body.googleDriveWebhookUrl === 'string') {
+        db.setSetting('google_drive_webhook_url', body.googleDriveWebhookUrl.trim());
+        changes.push('อัปเดต Google Apps Script Webhook URL');
       }
       if (typeof body.googleDriveFolderId === 'string') {
         db.setSetting('google_drive_folder_id', body.googleDriveFolderId.trim());
@@ -1386,9 +1395,10 @@ async function handleApi(req, res, url) {
     }
     const body = await readJsonBody(req);
     const folderId = (body.googleDriveFolderId || db.getSetting('google_drive_folder_id', '')).trim();
+    const webhookUrl = (body.googleDriveWebhookUrl || db.getSetting('google_drive_webhook_url', '')).trim();
     const clientEmail = (body.googleServiceAccountEmail || db.getSetting('google_service_account_email', '')).trim();
     const privateKey = (body.googleServiceAccountPrivateKey || db.getSetting('google_service_account_private_key', '')).trim();
-    const testRes = await drive.testDriveConnection({ folderId, clientEmail, privateKey });
+    const testRes = await drive.testDriveConnection({ folderId, webhookUrl, clientEmail, privateKey });
     return sendJson(res, 200, testRes);
   }
 

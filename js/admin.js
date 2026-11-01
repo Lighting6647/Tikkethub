@@ -2629,6 +2629,7 @@
       const bankName = typeof data.bankName !== 'undefined' ? data.bankName : (localCache ? localCache.bankName || '' : '');
       const bankAccount = typeof data.bankAccount !== 'undefined' ? data.bankAccount : (localCache ? localCache.bankAccount || '' : '');
       const driveFolder = typeof data.googleDriveFolderId !== 'undefined' ? data.googleDriveFolderId : (localCache ? localCache.googleDriveFolderId || '' : '');
+      const driveWebhook = typeof data.googleDriveWebhookUrl !== 'undefined' ? data.googleDriveWebhookUrl : (localCache ? localCache.googleDriveWebhookUrl || '' : '');
       const driveEmail = typeof data.googleServiceAccountEmail !== 'undefined' ? data.googleServiceAccountEmail : (localCache ? localCache.googleServiceAccountEmail || '' : '');
       const adminLineUser = typeof data.adminLineUserId !== 'undefined' ? data.adminLineUserId : (localCache ? localCache.adminLineUserId || '' : '');
       const slipProvider = typeof data.slipVerifyProvider !== 'undefined' ? data.slipVerifyProvider : (localCache ? localCache.slipVerifyProvider || 'simulator' : 'simulator');
@@ -2654,6 +2655,9 @@
       }
       if ($('settingBankAccountInput')) {
         $('settingBankAccountInput').value = bankAccount;
+      }
+      if ($('settingDriveWebhookUrlInput')) {
+        $('settingDriveWebhookUrlInput').value = driveWebhook;
       }
       if ($('settingDriveFolderInput')) {
         $('settingDriveFolderInput').value = driveFolder;
@@ -2780,11 +2784,13 @@
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(() => {
       const cleanDigits = promptpayId.replace(/\D/g, '');
+      const googleDriveWebhookUrl = $('settingDriveWebhookUrlInput') ? $('settingDriveWebhookUrlInput').value.trim() : '';
       const payload = {
         promptpayId: cleanDigits,
         merchantName,
         bankName,
         bankAccount,
+        googleDriveWebhookUrl,
         googleDriveFolderId,
         googleServiceAccountEmail,
         slipVerifyProvider,
@@ -2809,6 +2815,7 @@
     const bankAccount = $('settingBankAccountInput') ? $('settingBankAccountInput').value.trim() : '';
     const adminPin = $('settingAdminPinInput') ? $('settingAdminPinInput').value.trim() : '';
     const gateStaffPin = $('settingGateStaffPinInput') ? $('settingGateStaffPinInput').value.trim() : '';
+    const googleDriveWebhookUrl = $('settingDriveWebhookUrlInput') ? $('settingDriveWebhookUrlInput').value.trim() : '';
     const googleDriveFolderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
     const googleServiceAccountEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
     const googleServiceAccountPrivateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
@@ -2823,6 +2830,7 @@
       merchantName,
       bankName,
       bankAccount,
+      googleDriveWebhookUrl,
       googleDriveFolderId,
       googleServiceAccountEmail,
       slipVerifyProvider,
@@ -3002,6 +3010,7 @@
 
   async function testDriveConnection() {
     const statusEl = $('driveTestStatus');
+    const webhookUrl = $('settingDriveWebhookUrlInput') ? $('settingDriveWebhookUrlInput').value.trim() : '';
     const folderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
     const clientEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
     const privateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
@@ -3017,6 +3026,7 @@
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
+          googleDriveWebhookUrl: webhookUrl,
           googleDriveFolderId: folderId,
           googleServiceAccountEmail: clientEmail,
           googleServiceAccountPrivateKey: privateKey

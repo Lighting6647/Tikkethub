@@ -68,10 +68,43 @@ async function getAccessToken(clientEmail, privateKeyPem) {
  * Uploads slip image buffer to Google Drive.
  */
 async function uploadSlipToDrive({ buffer, mimeType = 'image/png', fileName, ref }) {
+  const webhookUrl = db.getSetting('google_drive_webhook_url', process.env.GOOGLE_DRIVE_WEBHOOK_URL || '');
   const folderId = db.getSetting('google_drive_folder_id', process.env.GOOGLE_DRIVE_FOLDER_ID || '');
   const clientEmail = db.getSetting('google_service_account_email', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '');
   const privateKey = db.getSetting('google_service_account_private_key', process.env.GOOGLE_PRIVATE_KEY || '');
 
+  // 1. Easy Mode: Google Apps Script Webhook URL (ไม่ต้องใช้ Service Account)
+  const effectiveWebhook = webhookUrl || (folderId && folderId.startsWith('https://script.google.com') ? folderId : '');
+  if (effectiveWebhook && effectiveWebhook.startsWith('https://script.google.com')) {
+    try {
+      const safeFileName = fileName || `slip_${ref}_${Date.now()}.png`;
+      const res = await fetch(effectiveWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: safeFileName,
+          mimeType,
+          base64: buffer.toString('base64'),
+          ref
+        })
+      });
+      const data = await res.json();
+      if (data && (data.ok || data.fileUrl || data.webViewLink)) {
+        return {
+          ok: true,
+          configured: true,
+          fileId: data.fileId || '',
+          fileName: safeFileName,
+          viewLink: data.fileUrl || data.webViewLink || ''
+        };
+      }
+      return { ok: false, error: data.error || 'Google Apps Script ส่งคืนสถานะไม่สำเร็จ' };
+    } catch (err) {
+      return { ok: false, error: `Apps Script Upload Error: ${err.message}` };
+    }
+  }
+
+  // 2. Standard Mode: Service Account Credentials
   if (!folderId || !clientEmail || !privateKey) {
     return {
       ok: false,
@@ -157,9 +190,39 @@ async function uploadSlipToDrive({ buffer, mimeType = 'image/png', fileName, ref
 /**
  * Tests connection to Google Drive folder with given credentials.
  */
-async function testDriveConnection({ folderId, clientEmail, privateKey }) {
+async function testDriveConnection({ folderId, clientEmail, privateKey, webhookUrl }) {
+  const effectiveWebhook = webhookUrl || (folderId && folderId.startsWith('https://script.google.com') ? folderId : '');
+  if (effectiveWebhook && effectiveWebhook.startsWith('https://script.google.com')) {
+    try {
+      const pingBuffer = Buffer.from('test');
+      const res = await fetch(effectiveWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: 'ping_test.txt',
+          mimeType: 'text/plain',
+          base64: pingBuffer.toString('base64'),
+          ref: 'TEST'
+        })
+      });
+      if (!res.ok) {
+        return { ok: false, message: `Google Apps Script ตอบกลับ HTTP ${res.status}` };
+      }
+      const data = await res.json();
+      if (data && (data.ok || data.fileUrl || data.webViewLink)) {
+        return {
+          ok: true,
+          message: 'เชื่อมต่อ Google Apps Script Webhook สำเร็จ! ไฟล์ทดสอบถูกส่งเข้า Drive แล้ว'
+        };
+      }
+      return { ok: false, message: `Google Apps Script แจ้งเตือน: ${data.error || 'ไม่สามารถสร้างไฟล์ได้'}` };
+    } catch (err) {
+      return { ok: false, message: `เกิดข้อผิดพลาดในการเรียก Webhook: ${err.message}` };
+    }
+  }
+
   if (!folderId || !clientEmail || !privateKey) {
-    return { ok: false, message: 'กรุณากรอกข้อมูล Google Drive ให้ครบถ้วน' };
+    return { ok: false, message: 'กรุณากรอกข้อมูล Google Drive (หรือใส่ Google Apps Script Webhook URL)' };
   }
   try {
     const accessToken = await getAccessToken(clientEmail, privateKey);
