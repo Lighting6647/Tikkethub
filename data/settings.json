@@ -1,8 +1,8 @@
 {
-  "deleted_order_refs": "[]",
   "slip_auto_approve_enabled": "true",
   "admin_pin": "123456",
   "gate_staff_pin": "888888",
   "deleted_event_ids": "[]",
+  "deleted_order_refs": "[]",
   "slip_verify_provider": "easyslip"
 }

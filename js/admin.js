@@ -3356,166 +3356,166 @@
   }
 
   function renderVenueSimulator() {
-    const stageEl = $('simStageVisual');
-    const zonesEl = $('simZonesVisual');
-    if (!stageEl || !zonesEl) return;
+    const el = $('simVenueContainer') || $('simStageVisual');
+    if (!el) return;
 
     const stageLayout = $('evStageLayout') ? $('evStageLayout').value : 'standard';
+    const seatingType = $('evSeatingType') ? $('evSeatingType').value : 'table';
     const seatsPerTable = Number($('evSeatsPerTable') ? $('evSeatsPerTable').value : 4) || 4;
 
-    // 1. Stage Simulator Display
+    const pVip = Number($('evPriceVip') ? $('evPriceVip').value : 6500) || 6500;
+    const pA = Number($('evPriceA') ? $('evPriceA').value : 4500) || 4500;
+    const pB = Number($('evPriceB') ? $('evPriceB').value : 3200) || 3200;
+    const pC = Number($('evPriceC') ? $('evPriceC').value : 1800) || 1800;
+
+    const qVip = Number($('evQuotaVip') ? $('evQuotaVip').value : 50) || 50;
+    const qA = Number($('evQuotaA') ? $('evQuotaA').value : 100) || 100;
+    const qB = Number($('evQuotaB') ? $('evQuotaB').value : 120) || 120;
+    const qC = Number($('evQuotaC') ? $('evQuotaC').value : 150) || 150;
+
+    const zTypeVip = $('evZoneTypeVip') ? $('evZoneTypeVip').value : 'table';
+    const zTypeA = $('evZoneTypeA') ? $('evZoneTypeA').value : 'table';
+    const zTypeB = $('evZoneTypeB') ? $('evZoneTypeB').value : 'table';
+    const zTypeC = $('evZoneTypeC') ? $('evZoneTypeC').value : 'table';
+
+    // 1. Stage visual
+    let stageHtml = '';
     if (stageLayout === 't_stage') {
-      stageEl.innerHTML = `
-        <div style="position:relative; text-align:center;">
-          <div style="background:linear-gradient(180deg, #3d1414 0%, #1c1c1c 100%); border:1px solid rgba(255,80,80,0.5); border-radius:8px; padding:10px 14px; box-shadow:0 0 15px rgba(220,38,38,0.25);">
-            <div style="height:3px; background:linear-gradient(90deg, transparent, #ff3333, #38bdf8, #ff3333, transparent); margin-bottom:6px;"></div>
-            <strong style="color:#fff; font-size:12px; letter-spacing:1px;">🌟 STAGE · เวทีการแสดงหลัก</strong>
-          </div>
-          <div style="width:110px; height:34px; margin:-1px auto 0; background:linear-gradient(180deg, #b91c1c 0%, #261111 100%); border:1px solid rgba(255,80,80,0.6); border-top:none; border-radius:0 0 8px 8px; box-shadow:0 6px 14px rgba(220,38,38,0.4); display:flex; align-items:center; justify-content:center;">
-            <span style="font-size:9px; font-weight:800; color:#fff; letter-spacing:1px;">T-RUNWAY 🚶‍♂️</span>
+      stageHtml = `
+        <div class="stage-display stage-t-shape">
+          <div class="stage-lights"></div>
+          <div class="stage-title">🌟 MAIN STAGE & CATWALK · เวทีทางเดิน T-STAGE</div>
+          <div class="stage-catwalk">
+            <span class="catwalk-label">T-RUNWAY</span>
           </div>
         </div>
       `;
     } else if (stageLayout === 'center_360') {
-      stageEl.innerHTML = `
-        <div style="text-align:center; padding:8px 0;">
-          <div style="display:inline-block; width:200px; height:64px; border-radius:9999px; background:radial-gradient(ellipse at center, #551111 0%, #1a1a1a 80%); border:2px dashed #ef4444; box-shadow:0 0 20px rgba(239,68,68,0.35); padding:8px 14px;">
-            <strong style="color:#ff8888; font-size:12px; display:block;">⭕ 360° CENTER STAGE</strong>
-            <span style="font-size:10px; color:#cbd5e1;">เวทีวงกลมหมุนรอบทิศทาง</span>
+      stageHtml = `
+        <div class="stage-display stage-center-360">
+          <div class="stage-lights"></div>
+          <div class="stage-center-ring">
+            <div class="stage-title">⭕ 360° CENTER STAGE · เวทีวงกลมกลางฮอลล์</div>
           </div>
         </div>
       `;
     } else if (stageLayout === 'intimate_club') {
-      stageEl.innerHTML = `
-        <div>
-          <div style="background:linear-gradient(135deg, #2b1144 0%, #140d1e 100%); border:1px solid rgba(168,85,247,0.5); border-radius:8px; padding:10px 14px; text-align:center; box-shadow:0 4px 15px rgba(168,85,247,0.25);">
-            <div style="height:3px; background:linear-gradient(90deg, transparent, #c084fc, #f472b6, #c084fc, transparent); margin-bottom:6px;"></div>
-            <strong style="color:#e9d5ff; font-size:12px; letter-spacing:1px;">🎸 LIVE HOUSE & CLUB STAGE</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(168,85,247,0.08); border:1px dashed rgba(168,85,247,0.3); border-radius:6px; padding:4px 12px; margin-top:6px; font-size:10px; color:#c084fc;">
-            <span>🍸 BAR & COCKTAIL COUNTER</span>
-            <span>🎧 SOUND & LIGHT BOOTH</span>
-          </div>
+      stageHtml = `
+        <div class="stage-display stage-intimate-club">
+          <div class="stage-lights club-lights"></div>
+          <div class="stage-title">🎸 LIVE HOUSE & CLUB STAGE · เวทีดนตรีสด</div>
+          <div class="club-bar-indicator">🍸 BAR & LOUNGE COUNTER 🍾</div>
         </div>
       `;
     } else {
-      stageEl.innerHTML = `
-        <div style="background:linear-gradient(180deg, #333 0%, #1a1a1a 100%); border:1px solid rgba(255,255,255,0.18); border-radius:8px; padding:10px 14px; text-align:center; box-shadow:0 4px 14px rgba(220,38,38,0.15);">
-          <div style="height:3px; background:linear-gradient(90deg, transparent, #b40000, #38bdf8, #b40000, transparent); margin-bottom:6px;"></div>
-          <strong style="color:#fff; font-size:12px; letter-spacing:1.5px;">🎪 MAIN FRONT STAGE · เวทีการแสดงหลัก</strong>
+      stageHtml = `
+        <div class="stage-display stage-standard">
+          <div class="stage-lights"></div>
+          <div class="stage-title">STAGE · เวทีการแสดง</div>
         </div>
       `;
     }
 
-    // 2. Zones Simulator Cards
-    const zonesConfig = [
-      {
-        code: 'VIP',
-        typeId: 'evZoneTypeVip',
-        priceId: 'evPriceVip',
-        quotaId: 'evQuotaVip',
-        color: '#ff5a1f',
-        border: 'rgba(229,9,20,0.4)',
-        bg: 'rgba(229,9,20,0.07)',
-        icon: '👑',
-        name: 'โซน VIP'
-      },
-      {
-        code: 'A',
-        typeId: 'evZoneTypeA',
-        priceId: 'evPriceA',
-        quotaId: 'evQuotaA',
-        color: '#38bdf8',
-        border: 'rgba(56,189,248,0.4)',
-        bg: 'rgba(56,189,248,0.07)',
-        icon: '🥇',
-        name: 'โซน A'
-      },
-      {
-        code: 'B',
-        typeId: 'evZoneTypeB',
-        priceId: 'evPriceB',
-        quotaId: 'evQuotaB',
-        color: '#fbbf24',
-        border: 'rgba(251,191,36,0.4)',
-        bg: 'rgba(251,191,36,0.07)',
-        icon: '🥈',
-        name: 'โซน B'
-      },
-      {
-        code: 'C',
-        typeId: 'evZoneTypeC',
-        priceId: 'evPriceC',
-        quotaId: 'evQuotaC',
-        color: '#34d399',
-        border: 'rgba(52,211,153,0.4)',
-        bg: 'rgba(52,211,153,0.07)',
-        icon: '🥉',
-        name: 'โซน C'
+    // Helper for zone items
+    const renderZoneItems = (code, zType, count, prefix, occupiedList, price, quota, badgeCls, icon, subtitle) => {
+      let unit = 'โต๊ะ';
+      let typeLabel = 'ผังโต๊ะ';
+      if (zType === 'seated') {
+        unit = 'ที่นั่ง';
+        typeLabel = 'บัตรนั่ง';
+      } else if (zType === 'standing') {
+        unit = 'คน/ใบ';
+        typeLabel = 'ตั๋วยืน';
       }
-    ];
 
-    zonesEl.innerHTML = zonesConfig
-      .map((z) => {
-        const zType = $(z.typeId) ? $(z.typeId).value : 'table';
-        const price = Number($(z.priceId) ? $(z.priceId).value : 0) || 0;
-        const quota = Number($(z.quotaId) ? $(z.quotaId).value : 0) || 0;
+      const header = `
+        <div class="zone-header-label">
+          <span class="${badgeCls}">${icon} ${typeLabel} โซน ${code}</span> 
+          <span>${subtitle} (${price.toLocaleString('th-TH')} THB/${unit}) · โควตา ${quota} ${unit}</span>
+        </div>
+      `;
 
-        let miniVisual = '';
-        let typeBadge = '';
-
-        if (zType === 'table') {
-          typeBadge = `🍽️ ผังโต๊ะ (${seatsPerTable} คน/โต๊ะ)`;
-          miniVisual = `
-            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; padding:6px; background:rgba(0,0,0,0.3); border-radius:6px; min-height:56px; align-items:center; justify-items:center;">
-              ${[1, 2, 3].map((num) => `
-                <div style="width:28px; height:28px; border-radius:50%; border:2px solid ${z.color}; background:#222; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.5);" title="โต๊ะ ${z.code}-${num}">
-                  <span style="font-size:7px; line-height:1; color:${z.color};">🍽️</span>
-                  <span style="font-size:7px; font-weight:800; color:#fff; line-height:1;">${z.code}${num}</span>
-                </div>
-              `).join('')}
-            </div>
-          `;
-        } else if (zType === 'seated') {
-          typeBadge = `🪑 เก้าอี้นั่งระบุเลข`;
-          miniVisual = `
-            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; padding:6px; background:rgba(0,0,0,0.3); border-radius:6px; min-height:56px; align-items:center;">
-              ${[1, 2, 3, 4, 5, 6, 7, 8].map((num) => `
-                <div style="height:20px; border-radius:4px 4px 2px 2px; border:1px solid ${z.color}; background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:7px; font-weight:700; color:#fff;" title="ที่นั่ง ${z.code}${num}">
-                  🪑${num}
-                </div>
-              `).join('')}
-            </div>
-          `;
-        } else {
-          typeBadge = `🧍 ตั๋วยืนอิสระ (Pit)`;
-          miniVisual = `
-            <div style="padding:6px; background:rgba(0,0,0,0.3); border:1px dashed ${z.color}; border-radius:6px; min-height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;">
-              <div style="font-size:12px; letter-spacing:2px;">🧍🧍🧍🧍</div>
-              <span style="font-size:8px; font-weight:700; color:${z.color}; text-transform:uppercase;">STANDING PIT</span>
-            </div>
-          `;
-        }
-
-        const unit = zType === 'table' ? 'โต๊ะ' : zType === 'seated' ? 'ที่นั่ง' : 'คน';
-
+      if (zType === 'standing') {
         return `
-          <div style="border:1px solid ${z.border}; background:${z.bg}; border-radius:8px; padding:8px; display:flex; flex-direction:column; gap:6px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong style="color:${z.color}; font-size:12px;">${z.icon} ${z.name}</strong>
-              <span style="font-size:9px; background:rgba(0,0,0,0.5); color:#fff; padding:1px 5px; border-radius:4px;">
-                ${typeBadge}
-              </span>
-            </div>
-            ${miniVisual}
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#cbd5e1; border-top:1px dashed rgba(255,255,255,0.08); padding-top:4px;">
-              <span style="color:#fff; font-weight:700;">฿${price.toLocaleString('th-TH')}</span>
-              <span>โควตา ${quota} ${unit}</span>
+          <div class="seat-zone-block">
+            ${header}
+            <div style="padding:14px; border:2px dashed rgba(255,255,255,0.25); border-radius:8px; text-align:center; background:rgba(0,0,0,0.35);">
+              <div style="font-size:16px; letter-spacing:4px; margin-bottom:4px;">🧍🧍🧍🧍🧍🧍</div>
+              <strong style="font-size:11px; color:#fff; letter-spacing:1px; text-transform:uppercase;">
+                ✨ โซนยืนอิสระ ${code} (STANDING PIT AREA) · ความจุ ${quota} ท่าน
+              </strong>
             </div>
           </div>
         `;
-      })
-      .join('');
+      }
+
+      const gridCls = code === 'VIP' ? 'seat-grid-vip' : code === 'C' ? 'seat-grid-c' : 'seat-grid-a';
+      const items = Array.from({ length: count }, (_, i) => {
+        const num = String(i + 1).padStart(2, '0');
+        const id = prefix ? `${prefix}${num}` : num;
+        const isOccupied = occupiedList.includes(i + 1);
+        const isSelected = code === 'VIP' && i === 0;
+
+        let btnCls = `seat-btn seat-type-${zType} seat-zone-${code.toLowerCase()}`;
+        if (isOccupied) btnCls += ' seat-occupied';
+        else if (isSelected) btnCls += ' seat-selected';
+
+        const displayLabel = zType === 'seated' ? `🪑${id}` : id;
+
+        return `
+          <button type="button" class="${btnCls}" title="${code} ${id}: ${price.toLocaleString()} THB" ${isOccupied ? 'disabled' : ''}>
+            ${displayLabel}
+          </button>
+        `;
+      }).join('');
+
+      return `
+        <div class="seat-zone-block">
+          ${header}
+          <div class="seat-row-grid ${gridCls}">
+            ${items}
+          </div>
+        </div>
+      `;
+    };
+
+    const isAllTables = [zTypeVip, zTypeA, zTypeB, zTypeC].every((t) => t === 'table');
+    const isAllSeated = [zTypeVip, zTypeA, zTypeB, zTypeC].every((t) => t === 'seated');
+    const isAllStanding = [zTypeVip, zTypeA, zTypeB, zTypeC].every((t) => t === 'standing');
+    const itemUnit = isAllTables ? 'โต๊ะ' : isAllSeated ? 'ที่นั่ง' : isAllStanding ? 'บัตรยืน' : 'ที่นั่ง/โต๊ะ';
+
+    el.innerHTML = `
+      <div class="seat-map-wrapper" style="background:#1e1e1e; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+        <!-- Stage Visual -->
+        ${stageHtml}
+
+        <!-- Legend Bar (เหมือนหน้าจองจริง) -->
+        <div class="seat-legend" style="margin:8px 0 10px;">
+          <div class="legend-item"><span class="legend-dot dot-available"></span>ว่าง (คลิกเลือก${itemUnit}ได้)</div>
+          <div class="legend-item"><span class="legend-dot dot-selected"></span>${itemUnit}ที่คุณเลือก</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#F5A623;"></span>กำลังถูกล็อกโดยผู้อื่น</div>
+          <div class="legend-item"><span class="legend-dot dot-occupied"></span>จองแล้ว</div>
+          <div class="legend-item" style="color:var(--color-accent); font-weight:600;">
+            🟢 ซิงก์ผังเรียลไทม์ (Live SSE)
+          </div>
+        </div>
+
+        <!-- Seating/Tables Layout by Zone (เหมือนหน้าจองจริงแบบแรก) -->
+        <div class="seating-grid-container" style="max-height:280px; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:12px;">
+          <!-- VIP Zone -->
+          ${renderZoneItems('VIP', zTypeVip, 6, '', [3], pVip, qVip, 'badge-primary', '👑', zTypeVip === 'table' ? `โต๊ะหน้าเวที (${seatsPerTable} ที่นั่ง/โต๊ะ)` : 'หน้าสุดติดเวที')}
+
+          <!-- Zone A -->
+          ${renderZoneItems('A', zTypeA, 16, 'A', [1, 2, 7, 8], pA, qA, 'badge-accent', '🥇', zTypeA === 'table' ? 'โต๊ะแถวหน้า' : 'ที่นั่งแถวหน้า')}
+
+          <!-- Zone B -->
+          ${renderZoneItems('B', zTypeB, 16, 'B', [4, 5, 11], pB, qB, 'badge-accent', '🥈', zTypeB === 'table' ? 'โต๊ะแถวกลาง' : 'ที่นั่งแถวกลาง')}
+
+          <!-- Zone C -->
+          ${renderZoneItems('C', zTypeC, 20, 'C', [2, 8, 9, 15, 16], pC, qC, 'badge-accent', '🥉', zTypeC === 'table' ? 'โต๊ะชั้นบน/ริม' : 'ที่นั่งชั้นบน')}
+        </div>
+      </div>
+    `;
   }
 
   function resetEventForm() {
