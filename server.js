@@ -1237,10 +1237,10 @@ async function handleApi(req, res, url) {
       const googleDriveFolderId = db.getSetting('google_drive_folder_id', process.env.GOOGLE_DRIVE_FOLDER_ID || '');
       const googleServiceAccountEmail = db.getSetting('google_service_account_email', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '');
       const hasGooglePrivateKey = Boolean(db.getSetting('google_service_account_private_key', process.env.GOOGLE_PRIVATE_KEY || ''));
-      const slipVerifyProvider = db.getSetting('slip_verify_provider', process.env.SLIP_VERIFY_PROVIDER || 'simulator');
+      const slipVerifyProvider = db.getSetting('slip_verify_provider', process.env.SLIP_VERIFY_PROVIDER || 'easyslip');
       const slipVerifyApiKey = db.getSetting('slip_verify_api_key', process.env.SLIP_VERIFY_API_KEY || '');
       const slipVerifyBranchId = db.getSetting('slip_verify_branch_id', process.env.SLIP_VERIFY_BRANCH_ID || '');
-      const slipAutoApproveEnabled = db.getSetting('slip_auto_approve_enabled', 'false') === 'true';
+      const slipAutoApproveEnabled = db.getSetting('slip_auto_approve_enabled', 'true') === 'true';
 
       return sendJson(res, 200, {
         ok: true,
@@ -1254,10 +1254,11 @@ async function handleApi(req, res, url) {
         googleServiceAccountEmail,
         hasGooglePrivateKey,
         slipVerifyProvider,
+        hasSlipVerifyApiKey: Boolean(slipVerifyApiKey),
         slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
         slipVerifyBranchId,
         slipAutoApproveEnabled,
-        adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || ''),
+        adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4'),
         hasGateStaffPin: Boolean(db.getSetting('gate_staff_pin', '888888'))
       });
     }
@@ -1348,6 +1349,7 @@ async function handleApi(req, res, url) {
         });
       }
       const token = db.getSetting('line_channel_access_token', '');
+      const slipVerifyApiKey = db.getSetting('slip_verify_api_key', '');
       return sendJson(res, 200, {
         ok: true,
         hasLineToken: Boolean(token),
@@ -1359,9 +1361,12 @@ async function handleApi(req, res, url) {
         googleDriveFolderId: db.getSetting('google_drive_folder_id', ''),
         googleServiceAccountEmail: db.getSetting('google_service_account_email', ''),
         hasGooglePrivateKey: Boolean(db.getSetting('google_service_account_private_key', '')),
-        slipVerifyProvider: db.getSetting('slip_verify_provider', 'simulator'),
+        slipVerifyProvider: db.getSetting('slip_verify_provider', 'easyslip'),
         slipVerifyBranchId: db.getSetting('slip_verify_branch_id', ''),
-        slipAutoApproveEnabled: db.getSetting('slip_auto_approve_enabled', 'false') === 'true'
+        slipAutoApproveEnabled: db.getSetting('slip_auto_approve_enabled', 'true') === 'true',
+        hasSlipVerifyApiKey: Boolean(slipVerifyApiKey),
+        slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
+        adminLineUserId: db.getSetting('admin_line_user_id', 'U22e8f8c71ad28f6ae4c3eece3f6c39d4')
       });
     }
   }

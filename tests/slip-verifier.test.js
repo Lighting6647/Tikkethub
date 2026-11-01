@@ -34,6 +34,7 @@ test('Slip Verifier: auto-approve toggle triggers approval', async () => {
   assert.equal(result.autoApproved, true);
   assert.equal(result.amount, 6500);
 
-  // Reset to default false
-  db.setSetting('slip_auto_approve_enabled', 'false');
+  // Reset to default production settings
+  db.setSetting('slip_verify_provider', 'easyslip');
+  db.setSetting('slip_auto_approve_enabled', 'true');
 });

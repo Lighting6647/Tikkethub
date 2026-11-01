@@ -2638,10 +2638,10 @@
         || '1638790587';
       const driveFolder = (localCache && localCache.googleDriveFolderId) || data.googleDriveFolderId || '';
       const driveEmail = (localCache && localCache.googleServiceAccountEmail) || data.googleServiceAccountEmail || '';
-      const adminLineUser = (localCache && localCache.adminLineUserId) || data.adminLineUserId || '';
-      const slipProvider = (localCache && localCache.slipVerifyProvider) || data.slipVerifyProvider || 'simulator';
+      const adminLineUser = (localCache && localCache.adminLineUserId) || data.adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4';
+      const slipProvider = (localCache && localCache.slipVerifyProvider) || data.slipVerifyProvider || 'easyslip';
       const slipBranch = (localCache && localCache.slipVerifyBranchId) || data.slipVerifyBranchId || '';
-      const slipAuto = localCache && typeof localCache.slipAutoApproveEnabled !== 'undefined' ? localCache.slipAutoApproveEnabled : (typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : false);
+      const slipAuto = localCache && typeof localCache.slipAutoApproveEnabled !== 'undefined' ? localCache.slipAutoApproveEnabled : (typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : true);
 
       $('settingTokenStatus').textContent = (data.hasLineToken || (localCache && localCache.hasLineToken))
         ? `ตั้งค่าแล้ว (${data.lineTokenMasked || '••••••••'})`
@@ -2672,9 +2672,13 @@
         $('settingSlipProviderInput').value = slipProvider;
       }
       if ($('settingSlipApiKeyInput')) {
-        $('settingSlipApiKeyInput').value = '';
-        $('settingSlipApiKeyInput').placeholder = data.slipVerifyApiKeyMasked
-          ? `•••••••• (${data.slipVerifyApiKeyMasked})`
+        if (localCache && localCache.slipVerifyApiKey) {
+          $('settingSlipApiKeyInput').value = localCache.slipVerifyApiKey;
+        } else {
+          $('settingSlipApiKeyInput').value = '';
+        }
+        $('settingSlipApiKeyInput').placeholder = (data.slipVerifyApiKeyMasked || (localCache && (localCache.slipVerifyApiKey || localCache.hasSlipVerifyApiKey)))
+          ? `•••••••• (${data.slipVerifyApiKeyMasked || 'ตั้งค่าแล้ว'})`
           : 'วาง API Key จาก SlipOK / EasySlip';
       }
       if ($('settingSlipBranchInput')) {
@@ -2720,9 +2724,10 @@
     const bankAccount = $('settingBankAccountInput') ? $('settingBankAccountInput').value.trim() : '';
     const googleDriveFolderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
     const googleServiceAccountEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
-    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'simulator';
+    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'easyslip';
+    const slipVerifyApiKey = $('settingSlipApiKeyInput') ? $('settingSlipApiKeyInput').value.trim() : '';
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
-    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
+    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : true;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
 
     try {
@@ -2737,10 +2742,12 @@
         bankAccount: bankAccount || prev.bankAccount || '1638790587',
         googleDriveFolderId,
         googleServiceAccountEmail,
-        slipVerifyProvider,
+        slipVerifyProvider: slipVerifyProvider || 'easyslip',
         slipVerifyBranchId,
         slipAutoApproveEnabled,
-        adminLineUserId
+        adminLineUserId: adminLineUserId || prev.adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4',
+        slipVerifyApiKey: slipVerifyApiKey || prev.slipVerifyApiKey || '',
+        hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey)
       };
       localStorage.setItem('stagepass_admin_settings', JSON.stringify(updated));
       const statusEl = $('settingsAutoSaveStatus');
@@ -2755,21 +2762,23 @@
     autoSaveTimeout = setTimeout(() => {
       const cleanDigits = promptpayId.replace(/\D/g, '');
       if (cleanDigits.length === 10 || cleanDigits.length === 13) {
+        const payload = {
+          promptpayId: cleanDigits,
+          merchantName,
+          bankName,
+          bankAccount,
+          googleDriveFolderId,
+          googleServiceAccountEmail,
+          slipVerifyProvider,
+          slipVerifyBranchId,
+          slipAutoApproveEnabled,
+          adminLineUserId: adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4'
+        };
+        if (slipVerifyApiKey) payload.slipVerifyApiKey = slipVerifyApiKey;
         fetch('/api/settings', {
           method: 'PUT',
           headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            promptpayId: cleanDigits,
-            merchantName,
-            bankName,
-            bankAccount,
-            googleDriveFolderId,
-            googleServiceAccountEmail,
-            slipVerifyProvider,
-            slipVerifyBranchId,
-            slipAutoApproveEnabled,
-            adminLineUserId
-          })
+          body: JSON.stringify(payload)
         }).catch(() => {});
       }
     }, 800);
@@ -2786,10 +2795,10 @@
     const googleDriveFolderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
     const googleServiceAccountEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
     const googleServiceAccountPrivateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
-    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'simulator';
+    const slipVerifyProvider = $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'easyslip';
     const slipVerifyApiKey = $('settingSlipApiKeyInput') ? $('settingSlipApiKeyInput').value.trim() : '';
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
-    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
+    const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : true;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
 
     const payload = {
@@ -2802,7 +2811,7 @@
       slipVerifyProvider,
       slipVerifyBranchId,
       slipAutoApproveEnabled,
-      adminLineUserId
+      adminLineUserId: adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4'
     };
     if (token) payload.lineChannelAccessToken = token;
     if (adminPin) payload.adminPin = adminPin;
@@ -2824,9 +2833,13 @@
       }
       if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
       
-      // Persist to localStorage so settings are never lost across server restarts
+      // Persist to localStorage so settings are never lost across server restarts or page refreshes
+      let prev = {};
       try {
+        const raw = localStorage.getItem('stagepass_admin_settings');
+        if (raw) prev = JSON.parse(raw);
         const cacheObj = {
+          ...prev,
           promptpayId: data.promptpayId || promptpayId,
           merchantName: data.merchantName || merchantName,
           bankName: data.bankName || bankName,
@@ -2836,14 +2849,40 @@
           slipVerifyProvider,
           slipVerifyBranchId,
           slipAutoApproveEnabled,
-          adminLineUserId,
-          hasLineToken: Boolean(data.hasLineToken || token)
+          adminLineUserId: adminLineUserId || data.adminLineUserId || prev.adminLineUserId || 'U22e8f8c71ad28f6ae4c3eece3f6c39d4',
+          slipVerifyApiKey: slipVerifyApiKey || prev.slipVerifyApiKey || '',
+          hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey || data.hasSlipVerifyApiKey),
+          hasLineToken: Boolean(data.hasLineToken || token || prev.hasLineToken)
         };
         localStorage.setItem('stagepass_admin_settings', JSON.stringify(cacheObj));
       } catch (_) {}
 
-      window.UI.close('lineSettingsModal');
-      window.UI.toast(`บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId}${data.bankAccount ? ' · บัญชี: ' + data.bankAccount : ''} · บันทึกถาวรลงเครื่องและระบบ)`);
+      // Keep modal open and give prominent, reassuring feedback so nothing "disappears"
+      const saveBtns = [$('saveSettingsBtn'), $('quickSaveSettingsBtn')].filter(Boolean);
+      saveBtns.forEach(btn => {
+        btn.dataset.origText = btn.dataset.origText || btn.textContent;
+        btn.textContent = '✅ บันทึกสำเร็จแล้ว!';
+        btn.style.backgroundColor = '#059669';
+        btn.style.borderColor = '#10B981';
+        btn.style.color = '#FFFFFF';
+      });
+
+      const statusEl = $('settingsAutoSaveStatus');
+      if (statusEl) {
+        statusEl.innerHTML = '<span>✅</span> บันทึกการตั้งค่าถาวรเรียบร้อยแล้ว (ทั้งบนระบบและอุปกรณ์นี้)';
+        statusEl.style.color = '#10B981';
+      }
+
+      window.UI.toast(`✅ บันทึกการตั้งค่าเรียบร้อย (พร้อมเพย์: ${data.promptpayId} · ระบบตรวจสลิป: ${slipVerifyProvider} · บันทึกถาวร)`);
+
+      setTimeout(() => {
+        saveBtns.forEach(btn => {
+          btn.textContent = btn.dataset.origText || 'บันทึกการตั้งค่า';
+          btn.style.backgroundColor = '';
+          btn.style.borderColor = '';
+          btn.style.color = '';
+        });
+      }, 2500);
     } catch (err) {
       window.UI.toast(err.message, 'error');
     }
@@ -3984,6 +4023,7 @@
           if ($('settingDriveEmailInput') && s.googleServiceAccountEmail) $('settingDriveEmailInput').value = s.googleServiceAccountEmail;
           if ($('settingSlipProviderInput') && s.slipVerifyProvider) $('settingSlipProviderInput').value = s.slipVerifyProvider;
           if ($('settingSlipBranchInput') && s.slipVerifyBranchId) $('settingSlipBranchInput').value = s.slipVerifyBranchId;
+          if ($('settingSlipApiKeyInput') && s.slipVerifyApiKey) $('settingSlipApiKeyInput').value = s.slipVerifyApiKey;
           if ($('settingSlipAutoApprove') && typeof s.slipAutoApproveEnabled !== 'undefined') $('settingSlipAutoApprove').checked = Boolean(s.slipAutoApproveEnabled);
           if ($('settingAdminLineUserInput') && s.adminLineUserId) $('settingAdminLineUserInput').value = s.adminLineUserId;
         }

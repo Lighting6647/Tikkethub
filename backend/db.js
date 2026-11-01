@@ -1064,14 +1064,18 @@ const DEFAULT_SYSTEM_SETTINGS = {
   bank_account: '1638790587',
   admin_pin: '123456',
   gate_staff_pin: '888888',
-  slip_auto_approve_enabled: 'false',
-  slip_verify_provider: 'simulator'
+  slip_auto_approve_enabled: 'true',
+  slip_verify_provider: 'easyslip',
+  admin_line_user_id: 'U22e8f8c71ad28f6ae4c3eece3f6c39d4'
 };
 
 function getSetting(key, fallback = '') {
   try {
     const row = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key);
-    if (row && typeof row.value !== 'undefined' && row.value !== null && row.value !== '') return row.value;
+    if (row && typeof row.value !== 'undefined' && row.value !== null) {
+      if (row.value !== '') return row.value;
+      if (!['promptpay_id', 'merchant_name', 'bank_name', 'bank_account'].includes(key)) return '';
+    }
   } catch (_) {}
   const candidatePaths = [
     path.join(DATA_DIR, 'settings.json'),
@@ -1081,7 +1085,10 @@ function getSetting(key, fallback = '') {
     try {
       if (fs.existsSync(jsonPath)) {
         const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-        if (typeof parsed[key] !== 'undefined' && parsed[key] !== '') return String(parsed[key]);
+        if (typeof parsed[key] !== 'undefined' && parsed[key] !== null) {
+          if (parsed[key] !== '') return String(parsed[key]);
+          if (!['promptpay_id', 'merchant_name', 'bank_name', 'bank_account'].includes(key)) return '';
+        }
       }
     } catch (_) {}
   }

@@ -16,6 +16,8 @@ test('db handles admin_line_user_id setting persistence', () => {
   assert.equal(db.getSetting('admin_line_user_id'), 'U4af4980629test');
   db.setSetting('admin_line_user_id', '');
   assert.equal(db.getSetting('admin_line_user_id'), '');
+  // Restore production default
+  db.setSetting('admin_line_user_id', 'U22e8f8c71ad28f6ae4c3eece3f6c39d4');
 });
 
 test('storefront settings and event poster images persist properly', () => {
