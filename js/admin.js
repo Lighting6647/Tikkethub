@@ -2660,6 +2660,40 @@
   }
   window.toggleAdminSidebar = toggleAdminSidebar;
 
+  function toggleNavGroup(elOrId) {
+    let group = null;
+    if (typeof elOrId === 'string') {
+      group = $(elOrId);
+    } else if (elOrId && elOrId.closest) {
+      group = elOrId.closest('.admin-nav-group');
+    }
+    if (!group) return;
+    const wasOpen = group.classList.contains('is-open');
+    group.classList.toggle('is-open', !wasOpen);
+
+    try {
+      const allGroups = Array.from(document.querySelectorAll('.admin-nav-group'));
+      const state = allGroups.map((g) => g.classList.contains('is-open'));
+      localStorage.setItem('stagepass_sidebar_groups_state', JSON.stringify(state));
+    } catch (_) {}
+  }
+  window.toggleNavGroup = toggleNavGroup;
+
+  function restoreNavGroupsState() {
+    try {
+      const raw = localStorage.getItem('stagepass_sidebar_groups_state');
+      if (raw) {
+        const state = JSON.parse(raw);
+        const allGroups = document.querySelectorAll('.admin-nav-group');
+        allGroups.forEach((g, idx) => {
+          if (typeof state[idx] === 'boolean') {
+            g.classList.toggle('is-open', state[idx]);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
   let auditLogsCache = [];
 
   async function openSettingsModal() {
@@ -4145,6 +4179,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     bind();
+    restoreNavGroupsState();
     initSoundSetting();
     initSoundPackControls();
     updateNotifyBtnUi();

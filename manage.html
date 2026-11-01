@@ -160,8 +160,13 @@
 
       <nav class="admin-sidebar-nav">
         <!-- หมวดที่ 1: หน้างาน & สแกนเข้างาน -->
-        <div class="admin-nav-group">
-          <div class="admin-nav-group-title"><span>🎫</span> หน้างาน & เช็กอิน</div>
+        <div class="admin-nav-group is-open" id="navGroupGate">
+          <div class="admin-nav-group-title" onclick="window.toggleNavGroup(this)" role="button" tabindex="0" title="คลิกเพื่อพับ/กางเมนู">
+            <div class="nav-group-title-content">
+              <span>🎫</span> <span>หน้างาน & เช็กอิน</span>
+            </div>
+            <span class="nav-group-chevron">▾</span>
+          </div>
           <div class="admin-nav-group-items">
             <button type="button" class="admin-nav-item highlight-scanner" id="openScannerBtn" onclick="window.toggleAdminSidebar(false)">
               <span style="font-size:15px;">📷</span> <span>สแกนบัตรเข้างาน</span>
@@ -179,8 +184,13 @@
         </div>
 
         <!-- หมวดที่ 2: คำสั่งซื้อ & ส่งบัตร LINE -->
-        <div class="admin-nav-group">
-          <div class="admin-nav-group-title"><span>📦</span> คำสั่งซื้อ & ส่งบัตร</div>
+        <div class="admin-nav-group is-open" id="navGroupOrders">
+          <div class="admin-nav-group-title" onclick="window.toggleNavGroup(this)" role="button" tabindex="0" title="คลิกเพื่อพับ/กางเมนู">
+            <div class="nav-group-title-content">
+              <span>📦</span> <span>คำสั่งซื้อ & ส่งบัตร</span>
+            </div>
+            <span class="nav-group-chevron">▾</span>
+          </div>
           <div class="admin-nav-group-items">
             <button type="button" class="admin-nav-item" id="openLinePreviewNavBtn" data-admin-only="true" style="color:#06C755;" onclick="window.toggleAdminSidebar(false)">
               <span style="font-size:15px;">📱</span> <span>จัดส่งบัตร LINE OA (<span id="adminLinePendingBadge">0</span>)</span>
@@ -189,11 +199,16 @@
         </div>
 
         <!-- หมวดที่ 3: อีเวนต์ & หน้าขายบัตร -->
-        <div class="admin-nav-group">
-          <div class="admin-nav-group-title"><span>🎤</span> อีเวนต์ & หน้าร้าน</div>
+        <div class="admin-nav-group" id="navGroupEvents">
+          <div class="admin-nav-group-title" onclick="window.toggleNavGroup(this)" role="button" tabindex="0" title="คลิกเพื่อพับ/กางเมนู">
+            <div class="nav-group-title-content">
+              <span>🎤</span> <span>อีเวนต์ & หน้าร้าน</span>
+            </div>
+            <span class="nav-group-chevron">▾</span>
+          </div>
           <div class="admin-nav-group-items">
             <button type="button" class="admin-nav-item" id="openEventManagerBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
-              <span style="font-size:15px;">🎤</span> <span>คอนเสิร์ต / โควตาที่นั่ง</span>
+              <span style="font-size:15px;">🎤</span> <span>คอนเสิร์ต / โควตาโต๊ะ & ราคา</span>
             </button>
             <button type="button" class="admin-nav-item" id="openStorefrontSettingsBtn" data-admin-only="true" style="color:var(--fire);" onclick="window.toggleAdminSidebar(false)">
               <span style="font-size:15px;">🎨</span> <span>ตั้งค่าหน้าขายบัตร</span>
@@ -205,8 +220,13 @@
         </div>
 
         <!-- หมวดที่ 4: รายงาน & ประวัติ -->
-        <div class="admin-nav-group">
-          <div class="admin-nav-group-title"><span>📊</span> รายงาน & บันทึก</div>
+        <div class="admin-nav-group" id="navGroupReports">
+          <div class="admin-nav-group-title" onclick="window.toggleNavGroup(this)" role="button" tabindex="0" title="คลิกเพื่อพับ/กางเมนู">
+            <div class="nav-group-title-content">
+              <span>📊</span> <span>รายงาน & บันทึก</span>
+            </div>
+            <span class="nav-group-chevron">▾</span>
+          </div>
           <div class="admin-nav-group-items">
             <button type="button" class="admin-nav-item" id="openAnalyticsBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
               <span style="font-size:15px;">📊</span> <span>รายงานปิดรอบ / PDF</span>
@@ -224,8 +244,13 @@
         </div>
 
         <!-- หมวดที่ 5: การตั้งค่าระบบ -->
-        <div class="admin-nav-group">
-          <div class="admin-nav-group-title"><span>⚙️</span> การตั้งค่า & ระบบ</div>
+        <div class="admin-nav-group" id="navGroupSettings">
+          <div class="admin-nav-group-title" onclick="window.toggleNavGroup(this)" role="button" tabindex="0" title="คลิกเพื่อพับ/กางเมนู">
+            <div class="nav-group-title-content">
+              <span>⚙️</span> <span>การตั้งค่า & ระบบ</span>
+            </div>
+            <span class="nav-group-chevron">▾</span>
+          </div>
           <div class="admin-nav-group-items">
             <button type="button" class="admin-nav-item" id="openLineSettingsBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
               <span style="font-size:15px;">⚙️</span> <span>ตั้งค่าระบบ & คลาวด์</span>
