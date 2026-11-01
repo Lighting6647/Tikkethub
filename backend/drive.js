@@ -77,6 +77,7 @@ async function uploadSlipToDrive({ buffer, mimeType = 'image/png', fileName, ref
   const effectiveWebhook = webhookUrl || (folderId && folderId.startsWith('https://script.google.com') ? folderId : '');
   if (effectiveWebhook && effectiveWebhook.startsWith('https://script.google.com')) {
     try {
+      const cleanFolderId = (folderId || '').replace(/^https:\/\/drive\.google\.com\/drive\/folders\//, '').split('?')[0].trim();
       const safeFileName = fileName || `slip_${ref}_${Date.now()}.png`;
       const res = await fetch(effectiveWebhook, {
         method: 'POST',
@@ -85,6 +86,7 @@ async function uploadSlipToDrive({ buffer, mimeType = 'image/png', fileName, ref
           fileName: safeFileName,
           mimeType,
           base64: buffer.toString('base64'),
+          folderId: cleanFolderId,
           ref
         })
       });
@@ -194,6 +196,7 @@ async function testDriveConnection({ folderId, clientEmail, privateKey, webhookU
   const effectiveWebhook = webhookUrl || (folderId && folderId.startsWith('https://script.google.com') ? folderId : '');
   if (effectiveWebhook && effectiveWebhook.startsWith('https://script.google.com')) {
     try {
+      const cleanFolderId = (folderId || '').replace(/^https:\/\/drive\.google\.com\/drive\/folders\//, '').split('?')[0].trim();
       const pingBuffer = Buffer.from('test');
       const res = await fetch(effectiveWebhook, {
         method: 'POST',
@@ -202,6 +205,7 @@ async function testDriveConnection({ folderId, clientEmail, privateKey, webhookU
           fileName: 'ping_test.txt',
           mimeType: 'text/plain',
           base64: pingBuffer.toString('base64'),
+          folderId: cleanFolderId,
           ref: 'TEST'
         })
       });
