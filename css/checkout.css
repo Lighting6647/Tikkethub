@@ -482,6 +482,62 @@
   text-transform: uppercase;
 }
 
+/* Stage Layout Variants */
+.stage-t-shape {
+  padding-bottom: 24px;
+}
+.stage-catwalk {
+  position: relative;
+  width: 90px;
+  height: 24px;
+  margin: 8px auto -18px;
+  background: linear-gradient(180deg, rgba(220, 38, 38, 0.9), #1a1a1a);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.catwalk-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.stage-center-360 {
+  border-radius: 16px;
+  background: radial-gradient(circle, #3d1212 0%, #171717 80%);
+  border: 1px solid rgba(229, 9, 20, 0.45);
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.2);
+  padding: 12px;
+}
+.stage-center-ring {
+  display: inline-block;
+  padding: 4px 18px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+.stage-intimate-club {
+  background: linear-gradient(135deg, #241432 0%, #120e18 100%);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.2);
+}
+.club-lights {
+  background: linear-gradient(90deg, transparent, #a855f7, #ec4899, #a855f7, transparent) !important;
+}
+.club-bar-indicator {
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #d8b4fe;
+  letter-spacing: 1px;
+}
+
 .seat-legend {
   display: flex;
   flex-wrap: wrap;
@@ -565,6 +621,21 @@
   transform: scale(1.12);
   z-index: 2;
   border-color: #FFFFFF;
+}
+
+/* Seating Mode Button Shapes */
+.seat-btn.seat-type-table {
+  border-radius: 50%;
+  aspect-ratio: 1;
+}
+.seat-btn.seat-type-chair {
+  border-radius: 6px 6px 3px 3px;
+  aspect-ratio: 1;
+}
+.seat-btn.seat-type-standing {
+  border-radius: 4px;
+  aspect-ratio: 1.1;
+  font-size: 9px;
 }
 
 .seat-zone-vip {

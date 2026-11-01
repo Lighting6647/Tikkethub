@@ -200,6 +200,27 @@ if (!eventColumns.includes('price_b')) {
 if (!eventColumns.includes('price_c')) {
   db.exec(`ALTER TABLE events ADD COLUMN price_c INTEGER NOT NULL DEFAULT 1800;`);
 }
+if (!eventColumns.includes('stage_layout')) {
+  db.exec(`ALTER TABLE events ADD COLUMN stage_layout TEXT NOT NULL DEFAULT 'standard';`);
+}
+if (!eventColumns.includes('seating_type')) {
+  db.exec(`ALTER TABLE events ADD COLUMN seating_type TEXT NOT NULL DEFAULT 'table';`);
+}
+if (!eventColumns.includes('zone_type_vip')) {
+  db.exec(`ALTER TABLE events ADD COLUMN zone_type_vip TEXT NOT NULL DEFAULT 'table';`);
+}
+if (!eventColumns.includes('zone_type_a')) {
+  db.exec(`ALTER TABLE events ADD COLUMN zone_type_a TEXT NOT NULL DEFAULT 'table';`);
+}
+if (!eventColumns.includes('zone_type_b')) {
+  db.exec(`ALTER TABLE events ADD COLUMN zone_type_b TEXT NOT NULL DEFAULT 'table';`);
+}
+if (!eventColumns.includes('zone_type_c')) {
+  db.exec(`ALTER TABLE events ADD COLUMN zone_type_c TEXT NOT NULL DEFAULT 'table';`);
+}
+if (!eventColumns.includes('seats_per_table')) {
+  db.exec(`ALTER TABLE events ADD COLUMN seats_per_table INTEGER NOT NULL DEFAULT 4;`);
+}
 
 const DEFAULT_EVENTS = [
   {
@@ -887,6 +908,13 @@ function listEventsWithQuota() {
       priceA: Number(r.price_a != null ? r.price_a : 4500),
       priceB: Number(r.price_b != null ? r.price_b : 3200),
       priceC: Number(r.price_c != null ? r.price_c : 1800),
+      stageLayout: r.stage_layout || 'standard',
+      seatingType: r.seating_type || 'table',
+      zoneTypeVip: r.zone_type_vip || 'table',
+      zoneTypeA: r.zone_type_a || 'table',
+      zoneTypeB: r.zone_type_b || 'table',
+      zoneTypeC: r.zone_type_c || 'table',
+      seatsPerTable: Number(r.seats_per_table || 4),
       remainingVip: Math.max(0, r.quota_vip - sold.vip),
       remainingA: Math.max(0, r.quota_a - sold.a),
       remainingB: Math.max(0, r.quota_b - sold.b),
@@ -914,6 +942,13 @@ function saveEvent(input) {
   const priceA = Math.max(0, Number(input.priceA != null ? input.priceA : 4500));
   const priceB = Math.max(0, Number(input.priceB != null ? input.priceB : 3200));
   const priceC = Math.max(0, Number(input.priceC != null ? input.priceC : 1800));
+  const stageLayout = String(input.stageLayout || 'standard').trim();
+  const seatingType = String(input.seatingType || 'table').trim();
+  const zoneTypeVip = String(input.zoneTypeVip || (seatingType !== 'hybrid' ? seatingType : 'table')).trim();
+  const zoneTypeA = String(input.zoneTypeA || (seatingType !== 'hybrid' ? seatingType : 'table')).trim();
+  const zoneTypeB = String(input.zoneTypeB || (seatingType !== 'hybrid' ? seatingType : 'table')).trim();
+  const zoneTypeC = String(input.zoneTypeC || (seatingType !== 'hybrid' ? seatingType : 'table')).trim();
+  const seatsPerTable = Math.max(1, Number(input.seatsPerTable || 4));
 
   const validPrices = [priceVip, priceA, priceB, priceC].filter((p) => p > 0);
   const minP = validPrices.length ? Math.min(...validPrices) : 0;
@@ -926,14 +961,31 @@ function saveEvent(input) {
       UPDATE events
       SET title = ?, category = ?, date = ?, venue = ?, price_range = ?, badge = ?, is_accent = ?, gradient = ?, image = ?,
           quota_vip = ?, quota_a = ?, quota_b = ?, quota_c = ?,
-          price_vip = ?, price_a = ?, price_b = ?, price_c = ?
+          price_vip = ?, price_a = ?, price_b = ?, price_c = ?,
+          stage_layout = ?, seating_type = ?, zone_type_vip = ?, zone_type_a = ?, zone_type_b = ?, zone_type_c = ?, seats_per_table = ?
       WHERE id = ?
-    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC, priceVip, priceA, priceB, priceC, Number(input.id));
+    `).run(
+      title, category, date, venue, priceRange, badge, isAccent, gradient, image,
+      quotaVip, quotaA, quotaB, quotaC,
+      priceVip, priceA, priceB, priceC,
+      stageLayout, seatingType, zoneTypeVip, zoneTypeA, zoneTypeB, zoneTypeC, seatsPerTable,
+      Number(input.id)
+    );
   } else {
     db.prepare(`
-      INSERT INTO events (title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c, price_vip, price_a, price_b, price_c)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, category, date, venue, priceRange, badge, isAccent, gradient, image, quotaVip, quotaA, quotaB, quotaC, priceVip, priceA, priceB, priceC);
+      INSERT INTO events (
+        title, category, date, venue, price_range, badge, is_accent, gradient, image,
+        quota_vip, quota_a, quota_b, quota_c,
+        price_vip, price_a, price_b, price_c,
+        stage_layout, seating_type, zone_type_vip, zone_type_a, zone_type_b, zone_type_c, seats_per_table
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      title, category, date, venue, priceRange, badge, isAccent, gradient, image,
+      quotaVip, quotaA, quotaB, quotaC,
+      priceVip, priceA, priceB, priceC,
+      stageLayout, seatingType, zoneTypeVip, zoneTypeA, zoneTypeB, zoneTypeC, seatsPerTable
+    );
   }
 
   const allEvents = listEventsWithQuota();

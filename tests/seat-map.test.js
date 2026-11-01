@@ -46,3 +46,28 @@ test('SeatMap: occupied seats cannot be selected', () => {
   assert.equal(result, false, 'occupied seat rejected');
   assert.equal(SeatMap.getSelectedSeats().length, 0);
 });
+
+test('SeatMap: configureLayout dynamically sets stage layout, seating type and zone formats', () => {
+  const SeatMap = window.SeatMap;
+  assert.ok(typeof SeatMap.configureLayout === 'function', 'configureLayout is defined');
+
+  SeatMap.configureLayout({
+    stageLayout: 't_stage',
+    seatingType: 'hybrid',
+    zoneTypes: {
+      vip: 'table',
+      a: 'standing',
+      b: 'seated',
+      c: 'seated'
+    },
+    seatsPerTable: 6
+  });
+
+  const cfg = SeatMap.getConfig();
+  assert.equal(cfg.stageLayout, 't_stage');
+  assert.equal(cfg.seatingType, 'hybrid');
+  assert.equal(cfg.zoneTypes.vip, 'table');
+  assert.equal(cfg.zoneTypes.a, 'standing');
+  assert.equal(cfg.zoneTypes.b, 'seated');
+  assert.equal(cfg.seatsPerTable, 6);
+});

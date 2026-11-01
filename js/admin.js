@@ -3294,6 +3294,68 @@
     return (Array.isArray(events) ? events : []).filter((ev) => ev && !deletedSet.has(Number(ev.id)));
   }
 
+  function updateSeatingLabelsAndBadge() {
+    const stageLayout = $('evStageLayout') ? $('evStageLayout').value : 'standard';
+    const seatingType = $('evSeatingType') ? $('evSeatingType').value : 'table';
+    const seatsPerTable = Number($('evSeatsPerTable') ? $('evSeatsPerTable').value : 4) || 4;
+
+    const stageNames = {
+      standard: '🎪 เวทีหน้ามาตรฐาน',
+      t_stage: '🌟 เวที T-Stage/Catwalk',
+      center_360: '⭕ เวที 360° กลางฮอลล์',
+      intimate_club: '🎸 เวทีผับ/ดนตรีสด'
+    };
+
+    const typeNames = {
+      table: '🍽️ โต๊ะ',
+      seated: '🪑 เก้าอี้นั่ง',
+      standing: '🧍 ตั๋วยืน',
+      hybrid: '🔀 ผสมผสาน'
+    };
+
+    const formatZoneItem = (zoneId, labelPrefix, code) => {
+      const zSel = $(`evZoneType${code}`);
+      const zType = zSel ? zSel.value : 'table';
+      const labelEl = $(`evLabel${code}`);
+      const priceLabelEl = $(`evPriceLabel${code}`);
+      const quotaLabelEl = $(`evQuotaLabel${code}`);
+
+      let unit = 'โต๊ะ';
+      let icon = '🍽️';
+      if (zType === 'seated') {
+        unit = 'ที่นั่ง';
+        icon = '🪑';
+      } else if (zType === 'standing') {
+        unit = 'คน/ใบ';
+        icon = '🧍';
+      }
+
+      if (labelEl) labelEl.textContent = `${labelPrefix} (${icon} ${typeNames[zType] || unit})`;
+      if (priceLabelEl) priceLabelEl.textContent = `ราคา/${unit} (THB)`;
+      if (quotaLabelEl) quotaLabelEl.textContent = `โควตา (${unit})`;
+      return `${code}:${typeNames[zType] || unit}`;
+    };
+
+    const zVip = formatZoneItem('vip', '👑 โซน VIP', 'Vip');
+    const zA = formatZoneItem('a', '🥇 โซน A', 'A');
+    const zB = formatZoneItem('b', '🥈 โซน B', 'B');
+    const zC = formatZoneItem('c', '🥉 โซน C', 'C');
+
+    const badge = $('evLayoutHelperBadge');
+    if (badge) {
+      const stName = stageNames[stageLayout] || 'เวทีมาตรฐาน';
+      if (seatingType === 'table') {
+        badge.textContent = `${stName} · ผังโต๊ะ (${seatsPerTable} ท่าน/โต๊ะ)`;
+      } else if (seatingType === 'seated') {
+        badge.textContent = `${stName} · เก้าอี้นั่งชมระบุเลข`;
+      } else if (seatingType === 'standing') {
+        badge.textContent = `${stName} · ตั๋วยืนอิสระ (Standing)`;
+      } else {
+        badge.textContent = `${stName} · ไฮบริด [${zVip}, ${zA}, ${zB}, ${zC}]`;
+      }
+    }
+  }
+
   function resetEventForm() {
     $('evIdInput').value = '';
     $('evTitleInput').value = '';
@@ -3312,7 +3374,15 @@
     if ($('evPriceA')) $('evPriceA').value = '4500';
     if ($('evPriceB')) $('evPriceB').value = '3200';
     if ($('evPriceC')) $('evPriceC').value = '1800';
-    $('evFormModeTitle').textContent = '+ เพิ่มคอนเสิร์ตใหม่ / กำหนดราคาและโควตาโต๊ะ';
+    if ($('evStageLayout')) $('evStageLayout').value = 'standard';
+    if ($('evSeatingType')) $('evSeatingType').value = 'table';
+    if ($('evSeatsPerTable')) $('evSeatsPerTable').value = '4';
+    if ($('evZoneTypeVip')) $('evZoneTypeVip').value = 'table';
+    if ($('evZoneTypeA')) $('evZoneTypeA').value = 'table';
+    if ($('evZoneTypeB')) $('evZoneTypeB').value = 'table';
+    if ($('evZoneTypeC')) $('evZoneTypeC').value = 'table';
+    updateSeatingLabelsAndBadge();
+    $('evFormModeTitle').textContent = '+ เพิ่มคอนเสิร์ตใหม่ / กำหนดราคาและโควตา';
     if ($('deleteEventBtn')) $('deleteEventBtn').hidden = true;
   }
 
@@ -3338,19 +3408,26 @@
       return;
     }
     const esc = window.UI.escapeHtml;
+    const stageIcons = { standard: '🎪', t_stage: '🌟', center_360: '⭕', intimate_club: '🎸' };
+    const typeIcons = { table: '🍽️ ผังโต๊ะ', seated: '🪑 เก้าอี้นั่ง', standing: '🧍 ตั๋วยืน', hybrid: '🔀 ผสมผสาน' };
     box.innerHTML = adminEventsCache
       .map(
         (ev) => `
         <div class="zone-chip" style="cursor:pointer; gap:10px;" data-edit-event-id="${ev.id}">
           <div style="flex:1;">
-            <div style="font-weight:700; color:#fff;">${esc(ev.title)}</div>
-            <div class="text-muted" style="font-size:12px;">${esc(ev.date)} · ${esc(ev.venue)}</div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong style="color:#fff; font-size:13px;">${esc(ev.title)}</strong>
+              <span class="badge-accent" style="font-size:10px; padding:1px 6px;">
+                ${stageIcons[ev.stageLayout] || '🎪'} ${typeIcons[ev.seatingType] || 'ผังโต๊ะ'}
+              </span>
+            </div>
+            <div class="text-muted" style="font-size:12px; margin-top:2px;">${esc(ev.date)} · ${esc(ev.venue)}</div>
             <div style="font-size:11px; color:var(--color-accent); margin-top:2px;">
-              คงเหลือรวม ${ev.remainingTotal}/${ev.totalQuota} โต๊ะ (โต๊ะ VIP: ${ev.remainingVip}/${ev.quotaVip} @${Number(ev.priceVip || 6500).toLocaleString('th-TH')}.- · โต๊ะ A: ${ev.remainingA}/${ev.quotaA} @${Number(ev.priceA || 4500).toLocaleString('th-TH')}.- · โต๊ะ B: ${ev.remainingB}/${ev.quotaB} @${Number(ev.priceB || 3200).toLocaleString('th-TH')}.- · โต๊ะ C: ${ev.remainingC}/${ev.quotaC} @${Number(ev.priceC || 1800).toLocaleString('th-TH')}.-)
+              คงเหลือรวม ${ev.remainingTotal}/${ev.totalQuota} ที่/โต๊ะ (VIP: ${ev.remainingVip}/${ev.quotaVip} @${Number(ev.priceVip || 6500).toLocaleString('th-TH')}.- · A: ${ev.remainingA}/${ev.quotaA} @${Number(ev.priceA || 4500).toLocaleString('th-TH')}.- · B: ${ev.remainingB}/${ev.quotaB} @${Number(ev.priceB || 3200).toLocaleString('th-TH')}.- · C: ${ev.remainingC}/${ev.quotaC} @${Number(ev.priceC || 1800).toLocaleString('th-TH')}.-)
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-            <button type="button" class="btn-outline btn-sm" data-edit-event-btn="${ev.id}">แก้ไขราคา/โควตาโต๊ะ</button>
+            <button type="button" class="btn-outline btn-sm" data-edit-event-btn="${ev.id}">แก้ไขผังเวที/ราคา</button>
             <button type="button" class="btn-outline btn-sm" data-delete-event-id="${ev.id}" style="border-color:rgba(255,107,107,0.45); color:#FF6B6B;">🗑️ ลบ</button>
           </div>
         </div>`
@@ -3387,6 +3464,13 @@
     const priceA = Number($('evPriceA') ? $('evPriceA').value : 4500) || 4500;
     const priceB = Number($('evPriceB') ? $('evPriceB').value : 3200) || 3200;
     const priceC = Number($('evPriceC') ? $('evPriceC').value : 1800) || 1800;
+    const stageLayout = $('evStageLayout') ? $('evStageLayout').value : 'standard';
+    const seatingType = $('evSeatingType') ? $('evSeatingType').value : 'table';
+    const seatsPerTable = Number($('evSeatsPerTable') ? $('evSeatsPerTable').value : 4) || 4;
+    const zoneTypeVip = $('evZoneTypeVip') ? $('evZoneTypeVip').value : 'table';
+    const zoneTypeA = $('evZoneTypeA') ? $('evZoneTypeA').value : 'table';
+    const zoneTypeB = $('evZoneTypeB') ? $('evZoneTypeB').value : 'table';
+    const zoneTypeC = $('evZoneTypeC') ? $('evZoneTypeC').value : 'table';
     const image = $('evImageInput') ? $('evImageInput').value.trim() : '';
 
     if (!title || !venue || !date) {
@@ -3399,7 +3483,13 @@
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ id, title, venue, date, priceRange, quotaVip, quotaA, quotaB, quotaC, priceVip, priceA, priceB, priceC, image })
+        body: JSON.stringify({
+          id, title, venue, date, priceRange,
+          quotaVip, quotaA, quotaB, quotaC,
+          priceVip, priceA, priceB, priceC,
+          stageLayout, seatingType, zoneTypeVip, zoneTypeA, zoneTypeB, zoneTypeC, seatsPerTable,
+          image
+        })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -3423,7 +3513,7 @@
       } catch (_) {}
       renderAdminEvents();
       resetEventForm();
-      window.UI.toast('บันทึกข้อมูลคอนเสิร์ต ราคา และโควตาโต๊ะเรียบร้อยแล้ว (อัปเดตหน้าขายบัตรทันที)');
+      window.UI.toast('บันทึกข้อมูลคอนเสิร์ต รูปแบบเวที และโควตาเรียบร้อยแล้ว (อัปเดตหน้าขายบัตรทันที)');
     } catch (err) {
       window.UI.toast(err.message, 'error');
     } finally {
@@ -3853,6 +3943,41 @@
       const el = $(pid);
       if (el) el.addEventListener('input', recalculateEventPriceRange);
     });
+    if ($('evSeatingType')) {
+      $('evSeatingType').addEventListener('change', () => {
+        const val = $('evSeatingType').value;
+        if (val !== 'hybrid') {
+          if ($('evZoneTypeVip')) $('evZoneTypeVip').value = val;
+          if ($('evZoneTypeA')) $('evZoneTypeA').value = val;
+          if ($('evZoneTypeB')) $('evZoneTypeB').value = val;
+          if ($('evZoneTypeC')) $('evZoneTypeC').value = val;
+        }
+        updateSeatingLabelsAndBadge();
+      });
+    }
+    ['evZoneTypeVip', 'evZoneTypeA', 'evZoneTypeB', 'evZoneTypeC'].forEach((zid) => {
+      const el = $(zid);
+      if (el) {
+        el.addEventListener('change', () => {
+          const zVip = $('evZoneTypeVip') ? $('evZoneTypeVip').value : 'table';
+          const zA = $('evZoneTypeA') ? $('evZoneTypeA').value : 'table';
+          const zB = $('evZoneTypeB') ? $('evZoneTypeB').value : 'table';
+          const zC = $('evZoneTypeC') ? $('evZoneTypeC').value : 'table';
+          if (zVip === zA && zA === zB && zB === zC) {
+            if ($('evSeatingType')) $('evSeatingType').value = zVip;
+          } else {
+            if ($('evSeatingType')) $('evSeatingType').value = 'hybrid';
+          }
+          updateSeatingLabelsAndBadge();
+        });
+      }
+    });
+    if ($('evStageLayout')) {
+      $('evStageLayout').addEventListener('change', updateSeatingLabelsAndBadge);
+    }
+    if ($('evSeatsPerTable')) {
+      $('evSeatsPerTable').addEventListener('input', updateSeatingLabelsAndBadge);
+    }
     if ($('adminEventsList')) {
       $('adminEventsList').addEventListener('click', (e) => {
         const delBtn = e.target.closest('[data-delete-event-id]');
@@ -3878,6 +4003,14 @@
         if ($('evPriceA')) $('evPriceA').value = String(ev.priceA != null ? ev.priceA : 4500);
         if ($('evPriceB')) $('evPriceB').value = String(ev.priceB != null ? ev.priceB : 3200);
         if ($('evPriceC')) $('evPriceC').value = String(ev.priceC != null ? ev.priceC : 1800);
+        if ($('evStageLayout')) $('evStageLayout').value = ev.stageLayout || 'standard';
+        if ($('evSeatingType')) $('evSeatingType').value = ev.seatingType || 'table';
+        if ($('evSeatsPerTable')) $('evSeatsPerTable').value = String(ev.seatsPerTable || 4);
+        if ($('evZoneTypeVip')) $('evZoneTypeVip').value = ev.zoneTypeVip || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+        if ($('evZoneTypeA')) $('evZoneTypeA').value = ev.zoneTypeA || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+        if ($('evZoneTypeB')) $('evZoneTypeB').value = ev.zoneTypeB || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+        if ($('evZoneTypeC')) $('evZoneTypeC').value = ev.zoneTypeC || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+        updateSeatingLabelsAndBadge();
         if ($('evImageInput')) $('evImageInput').value = ev.image || '';
         if ($('evImagePreviewWrap')) {
           if (ev.image) {

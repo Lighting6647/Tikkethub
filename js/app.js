@@ -376,7 +376,58 @@ function openBookingModal(title, date, venue) {
     window.SeatMap.updateTablePrices(currentTablePrices);
   }
 
-  selectedZoneName = 'โต๊ะ VIP';
+  // Configure Stage Layout & Seating Mode for this specific event
+  if (window.SeatMap && typeof window.SeatMap.configureLayout === 'function') {
+    window.SeatMap.configureLayout({
+      stageLayout: ev.stageLayout || 'standard',
+      seatingType: ev.seatingType || 'table',
+      zoneTypes: {
+        vip: ev.zoneTypeVip || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table',
+        a: ev.zoneTypeA || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table',
+        b: ev.zoneTypeB || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table',
+        c: ev.zoneTypeC || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table'
+      },
+      seatsPerTable: ev.seatsPerTable || 4
+    });
+  }
+
+  const zTypeVip = ev.zoneTypeVip || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+  const zTypeA = ev.zoneTypeA || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+  const zTypeB = ev.zoneTypeB || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+  const zTypeC = ev.zoneTypeC || (ev.seatingType !== 'hybrid' ? ev.seatingType : 'table') || 'table';
+
+  const typeNameMap = { table: 'โต๊ะ', seated: 'บัตรนั่ง', standing: 'บัตรยืน' };
+  const vipName = `${typeNameMap[zTypeVip] || 'โต๊ะ'} VIP`;
+  const aName = `${typeNameMap[zTypeA] || 'โต๊ะ'} โซน A`;
+  const bName = `${typeNameMap[zTypeB] || 'โต๊ะ'} โซน B`;
+  const cName = `${typeNameMap[zTypeC] || 'โต๊ะ'} โซน C`;
+
+  const btnVip = document.getElementById('zoneBtnVip');
+  if (btnVip) {
+    const lbl = btnVip.querySelector('.zone-btn-name');
+    if (lbl) lbl.textContent = `👑 ${vipName}`;
+    btnVip.setAttribute('onclick', `selectZone('${vipName}', currentTablePrices.vip, this)`);
+  }
+  const btnA = document.getElementById('zoneBtnA');
+  if (btnA) {
+    const lbl = btnA.querySelector('.zone-btn-name');
+    if (lbl) lbl.textContent = `🥇 ${aName}`;
+    btnA.setAttribute('onclick', `selectZone('${aName}', currentTablePrices.a, this)`);
+  }
+  const btnB = document.getElementById('zoneBtnB');
+  if (btnB) {
+    const lbl = btnB.querySelector('.zone-btn-name');
+    if (lbl) lbl.textContent = `🥈 ${bName}`;
+    btnB.setAttribute('onclick', `selectZone('${bName}', currentTablePrices.b, this)`);
+  }
+  const btnC = document.getElementById('zoneBtnC');
+  if (btnC) {
+    const lbl = btnC.querySelector('.zone-btn-name');
+    if (lbl) lbl.textContent = `🥉 ${cName}`;
+    btnC.setAttribute('onclick', `selectZone('${cName}', currentTablePrices.c, this)`);
+  }
+
+  selectedZoneName = vipName;
   selectedZonePrice = currentTablePrices.vip;
 
   currentQty = 1;

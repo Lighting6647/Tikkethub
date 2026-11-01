@@ -122,6 +122,13 @@ async function initPostgresTables() {
       ALTER TABLE events ADD COLUMN IF NOT EXISTS price_a INTEGER NOT NULL DEFAULT 4500;
       ALTER TABLE events ADD COLUMN IF NOT EXISTS price_b INTEGER NOT NULL DEFAULT 3200;
       ALTER TABLE events ADD COLUMN IF NOT EXISTS price_c INTEGER NOT NULL DEFAULT 1800;
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS stage_layout TEXT NOT NULL DEFAULT 'standard';
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS seating_type TEXT NOT NULL DEFAULT 'table';
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS zone_type_vip TEXT NOT NULL DEFAULT 'table';
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS zone_type_a TEXT NOT NULL DEFAULT 'table';
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS zone_type_b TEXT NOT NULL DEFAULT 'table';
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS zone_type_c TEXT NOT NULL DEFAULT 'table';
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS seats_per_table INTEGER NOT NULL DEFAULT 4;
 
       CREATE TABLE IF NOT EXISTS promo_codes (
         code VARCHAR(64) PRIMARY KEY,
@@ -261,9 +268,15 @@ function syncEvent(e) {
   if (!e) return Promise.resolve(null);
   return queryAsync(
     `INSERT INTO events (
-      id, title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c, price_vip, price_a, price_b, price_c
+      id, title, category, date, venue, price_range, badge, is_accent, gradient, image,
+      quota_vip, quota_a, quota_b, quota_c,
+      price_vip, price_a, price_b, price_c,
+      stage_layout, seating_type, zone_type_vip, zone_type_a, zone_type_b, zone_type_c, seats_per_table
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+      $11, $12, $13, $14,
+      $15, $16, $17, $18,
+      $19, $20, $21, $22, $23, $24, $25
     ) ON CONFLICT (id) DO UPDATE SET
       title = EXCLUDED.title,
       category = EXCLUDED.category,
@@ -281,7 +294,14 @@ function syncEvent(e) {
       price_vip = EXCLUDED.price_vip,
       price_a = EXCLUDED.price_a,
       price_b = EXCLUDED.price_b,
-      price_c = EXCLUDED.price_c`,
+      price_c = EXCLUDED.price_c,
+      stage_layout = EXCLUDED.stage_layout,
+      seating_type = EXCLUDED.seating_type,
+      zone_type_vip = EXCLUDED.zone_type_vip,
+      zone_type_a = EXCLUDED.zone_type_a,
+      zone_type_b = EXCLUDED.zone_type_b,
+      zone_type_c = EXCLUDED.zone_type_c,
+      seats_per_table = EXCLUDED.seats_per_table`,
     [
       Number(e.id),
       String(e.title || ''),
@@ -300,7 +320,14 @@ function syncEvent(e) {
       Number(e.priceVip != null ? e.priceVip : 6500),
       Number(e.priceA != null ? e.priceA : 4500),
       Number(e.priceB != null ? e.priceB : 3200),
-      Number(e.priceC != null ? e.priceC : 1800)
+      Number(e.priceC != null ? e.priceC : 1800),
+      String(e.stageLayout || 'standard'),
+      String(e.seatingType || 'table'),
+      String(e.zoneTypeVip || 'table'),
+      String(e.zoneTypeA || 'table'),
+      String(e.zoneTypeB || 'table'),
+      String(e.zoneTypeC || 'table'),
+      Number(e.seatsPerTable || 4)
     ]
   );
 }

@@ -85,6 +85,41 @@
   let holdDeadline = 0;
   let holdTimerId = null;
 
+  let currentConfig = {
+    stageLayout: 'standard', // 'standard', 't_stage', 'center_360', 'intimate_club'
+    seatingType: 'table',    // 'table', 'seated', 'standing', 'hybrid'
+    zoneTypes: {
+      vip: 'table',
+      a: 'table',
+      b: 'table',
+      c: 'table'
+    },
+    seatsPerTable: 4
+  };
+
+  function configureLayout(cfg) {
+    if (!cfg) return;
+    if (cfg.stageLayout) currentConfig.stageLayout = cfg.stageLayout;
+    if (cfg.seatingType) currentConfig.seatingType = cfg.seatingType;
+    if (cfg.seatsPerTable) currentConfig.seatsPerTable = Number(cfg.seatsPerTable) || 4;
+    if (cfg.zoneTypes) {
+      currentConfig.zoneTypes = {
+        vip: cfg.zoneTypes.vip || currentConfig.zoneTypes.vip,
+        a: cfg.zoneTypes.a || currentConfig.zoneTypes.a,
+        b: cfg.zoneTypes.b || currentConfig.zoneTypes.b,
+        c: cfg.zoneTypes.c || currentConfig.zoneTypes.c
+      };
+    } else if (cfg.seatingType && cfg.seatingType !== 'hybrid') {
+      currentConfig.zoneTypes = {
+        vip: cfg.seatingType,
+        a: cfg.seatingType,
+        b: cfg.seatingType,
+        c: cfg.seatingType
+      };
+    }
+    render();
+  }
+
   function notifyChange() {
     changeListeners.forEach((fn) => fn(selectedSeats));
   }
@@ -314,22 +349,30 @@
     const renderSeatBtn = (s) => {
       const isSelected = selectedIds.has(s.id);
       const isHeldOther = !isSelected && s.heldByOther;
-      const cls = ['seat-btn'];
+      const zType = currentConfig.zoneTypes[s.zoneCode.toLowerCase()] || currentConfig.seatingType || 'table';
+      const cls = ['seat-btn', `seat-type-${zType}`];
 
       if (s.occupied) cls.push('seat-occupied');
       else if (isHeldOther) cls.push('seat-held-other');
       else if (isSelected) cls.push('seat-selected');
       else cls.push(`seat-zone-${s.zoneCode.toLowerCase()}`);
 
+      const itemPrefix = zType === 'table' ? 'โต๊ะ' : zType === 'seated' ? 'ที่นั่ง' : 'บัตรยืน';
       const title = s.occupied
-        ? `โต๊ะ ${s.id}: จองแล้ว (Sold out)`
+        ? `${itemPrefix} ${s.id}: จองแล้ว (Sold out)`
         : isHeldOther
-        ? `โต๊ะ ${s.id}: กำลังมีผู้ใช้อื่นเลือกอยู่ (Hold 10 นาที)`
+        ? `${itemPrefix} ${s.id}: กำลังมีผู้ใช้อื่นเลือกอยู่ (Hold 10 นาที)`
         : isSelected
-        ? `โต๊ะ ${s.id}: เลือกแล้ว (${s.price.toLocaleString()} THB)`
-        : `โต๊ะ ${s.id}: ${s.zone} (${s.price.toLocaleString()} THB)`;
+        ? `${itemPrefix} ${s.id}: เลือกแล้ว (${s.price.toLocaleString('th-TH')} THB)`
+        : `${itemPrefix} ${s.id}: ${s.zone} (${s.price.toLocaleString('th-TH')} THB)`;
 
       const disabledAttr = s.occupied || isHeldOther ? 'disabled aria-disabled="true"' : '';
+      let displayInner = isHeldOther ? '🔒' : s.label;
+      if (!isHeldOther) {
+        if (zType === 'table') displayInner = `<span style="font-size:7px; opacity:0.7; display:block; line-height:1;">🍽️</span>${s.label}`;
+        else if (zType === 'seated') displayInner = `<span style="font-size:7px; opacity:0.7; display:block; line-height:1;">🪑</span>${s.label}`;
+        else if (zType === 'standing') displayInner = `<span style="font-size:7px; opacity:0.7; display:block; line-height:1;">🧍</span>${s.label}`;
+      }
 
       return `
         <button type="button" 
@@ -339,7 +382,7 @@
           ${disabledAttr}
           aria-label="${title}"
           aria-pressed="${isSelected}">
-          ${isHeldOther ? '🔒' : s.label}
+          ${displayInner}
         </button>
       `;
     };
@@ -354,15 +397,75 @@
     const pB = bSeats[0] ? bSeats[0].price : 3200;
     const pC = cSeats[0] ? cSeats[0].price : 1800;
 
+    const formatZoneHeader = (code, badgeCls, icon, price) => {
+      const zType = currentConfig.zoneTypes[code.toLowerCase()] || currentConfig.seatingType || 'table';
+      let typeLabel = 'โต๊ะ';
+      let typeDesc = `โต๊ะ (${currentConfig.seatsPerTable} ที่นั่ง/โต๊ะ · ${price.toLocaleString('th-TH')} THB/โต๊ะ)`;
+      if (zType === 'seated') {
+        typeLabel = 'บัตรนั่ง';
+        typeDesc = `ที่นั่งระบุเลข (${price.toLocaleString('th-TH')} THB/ที่นั่ง)`;
+      } else if (zType === 'standing') {
+        typeLabel = 'บัตรยืน';
+        typeDesc = `โซนยืนอิสระ (${price.toLocaleString('th-TH')} THB/ใบ)`;
+      }
+      return `
+        <div class="zone-header-label">
+          <span class="${badgeCls}">${icon} ${typeLabel} โซน ${code}</span> ${typeDesc}
+        </div>
+      `;
+    };
+
+    let stageHtml = '';
+    if (currentConfig.stageLayout === 't_stage') {
+      stageHtml = `
+        <div class="stage-display stage-t-shape">
+          <div class="stage-lights"></div>
+          <div class="stage-title">🌟 MAIN STAGE & CATWALK · เวทีทางเดิน T-STAGE</div>
+          <div class="stage-catwalk">
+            <span class="catwalk-label">T-RUNWAY</span>
+          </div>
+        </div>
+      `;
+    } else if (currentConfig.stageLayout === 'center_360') {
+      stageHtml = `
+        <div class="stage-display stage-center-360">
+          <div class="stage-lights"></div>
+          <div class="stage-center-ring">
+            <div class="stage-title">⭕ 360° CENTER STAGE · เวทีวงกลมกลางฮอลล์</div>
+          </div>
+        </div>
+      `;
+    } else if (currentConfig.stageLayout === 'intimate_club') {
+      stageHtml = `
+        <div class="stage-display stage-intimate-club">
+          <div class="stage-lights club-lights"></div>
+          <div class="stage-title">🎸 LIVE HOUSE & CLUB STAGE · เวทีผับ/ดนตรีสด</div>
+          <div class="club-bar-indicator">🍸 BAR & LOUNGE COUNTER 🍾</div>
+        </div>
+      `;
+    } else {
+      stageHtml = `
+        <div class="stage-display stage-standard">
+          <div class="stage-lights"></div>
+          <div class="stage-title">🎪 MAIN STAGE · เวทีการแสดงหลัก</div>
+        </div>
+      `;
+    }
+
+    const isAllTables = Object.values(currentConfig.zoneTypes).every((t) => t === 'table');
+    const isAllSeated = Object.values(currentConfig.zoneTypes).every((t) => t === 'seated');
+    const isAllStanding = Object.values(currentConfig.zoneTypes).every((t) => t === 'standing');
+    const itemUnit = isAllTables ? 'โต๊ะ' : isAllSeated ? 'ที่นั่ง' : isAllStanding ? 'บัตรยืน' : 'ที่นั่ง/โต๊ะ';
+
     el.innerHTML = `
       <div class="seat-map-wrapper">
         ${
           selectedSeats.length > 0
             ? `
           <div class="seat-hold-live-ticker" id="seatHoldLiveTicker">
-            <span class="seat-hold-ticker-badge">🔒 ล็อกโต๊ะแล้ว</span>
+            <span class="seat-hold-ticker-badge">🔒 ล็อก${itemUnit}แล้ว</span>
             <div class="seat-hold-ticker-msg">
-              ระบบกำลังล็อกโต๊ะสำหรับคุณ ป้องกันผู้อื่นแย่งซื้อ: 
+              ระบบกำลังล็อก${itemUnit}สำหรับคุณ ป้องกันผู้อื่นแย่งซื้อ: 
               <strong id="seatHoldCountdownText" class="seat-hold-timer-text">10:00</strong> นาที
             </div>
           </div>
@@ -371,74 +474,63 @@
         }
 
         <!-- Stage Visual -->
-        <div class="stage-display">
-          <div class="stage-lights"></div>
-          <div class="stage-title">STAGE · เวทีการแสดง</div>
-        </div>
+        ${stageHtml}
 
         <!-- Legend + Real-time SSE Sync Indicator -->
         <div class="seat-legend">
-          <div class="legend-item"><span class="legend-dot dot-available"></span>ว่าง (คลิกเลือกโต๊ะได้)</div>
-          <div class="legend-item"><span class="legend-dot dot-selected"></span>โต๊ะที่คุณเลือก</div>
+          <div class="legend-item"><span class="legend-dot dot-available"></span>ว่าง (คลิกเลือก${itemUnit}ได้)</div>
+          <div class="legend-item"><span class="legend-dot dot-selected"></span>${itemUnit}ที่คุณเลือก</div>
           <div class="legend-item"><span class="legend-dot" style="background:#F5A623;"></span>กำลังถูกล็อกโดยผู้อื่น</div>
           <div class="legend-item"><span class="legend-dot dot-occupied"></span>จองแล้ว</div>
           <div class="legend-item" id="seatRealtimeBadge" style="color:var(--color-accent); font-weight:600;">
-            🟢 ซิงก์ผังโต๊ะเรียลไทม์ (Live SSE)
+            🟢 ซิงก์ผังเรียลไทม์ (Live SSE)
           </div>
         </div>
 
-        <!-- Tables Layout by Zone -->
+        <!-- Seating/Tables Layout by Zone -->
         <div class="seating-grid-container">
-          <!-- VIP Tables -->
+          <!-- VIP Zone -->
           <div class="seat-zone-block">
-            <div class="zone-header-label">
-              <span class="badge-primary">👑 โต๊ะ VIP</span> โต๊ะหน้าเวที (${pVip.toLocaleString('th-TH')} THB/โต๊ะ)
-            </div>
+            ${formatZoneHeader('VIP', 'badge-primary', '👑', pVip)}
             <div class="seat-row-grid seat-grid-vip">
               ${vipSeats.map(renderSeatBtn).join('')}
             </div>
           </div>
 
-          <!-- Zone A Tables -->
+          <!-- Zone A -->
           <div class="seat-zone-block">
-            <div class="zone-header-label">
-              <span class="badge-accent">🥇 โต๊ะโซน A</span> โต๊ะแถวหน้า (${pA.toLocaleString('th-TH')} THB/โต๊ะ)
-            </div>
+            ${formatZoneHeader('A', 'badge-accent', '🥇', pA)}
             <div class="seat-row-grid seat-grid-a">
               ${aSeats.map(renderSeatBtn).join('')}
             </div>
           </div>
 
-          <!-- Zone B Tables -->
+          <!-- Zone B -->
           <div class="seat-zone-block">
-            <div class="zone-header-label">
-              <span class="badge-accent" style="background:#0284c7;">🥈 โต๊ะโซน B</span> โต๊ะแถวกลาง (${pB.toLocaleString('th-TH')} THB/โต๊ะ)
-            </div>
+            ${formatZoneHeader('B', 'badge-accent', '🥈', pB)}
             <div class="seat-row-grid seat-grid-b">
               ${bSeats.map(renderSeatBtn).join('')}
             </div>
           </div>
 
-          <!-- Zone C Tables -->
+          <!-- Zone C -->
           <div class="seat-zone-block">
-            <div class="zone-header-label">
-              <span class="badge-accent" style="background:#0f766e;">🥉 โต๊ะโซน C</span> โต๊ะชั้นบน/ริม (${pC.toLocaleString('th-TH')} THB/โต๊ะ)
-            </div>
+            ${formatZoneHeader('C', 'badge-accent', '🥉', pC)}
             <div class="seat-row-grid seat-grid-c">
               ${cSeats.map(renderSeatBtn).join('')}
             </div>
           </div>
         </div>
 
-        <!-- Selected Tables Display Bar -->
+        <!-- Selected Seats/Tables Display Bar -->
         <div class="selected-seats-bar">
           <div class="selected-seats-summary">
-            <span class="text-muted" style="font-size:12px;">โต๊ะที่เลือก (${selectedSeats.length}/${MAX_SEATS}):</span>
+            <span class="text-muted" style="font-size:12px;">${itemUnit}ที่เลือก (${selectedSeats.length}/${MAX_SEATS}):</span>
             <div class="selected-seats-tags">
               ${
                 selectedSeats.length
-                  ? selectedSeats.map((s) => `<span class="seat-tag">โต๊ะ ${s.id}</span>`).join('')
-                  : '<span class="text-muted" style="font-style:italic;">ยังไม่ได้เลือกโต๊ะ (คลิกโต๊ะบนผังด้านบน)</span>'
+                  ? selectedSeats.map((s) => `<span class="seat-tag">${itemUnit} ${s.id}</span>`).join('')
+                  : `<span class="text-muted" style="font-style:italic;">ยังไม่ได้เลือก${itemUnit} (คลิกบนผังด้านบน)</span>`
               }
             </div>
           </div>
@@ -464,6 +556,8 @@
     clear,
     autoSelectForZone,
     updateTablePrices,
+    configureLayout,
+    getConfig: () => ({ ...currentConfig, zoneTypes: { ...currentConfig.zoneTypes } }),
     syncStatuses,
     getSessionId,
     getSelectedSeats: () => [...selectedSeats],
