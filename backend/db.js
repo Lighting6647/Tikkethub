@@ -1057,10 +1057,21 @@ function getLatestLineContact() {
   return db.prepare(`SELECT * FROM line_contacts ORDER BY updated_at DESC LIMIT 1`).get() || null;
 }
 
+const DEFAULT_SYSTEM_SETTINGS = {
+  promptpay_id: '0804711301',
+  merchant_name: 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด',
+  bank_name: 'ธนาคารกสิกรไทย (KBANK)',
+  bank_account: '1638790587',
+  admin_pin: '123456',
+  gate_staff_pin: '888888',
+  slip_auto_approve_enabled: 'false',
+  slip_verify_provider: 'simulator'
+};
+
 function getSetting(key, fallback = '') {
   try {
     const row = db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key);
-    if (row && typeof row.value !== 'undefined' && row.value !== null) return row.value;
+    if (row && typeof row.value !== 'undefined' && row.value !== null && row.value !== '') return row.value;
   } catch (_) {}
   const candidatePaths = [
     path.join(DATA_DIR, 'settings.json'),
@@ -1070,11 +1081,11 @@ function getSetting(key, fallback = '') {
     try {
       if (fs.existsSync(jsonPath)) {
         const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-        if (typeof parsed[key] !== 'undefined') return String(parsed[key]);
+        if (typeof parsed[key] !== 'undefined' && parsed[key] !== '') return String(parsed[key]);
       }
     } catch (_) {}
   }
-  return fallback;
+  return fallback || DEFAULT_SYSTEM_SETTINGS[key] || '';
 }
 
 function setSetting(key, value) {

@@ -348,10 +348,10 @@ async function handleApi(req, res, url) {
 
   // Public payment config for customer checkout QR & bank transfer
   if (method === 'GET' && pathname === '/api/payment-config') {
-    const promptpayId = db.getSetting('promptpay_id', '0954654698');
-    const merchantName = db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.');
-    const bankAccount = db.getSetting('bank_account', '');
-    const bankName = db.getSetting('bank_name', '');
+    const promptpayId = db.getSetting('promptpay_id', '0804711301');
+    const merchantName = db.getSetting('merchant_name', 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด');
+    const bankAccount = db.getSetting('bank_account', '1638790587');
+    const bankName = db.getSetting('bank_name', 'ธนาคารกสิกรไทย (KBANK)');
     return sendJson(res, 200, {
       ok: true,
       promptpayId,
@@ -1230,10 +1230,10 @@ async function handleApi(req, res, url) {
     }
     if (method === 'GET') {
       const token = db.getSetting('line_channel_access_token', '');
-      const promptpayId = db.getSetting('promptpay_id', '0954654698');
-      const merchantName = db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.');
-      const bankAccount = db.getSetting('bank_account', '');
-      const bankName = db.getSetting('bank_name', '');
+      const promptpayId = db.getSetting('promptpay_id', '0804711301');
+      const merchantName = db.getSetting('merchant_name', 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด');
+      const bankAccount = db.getSetting('bank_account', '1638790587');
+      const bankName = db.getSetting('bank_name', 'ธนาคารกสิกรไทย (KBANK)');
       const googleDriveFolderId = db.getSetting('google_drive_folder_id', process.env.GOOGLE_DRIVE_FOLDER_ID || '');
       const googleServiceAccountEmail = db.getSetting('google_service_account_email', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '');
       const hasGooglePrivateKey = Boolean(db.getSetting('google_service_account_private_key', process.env.GOOGLE_PRIVATE_KEY || ''));
@@ -1352,10 +1352,10 @@ async function handleApi(req, res, url) {
         ok: true,
         hasLineToken: Boolean(token),
         lineTokenMasked: maskToken(token),
-        promptpayId: db.getSetting('promptpay_id', '0954654698'),
-        merchantName: db.getSetting('merchant_name', 'Thai Ticket Concert Co., Ltd.'),
-        bankAccount: db.getSetting('bank_account', ''),
-        bankName: db.getSetting('bank_name', ''),
+        promptpayId: db.getSetting('promptpay_id', '0804711301'),
+        merchantName: db.getSetting('merchant_name', 'บจก. วีเอ็นที อีเว้นท์ ออร์แกไนเซอร์ จำกัด'),
+        bankAccount: db.getSetting('bank_account', '1638790587'),
+        bankName: db.getSetting('bank_name', 'ธนาคารกสิกรไทย (KBANK)'),
         googleDriveFolderId: db.getSetting('google_drive_folder_id', ''),
         googleServiceAccountEmail: db.getSetting('google_service_account_email', ''),
         hasGooglePrivateKey: Boolean(db.getSetting('google_service_account_private_key', '')),

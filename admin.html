@@ -480,7 +480,10 @@
     <div class="modal-box">
       <div class="modal-header">
         <h3 style="font-weight:700;">ตั้งค่าพร้อมเพย์, ชื่อบัญชีรับเงิน, LINE OA & PIN</h3>
-        <button class="modal-close" id="closeSettingsBtn" aria-label="ปิด">&times;</button>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button type="button" class="btn-fire" id="quickSaveSettingsBtn" style="font-size:12px; padding:5px 14px; border-radius:9999px; font-weight:700;" title="บันทึกการตั้งค่าทันที">💾 บันทึก</button>
+          <button class="modal-close" id="closeSettingsBtn" aria-label="ปิด">&times;</button>
+        </div>
       </div>
       <div class="modal-content">
         <div>
@@ -624,7 +627,12 @@
           <p class="text-muted" id="adminAlertTestStatus" style="font-size:11px; margin-top:4px;" hidden></p>
         </div>
 
-        <button class="btn-primary btn-block" id="saveSettingsBtn" style="margin-top:12px;">บันทึกการตั้งค่า</button>
+        <div style="position:sticky; bottom:-20px; background:rgba(13,16,24,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); padding:14px 0 6px; border-top:1px solid rgba(255,255,255,0.12); z-index:10; display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+          <span id="settingsAutoSaveStatus" style="font-size:12px; color:#10B981; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+            <span>✓</span> ระบบจำการตั้งค่าในเครื่องอัตโนมัติ
+          </span>
+          <button class="btn-primary" id="saveSettingsBtn" style="padding:10px 24px; min-width:170px; font-weight:700;">💾 บันทึกการตั้งค่า</button>
+        </div>
       </div>
     </div>
   </div>
