@@ -2635,6 +2635,13 @@
       const slipBranch = typeof data.slipVerifyBranchId !== 'undefined' ? data.slipVerifyBranchId : (localCache ? localCache.slipVerifyBranchId || '' : '');
       const slipAuto = typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : (localCache && typeof localCache.slipAutoApproveEnabled !== 'undefined' ? localCache.slipAutoApproveEnabled : false);
 
+      if ($('settingDbStatus')) {
+        if (data.databaseStatus === 'connected') {
+          $('settingDbStatus').innerHTML = `<span style="color:#00E676; font-weight:700;">🟢 เชื่อมต่อ Supabase PostgreSQL สำเร็จ</span> <span class="text-muted">(${data.databaseHost || 'db.supabase.co'})</span>`;
+        } else {
+          $('settingDbStatus').innerHTML = `<span style="color:#FFB300; font-weight:700;">🟡 โหมด Local SQLite</span> <span class="text-muted">(พร้อมเชื่อมต่อ Supabase PostgreSQL อัตโนมัติเมื่อใส่ DATABASE_URL)</span>`;
+        }
+      }
       $('settingTokenStatus').textContent = (data.hasLineToken || (localCache && localCache.hasLineToken))
         ? `ตั้งค่าแล้ว (${data.lineTokenMasked || '••••••••'})`
         : 'ยังไม่ได้ตั้งค่า (ทำงานในโหมดพรีวิว Flex Message อัตโนมัติ)';

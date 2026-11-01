@@ -486,9 +486,21 @@
         </div>
       </div>
       <div class="modal-content">
-        <div>
-          <span class="text-muted" style="font-size:12px;">สถานะ LINE Messaging API ปัจจุบัน</span>
-          <p id="settingTokenStatus" style="font-weight:600;color:var(--color-accent);margin-top:2px;"></p>
+        <!-- System Readiness Status Card -->
+        <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+          <div style="font-size:12px; font-weight:700; color:var(--color-accent); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <span>🛡️ สถานะระบบจัดเก็บข้อมูล & คลาวด์ (System Cloud Readiness)</span>
+          </div>
+          <div style="font-size:12px; display:grid; grid-template-columns:1fr; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+              <span class="text-muted">🗄️ ฐานข้อมูล (Database):</span>
+              <span id="settingDbStatus" style="font-size:11px; font-weight:600;">กำลังตรวจสอบ...</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+              <span class="text-muted">💬 LINE Messaging API:</span>
+              <span id="settingTokenStatus" style="font-size:11px; font-weight:600; color:var(--color-accent);">ยังไม่ได้ตั้งค่า</span>
+            </div>
+          </div>
         </div>
         <div>
           <label class="field-label" for="settingLineTokenInput">LINE Channel Access Token (Long-lived)</label>

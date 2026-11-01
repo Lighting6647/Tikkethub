@@ -791,22 +791,6 @@ if (typeof document !== 'undefined') {
         if (heroCard) {
           heroCard.style.backgroundImage = `linear-gradient(180deg, rgba(14, 16, 24, 0.45) 0%, rgba(10, 11, 16, 0.94) 100%), url('${sf.promoImage}')`;
         }
-        const promoBanner = document.getElementById('storefrontPromoBanner');
-        const promoImg = document.getElementById('sfPromoBannerImg');
-        const promoTitle = document.getElementById('sfPromoBannerTitle');
-        if (promoBanner && promoImg) {
-          promoImg.onerror = () => {
-            promoBanner.style.display = 'none';
-          };
-          promoImg.onload = () => {
-            promoBanner.style.display = 'block';
-          };
-          promoImg.src = sf.promoImage;
-          if (promoTitle && sf.headline) promoTitle.textContent = `${sf.headline} · OFFICIAL SPOTLIGHT`;
-        }
-      } else {
-        const promoBanner = document.getElementById('storefrontPromoBanner');
-        if (promoBanner) promoBanner.style.display = 'none';
       }
     }
 

@@ -7,6 +7,7 @@ const { DatabaseSync } = require('node:sqlite');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const postgres = require('./postgres');
 
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data'));
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -25,6 +26,38 @@ if (!isUnitTest && process.env.VERCEL && !fs.existsSync(dbPath)) {
 }
 
 const db = new DatabaseSync(dbPath);
+
+// Hydrate and sync with Supabase PostgreSQL if DATABASE_URL is configured
+if (!isUnitTest && postgres.getPool()) {
+  postgres.initPostgresTables()
+    .then((ok) => {
+      if (ok) return postgres.hydrateSqliteFromPostgres(db);
+    })
+    .catch((err) => console.warn('[Postgres Dual Sync Warning]', err.message));
+}
+
+// Hydrate initial settings from settings.json if present
+try {
+  const candidateSettingsFiles = [
+    path.join(DATA_DIR, 'settings.json'),
+    path.join(__dirname, '..', 'data', 'settings.json')
+  ];
+  for (const sPath of candidateSettingsFiles) {
+    if (fs.existsSync(sPath)) {
+      try {
+        const rawJson = JSON.parse(fs.readFileSync(sPath, 'utf8'));
+        if (rawJson && typeof rawJson === 'object') {
+          const insertSettingStmt = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
+          for (const [k, v] of Object.entries(rawJson)) {
+            if (v !== undefined && v !== null && String(v).trim()) {
+              insertSettingStmt.run(k, String(v));
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
+} catch (_) {}
 
 const journalMode = process.env.VERCEL ? 'MEMORY' : 'WAL';
 db.exec(`
@@ -495,7 +528,11 @@ function createOrder(input) {
     }
   }
 
-  return getOrder(ref);
+  const createdOrder = getOrder(ref);
+  if (createdOrder) {
+    postgres.syncOrder(createdOrder);
+  }
+  return createdOrder;
 }
 
 function getOrder(ref) {
@@ -541,7 +578,11 @@ function updateOrderStatus(ref, { status, rejectReason = '', lineSent = 0, lineL
     now,
     ref
   );
-  return getOrder(ref);
+  const updated = getOrder(ref);
+  if (updated) {
+    postgres.syncOrderStatus(ref, status, rejectReason, lineSent, lineLog, now);
+  }
+  return updated;
 }
 
 function updateOrderDriveAndVerification(ref, { driveFileId = '', driveViewLink = '', verifiedBy = '', verificationDetail = '', status = null, reviewedAt = 0 }) {
@@ -568,7 +609,11 @@ function updateOrderDriveAndVerification(ref, { driveFileId = '', driveViewLink 
     newReviewedAt,
     ref
   );
-  return getOrder(ref);
+  const updatedDrive = getOrder(ref);
+  if (updatedDrive) {
+    postgres.syncOrder(updatedDrive);
+  }
+  return updatedDrive;
 }
 
 function checkInOrder(rawInput, staffName = 'Gate Staff #1') {
@@ -832,6 +877,8 @@ function saveEvent(input) {
   try {
     setSetting('custom_events', JSON.stringify(allEvents));
   } catch (_) {}
+  const savedEv = allEvents.find((e) => e.title === title) || allEvents[allEvents.length - 1];
+  if (savedEv) postgres.syncEvent(savedEv);
   return allEvents;
 }
 
@@ -842,6 +889,7 @@ function deleteEvent(id) {
   }
   const existing = db.prepare(`SELECT * FROM events WHERE id = ?`).get(numId);
   db.prepare(`DELETE FROM events WHERE id = ?`).run(numId);
+  postgres.deleteEvent(numId);
   try {
     const raw = getSetting('deleted_event_ids', '[]');
     const arr = JSON.parse(raw);
@@ -1088,6 +1136,7 @@ function setSetting(key, value) {
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `).run(key, String(value));
   } catch (_) {}
+  postgres.syncSetting(key, value);
   const candidatePaths = [
     path.join(DATA_DIR, 'settings.json'),
     path.join(__dirname, '..', 'data', 'settings.json')
@@ -1110,6 +1159,7 @@ function addAuditLog({ action, targetRef = '', detail = '', actor = 'Admin' }) {
     INSERT INTO audit_logs (action, target_ref, detail, actor, created_at)
     VALUES (?, ?, ?, ?, ?)
   `).run(String(action), String(targetRef || ''), String(detail || ''), String(actor || 'Admin'), now);
+  postgres.syncAuditLog({ action, targetRef, detail, actor, createdAt: now });
 }
 
 function listAuditLogs(limit = 100) {
@@ -1715,6 +1765,7 @@ module.exports = {
   getPromoterAnalytics,
   getGateThroughputMonitor,
   computeTicketSignature,
-  buildSignedQrPayload
+  buildSignedQrPayload,
+  postgres
 };
 
