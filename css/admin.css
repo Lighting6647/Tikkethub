@@ -1242,3 +1242,287 @@
   }
 }
 
+/* =========================================================
+   4-STEP WIZARD STEPPER (EXACTLY MATCHING BOOKING MODAL)
+   ========================================================= */
+.wizard-steps-header {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 8px !important;
+  padding: 14px 18px !important;
+  background: rgba(10, 12, 18, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 580px) {
+  .wizard-steps-header {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+    padding: 10px 12px !important;
+  }
+}
+
+.wizard-step-item {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 9px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  position: relative !important;
+  user-select: none !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+}
+
+.wizard-step-item:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.wizard-step-item.active {
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.2) 0%, rgba(20, 22, 32, 0.95) 100%) !important;
+  border-color: rgba(229, 9, 20, 0.7) !important;
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.35) !important;
+}
+
+.wizard-step-item.completed {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  background: rgba(16, 185, 129, 0.06) !important;
+}
+
+.wizard-step-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.wizard-step-num {
+  font-family: var(--font-tech, 'Chakra Petch', sans-serif) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: var(--color-muted, #7e859b) !important;
+}
+
+.wizard-step-item.active .wizard-step-num {
+  color: #ff5e28 !important;
+}
+
+.wizard-step-item.completed .wizard-step-num {
+  color: #10B981 !important;
+}
+
+.wizard-step-icon {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 13px !important;
+}
+
+.wizard-step-item.active .wizard-step-icon {
+  background: rgba(229, 9, 20, 0.25) !important;
+  box-shadow: 0 0 8px rgba(229, 9, 20, 0.5) !important;
+}
+
+.wizard-step-item.completed .wizard-step-icon {
+  background: rgba(16, 185, 129, 0.2) !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important;
+}
+
+.wizard-step-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--color-muted, #7e859b) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.wizard-step-item.active .wizard-step-label {
+  color: #FFFFFF !important;
+}
+
+.wizard-step-item.completed .wizard-step-label {
+  color: #10B981 !important;
+}
+
+/* =========================================================
+   STAGE PASS ADMIN - EXECUTIVE SIDEBAR LAYOUT
+   ========================================================= */
+.admin-app-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #090a0f;
+  color: #e2e8f0;
+}
+
+.admin-sidebar {
+  width: 270px;
+  min-width: 270px;
+  background: #0c0e15;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 100;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-sidebar-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.admin-sidebar-nav {
+  padding: 16px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-nav-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #64748b;
+  text-transform: uppercase;
+  padding: 0 10px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.admin-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.admin-nav-item.highlight-scanner {
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.25) 0%, rgba(255, 90, 31, 0.15) 100%);
+  border-color: rgba(229, 9, 20, 0.5);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(229, 9, 20, 0.2);
+}
+
+.admin-nav-item.highlight-scanner:hover {
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.4) 0%, rgba(255, 90, 31, 0.25) 100%);
+  box-shadow: 0 6px 20px rgba(229, 9, 20, 0.35);
+}
+
+.admin-sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-main-viewport {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-topbar {
+  background: rgba(12, 14, 21, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 12px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sidebar-toggle-btn {
+  display: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+@media (max-width: 992px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    box-shadow: 10px 0 35px rgba(0, 0, 0, 0.8);
+  }
+  .admin-sidebar.is-open {
+    transform: translateX(0);
+  }
+  .admin-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 95;
+    display: none;
+  }
+  .admin-sidebar-backdrop.is-open {
+    display: block;
+  }
+  .sidebar-toggle-btn {
+    display: inline-flex;
+  }
+}
+

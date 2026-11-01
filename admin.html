@@ -10,6 +10,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2C16 2 26 12 26 20C26 25.5 21.5 30 16 30C10.5 30 6 25.5 6 20C6 12 16 2 16 2Z' fill='%23e50914'/%3E%3Cpath d='M16 8C16 8 22 15 22 20C22 23.3 19.3 26 16 26C12.7 26 10 23.3 10 20C10 15 16 8 16 8Z' fill='%23ff5a1f'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="css/checkout.css">
+  <link rel="stylesheet" href="css/virgin-theme.css">
   <link rel="stylesheet" href="css/admin.css">
   <style>
     .header {
@@ -143,48 +144,129 @@
 </head>
 <body>
 
-  <header class="header">
-    <div class="container">
-      <div class="nav-bar">
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <a href="index.html" class="brand">
-            <span class="brand-badge" style="background:var(--grad-fire);">STAGE</span> PASS · ADMIN
-          </a>
-          <span id="adminRoleBadge" class="role-pill-badge" hidden>👑 แอดมินหลัก</span>
-        </div>
-        <div class="admin-actions">
-          <button class="btn-primary" id="openScannerBtn">📷 สแกนบัตรเข้างาน</button>
-          <button class="btn-outline" id="openGateMonitorBtn" style="border-color:#229BFF; color:#63b3ed;">🚦 มอนิเตอร์ประตูเข้างาน</button>
-          <button class="btn-outline" id="openAnalyticsBtn" data-admin-only="true">📊 รายงานปิดรอบ / PDF</button>
-          <button class="btn-outline" id="openLinePreviewNavBtn" data-admin-only="true" style="border-color:#06C755; color:#06C755;">📱 จัดส่งบัตร LINE OA (<span id="adminLinePendingBadge">0</span>)</button>
-          <button class="btn-outline" id="openEventManagerBtn" data-admin-only="true">🎤 คอนเสิร์ต/โควตา</button>
-          <button class="btn-outline" id="openAuditLogBtn" data-admin-only="true">📋 ประวัติแอดมิน</button>
-          <button class="btn-outline" id="openBackupModalBtn" data-admin-only="true">💾 สำรองข้อมูล</button>
-          <button class="btn-outline" id="openLineSettingsBtn" data-admin-only="true">⚙️ ตั้งค่าพร้อมเพย์ & ตรวจสลิป (EasySlip)</button>
-          <button class="btn-outline" id="openStorefrontSettingsBtn" data-admin-only="true" style="border-color:var(--fire); color:var(--fire);">🎨 ตั้งค่าหน้าขายบัตร</button>
-          <a href="/api/admin/guest-list.csv?status=approved" class="btn-primary" id="exportGuestListBtn" title="ดาวน์โหลดรายชื่อผู้ถือบัตรและเลขบัตรประชาชนสำหรับตรวจบัตรหน้างาน">📋 Guest List (ตรวจบัตร)</a>
-          <a href="/api/admin/export.csv" class="btn-default" id="exportCsvBtn" data-admin-only="true">Export CSV</a>
-          <a href="user-manual.html" class="btn-outline" id="adminManualLink" title="คู่มือการใช้งานระบบ 1 หน้า (PDF)">📖 คู่มือ (PDF 1 หน้า)</a>
-          <button class="btn-outline" id="adminLogoutBtn" hidden>ออกจากระบบ</button>
-          <a href="index.html" class="btn-outline">หน้าจองบัตร</a>
-        </div>
-      </div>
-    </div>
-  </header>
+  <div class="admin-app-layout">
+    <!-- Backdrop for Mobile Sidebar -->
+    <div class="admin-sidebar-backdrop" id="adminSidebarBackdrop" onclick="window.toggleAdminSidebar(false)"></div>
 
-  <main class="main-content">
-    <div class="container">
-      <div class="admin-header-bar">
-        <div>
-          <h1 id="adminMainHeading">ระบบจัดการคำสั่งซื้อ ตรวจสลิป และเช็กอินหน้างาน</h1>
-          <p class="text-muted" id="adminMainSubheading">ตรวจสอบสลิปโอนเงิน ป้องกันสลิปซ้ำด้วย SHA-256 อนุมัติส่งบัตรเข้า LINE OA และสแกน QR Code เช็กอินเข้างาน</p>
+    <!-- Left Sidebar with 5 Clear Categories -->
+    <aside class="admin-sidebar" id="adminSidebar">
+      <div class="admin-sidebar-header">
+        <a href="index.html" class="brand" style="text-decoration:none; display:flex; align-items:center; gap:8px;">
+          <span class="brand-badge" style="background:var(--grad-fire); font-size:11px; padding:3px 8px; border-radius:4px; font-weight:800; color:#fff;">STAGE</span>
+          <span style="font-size:14px; font-weight:800; color:#fff; letter-spacing:0.5px;">PASS · ADMIN</span>
+        </a>
+        <span id="adminRoleBadge" class="role-pill-badge" hidden style="font-size:10px;">👑 แอดมินหลัก</span>
+      </div>
+
+      <nav class="admin-sidebar-nav">
+        <!-- หมวดที่ 1: หน้างาน & สแกนเข้างาน -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title"><span>🎫</span> หน้างาน & เช็กอิน</div>
+          <div class="admin-nav-group-items">
+            <button type="button" class="admin-nav-item highlight-scanner" id="openScannerBtn" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">📷</span> <span>สแกนบัตรเข้างาน</span>
+            </button>
+            <button type="button" class="admin-nav-item" id="openGateMonitorBtn" style="color:#63b3ed;" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">🚦</span> <span>มอนิเตอร์ประตูเข้างาน</span>
+            </button>
+            <a href="/api/admin/guest-list.csv?status=approved" class="admin-nav-item" id="exportGuestListBtn" title="ดาวน์โหลดรายชื่อผู้ถือบัตรและเลขบัตรประชาชนสำหรับตรวจบัตรหน้างาน">
+              <span style="font-size:15px;">📋</span> <span>Guest List (ตรวจบัตร)</span>
+            </a>
+            <a href="/api/admin/export.csv" class="admin-nav-item" id="exportCsvBtn" data-admin-only="true">
+              <span style="font-size:15px;">📥</span> <span>Export CSV คำสั่งซื้อ</span>
+            </a>
+          </div>
         </div>
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <button class="btn-outline" id="toggleSoundBtn" title="เปิด/ปิดเสียงแจ้งเตือนสลิปใหม่">🔔 เสียงเตือน: เปิด</button>
-          <button class="btn-outline" id="requestNotifyBtn" title="เปิดแจ้งเตือนบนหน้าจอคอม/มือถือ">📲 เปิดแจ้งเตือนหน้าจอ</button>
-          <button class="btn-outline" id="refreshAdminBtn">รีเฟรชข้อมูล</button>
+
+        <!-- หมวดที่ 2: คำสั่งซื้อ & ส่งบัตร LINE -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title"><span>📦</span> คำสั่งซื้อ & ส่งบัตร</div>
+          <div class="admin-nav-group-items">
+            <button type="button" class="admin-nav-item" id="openLinePreviewNavBtn" data-admin-only="true" style="color:#06C755;" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">📱</span> <span>จัดส่งบัตร LINE OA (<span id="adminLinePendingBadge">0</span>)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- หมวดที่ 3: อีเวนต์ & หน้าขายบัตร -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title"><span>🎤</span> อีเวนต์ & หน้าร้าน</div>
+          <div class="admin-nav-group-items">
+            <button type="button" class="admin-nav-item" id="openEventManagerBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">🎤</span> <span>คอนเสิร์ต / โควตาที่นั่ง</span>
+            </button>
+            <button type="button" class="admin-nav-item" id="openStorefrontSettingsBtn" data-admin-only="true" style="color:var(--fire);" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">🎨</span> <span>ตั้งค่าหน้าขายบัตร</span>
+            </button>
+            <a href="index.html" class="admin-nav-item" target="_blank" rel="noopener">
+              <span style="font-size:15px;">🌐</span> <span>ดูหน้าจองบัตร (หน้าร้าน)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- หมวดที่ 4: รายงาน & ประวัติ -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title"><span>📊</span> รายงาน & บันทึก</div>
+          <div class="admin-nav-group-items">
+            <button type="button" class="admin-nav-item" id="openAnalyticsBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">📊</span> <span>รายงานปิดรอบ / PDF</span>
+            </button>
+            <button type="button" class="admin-nav-item" id="openAuditLogBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">📋</span> <span>ประวัติแอดมิน (Audit Logs)</span>
+            </button>
+            <button type="button" class="admin-nav-item" id="openBackupModalBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">💾</span> <span>สำรองข้อมูล / กู้คืน</span>
+            </button>
+            <a href="user-manual.html" class="admin-nav-item" id="adminManualLink" title="คู่มือการใช้งานระบบ 1 หน้า (PDF)">
+              <span style="font-size:15px;">📖</span> <span>คู่มือ (PDF 1 หน้า)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- หมวดที่ 5: การตั้งค่าระบบ -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title"><span>⚙️</span> การตั้งค่า & ระบบ</div>
+          <div class="admin-nav-group-items">
+            <button type="button" class="admin-nav-item" id="openLineSettingsBtn" data-admin-only="true" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">⚙️</span> <span>ตั้งค่าระบบ & คลาวด์</span>
+            </button>
+            <button type="button" class="admin-nav-item" id="adminLogoutBtn" hidden style="color:#ef4444;" onclick="window.toggleAdminSidebar(false)">
+              <span style="font-size:15px;">🚪</span> <span>ออกจากระบบ</span>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <div class="admin-sidebar-footer">
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn-outline" id="toggleSoundBtn" style="font-size:11px; padding:6px 8px; flex:1;" title="เปิด/ปิดเสียงแจ้งเตือนสลิปใหม่">🔔 เสียงเตือน</button>
+          <button type="button" class="btn-outline" id="requestNotifyBtn" style="font-size:11px; padding:6px 8px; flex:1;" title="เปิดแจ้งเตือนบนหน้าจอคอม/มือถือ">📲 แจ้งเตือน</button>
         </div>
       </div>
+    </aside>
+
+    <!-- Main Viewport -->
+    <div class="admin-main-viewport">
+      <header class="admin-topbar">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="window.toggleAdminSidebar()" aria-label="เปิดเมนูด้านข้าง">
+            ☰ เมนูระบบ
+          </button>
+          <span style="font-size:13px; font-weight:600; color:var(--color-muted);">แผงควบคุมระบบแอดมิน · STAGE PASS</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="btn-outline" id="refreshAdminBtn" style="font-size:12px; padding:6px 14px;">🔄 รีเฟรชข้อมูล</button>
+        </div>
+      </header>
+
+      <main class="main-content" style="padding-top:16px;">
+        <div class="container">
+          <div class="admin-header-bar">
+            <div>
+              <h1 id="adminMainHeading">ระบบจัดการคำสั่งซื้อ ตรวจสลิป และเช็กอินหน้างาน</h1>
+              <p class="text-muted" id="adminMainSubheading">ตรวจสอบสลิปโอนเงิน ป้องกันสลิปซ้ำด้วย SHA-256 อนุมัติส่งบัตรเข้า LINE OA และสแกน QR Code เช็กอินเข้างาน</p>
+            </div>
+          </div>
 
       <!-- KPI Cards -->
       <section class="kpi-grid" aria-label="สรุปภาพรวมยอดขาย">
@@ -250,6 +332,8 @@
       </section>
     </div>
   </main>
+    </div><!-- /.admin-main-viewport -->
+  </div><!-- /.admin-app-layout -->
 
   <!-- Admin & Gate Staff Role-Based PIN Login Modal -->
   <div class="modal-backdrop" id="adminLoginModal" role="dialog" aria-modal="true" aria-labelledby="adminLoginTitle">
@@ -489,35 +573,35 @@
         </div>
       </div>
 
-      <!-- 4-Step Wizard Header Bar -->
-      <div class="wizard-steps-header" style="grid-template-columns: repeat(4, 1fr); padding: 10px 14px; background: rgba(10, 12, 18, 0.9);">
-        <div class="wizard-step-item active" id="settingsStepPill1" onclick="window.setSettingsWizardStep(1)" style="cursor:pointer;">
-          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
-            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">01</span>
-            <span>💬</span>
+      <!-- 4-Step Wizard Header Bar (Matching Booking Wizard) -->
+      <div class="wizard-steps-header">
+        <div class="wizard-step-item active" id="settingsStepPill1" onclick="window.setSettingsWizardStep(1)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">01</span>
+            <span class="wizard-step-icon">💬</span>
           </div>
-          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">LINE OA</span>
+          <span class="wizard-step-label">LINE OA</span>
         </div>
-        <div class="wizard-step-item" id="settingsStepPill2" onclick="window.setSettingsWizardStep(2)" style="cursor:pointer;">
-          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
-            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">02</span>
-            <span>💳</span>
+        <div class="wizard-step-item" id="settingsStepPill2" onclick="window.setSettingsWizardStep(2)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">02</span>
+            <span class="wizard-step-icon">💳</span>
           </div>
-          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">พร้อมเพย์/บัญชี</span>
+          <span class="wizard-step-label">พร้อมเพย์/บัญชี</span>
         </div>
-        <div class="wizard-step-item" id="settingsStepPill3" onclick="window.setSettingsWizardStep(3)" style="cursor:pointer;">
-          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
-            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">03</span>
-            <span>📁</span>
+        <div class="wizard-step-item" id="settingsStepPill3" onclick="window.setSettingsWizardStep(3)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">03</span>
+            <span class="wizard-step-icon">📁</span>
           </div>
-          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">Google Drive</span>
+          <span class="wizard-step-label">Google Drive</span>
         </div>
-        <div class="wizard-step-item" id="settingsStepPill4" onclick="window.setSettingsWizardStep(4)" style="cursor:pointer;">
-          <div class="wizard-step-top" style="display:flex; align-items:center; justify-content:space-between;">
-            <span class="wizard-step-num" style="font-size:11px; font-weight:700;">04</span>
-            <span>⚡</span>
+        <div class="wizard-step-item" id="settingsStepPill4" onclick="window.setSettingsWizardStep(4)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-icon">⚡</span>
           </div>
-          <span class="wizard-step-label" style="font-size:11px; font-weight:600;">ตรวจสลิป/PIN</span>
+          <span class="wizard-step-label">ตรวจสลิป/PIN</span>
         </div>
       </div>
 

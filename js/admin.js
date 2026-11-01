@@ -2650,6 +2650,16 @@
   window.setSettingsWizardStep = setSettingsWizardStep;
   window.switchSettingsStep = switchSettingsStep;
 
+  function toggleAdminSidebar(force) {
+    const sidebar = $('adminSidebar');
+    const backdrop = $('adminSidebarBackdrop');
+    if (!sidebar) return;
+    const isOpen = typeof force === 'boolean' ? force : !sidebar.classList.contains('is-open');
+    sidebar.classList.toggle('is-open', isOpen);
+    if (backdrop) backdrop.classList.toggle('is-open', isOpen);
+  }
+  window.toggleAdminSidebar = toggleAdminSidebar;
+
   let auditLogsCache = [];
 
   async function openSettingsModal() {
