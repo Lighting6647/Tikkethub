@@ -708,6 +708,13 @@ function syncCustomEventsWithDb() {
     const list = JSON.parse(raw);
     if (!Array.isArray(list) || !list.length) return;
     
+    let deletedIds = new Set();
+    try {
+      const rawDel = getSetting('deleted_event_ids', '[]');
+      const arrDel = JSON.parse(rawDel);
+      if (Array.isArray(arrDel)) deletedIds = new Set(arrDel.map(Number));
+    } catch (_) {}
+    
     const existing = db.prepare(`SELECT id, title FROM events`).all();
     const existingIds = new Set(existing.map((e) => Number(e.id)));
     const existingTitles = new Set(existing.map((e) => String(e.title).trim().toLowerCase()));
@@ -715,6 +722,7 @@ function syncCustomEventsWithDb() {
     for (const ev of list) {
       if (!ev || !ev.title) continue;
       const numId = Number(ev.id);
+      if (numId && deletedIds.has(numId)) continue;
       if (numId && existingIds.has(numId)) {
         db.prepare(`
           UPDATE events

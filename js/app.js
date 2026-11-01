@@ -786,7 +786,7 @@ if (typeof document !== 'undefined') {
       if (sf.instagramUrl) {
         document.querySelectorAll('a[href*="instagram.com"]').forEach(a => a.href = sf.instagramUrl);
       }
-      if (sf.promoImage) {
+      if (sf.promoImage && !sf.promoImage.includes('example.com')) {
         const heroCard = document.getElementById('heroArtistCard');
         if (heroCard) {
           heroCard.style.backgroundImage = `linear-gradient(180deg, rgba(14, 16, 24, 0.45) 0%, rgba(10, 11, 16, 0.94) 100%), url('${sf.promoImage}')`;
@@ -795,16 +795,31 @@ if (typeof document !== 'undefined') {
         const promoImg = document.getElementById('sfPromoBannerImg');
         const promoTitle = document.getElementById('sfPromoBannerTitle');
         if (promoBanner && promoImg) {
+          promoImg.onerror = () => {
+            promoBanner.style.display = 'none';
+          };
+          promoImg.onload = () => {
+            promoBanner.style.display = 'block';
+          };
           promoImg.src = sf.promoImage;
           if (promoTitle && sf.headline) promoTitle.textContent = `${sf.headline} · OFFICIAL SPOTLIGHT`;
-          promoBanner.style.display = 'block';
         }
+      } else {
+        const promoBanner = document.getElementById('storefrontPromoBanner');
+        if (promoBanner) promoBanner.style.display = 'none';
       }
     }
 
     try {
       const rawSf = localStorage.getItem('stagepass_storefront_settings');
-      if (rawSf) applyStorefrontSettings(JSON.parse(rawSf));
+      if (rawSf) {
+        const parsed = JSON.parse(rawSf);
+        if (parsed && parsed.promoImage && parsed.promoImage.includes('example.com')) {
+          parsed.promoImage = '';
+          localStorage.setItem('stagepass_storefront_settings', JSON.stringify(parsed));
+        }
+        applyStorefrontSettings(parsed);
+      }
     } catch (_) {}
 
     // Live sync from server for all visitors

@@ -42,4 +42,10 @@ test('storefront settings and event poster images persist properly', () => {
   const savedEv = savedEvents.find(e => e.title === 'PROMO TEST CONCERT');
   assert.ok(savedEv);
   assert.equal(savedEv.image, 'https://example.com/poster.jpg');
+
+  // Clean up test data so it doesn't pollute production settings.json
+  db.setSetting('storefront_settings', '');
+  if (savedEv && savedEv.id) {
+    db.deleteEvent(savedEv.id);
+  }
 });
