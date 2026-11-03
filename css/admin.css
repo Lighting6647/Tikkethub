@@ -1257,9 +1257,32 @@
 
 @media (max-width: 580px) {
   .wizard-steps-header {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 6px !important;
-    padding: 10px 12px !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important;
+    padding: 8px 8px !important;
+  }
+  .wizard-step-item {
+    padding: 6px 3px !important;
+    border-radius: 8px !important;
+    gap: 2px !important;
+    align-items: center !important;
+  }
+  .wizard-step-top {
+    justify-content: center !important;
+    gap: 3px !important;
+  }
+  .wizard-step-num {
+    font-size: 11px !important;
+  }
+  .wizard-step-icon {
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 10px !important;
+  }
+  .wizard-step-label {
+    font-size: 9px !important;
+    text-align: center !important;
+    letter-spacing: -0.2px !important;
   }
 }
 

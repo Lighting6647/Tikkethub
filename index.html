@@ -128,7 +128,7 @@
         </div>
 
         <!-- Filter Subnav Pills -->
-        <div class="category-pills" style="justify-content:center; margin-bottom:36px;">
+        <div class="category-pills">
           <button class="pill-btn active subnav-item" onclick="filterCategory('all', this)">All Events</button>
           <button class="pill-btn subnav-item" onclick="filterCategory('kpop', this)">K-POP</button>
           <button class="pill-btn subnav-item" onclick="filterCategory('thai', this)">Thai Rock</button>
@@ -151,8 +151,11 @@
               <div class="artist-hero-genre" id="heroArtistGenre">Echoes of Asia World Tour · Live in BKK</div>
             </div>
             <div class="artist-hero-price">
-              <span>Starting at</span>
-              <b id="heroArtistPrice">$440 / 1,800 THB</b>
+              <div>
+                <span style="font-size:11px; color:var(--color-muted); display:block; margin-bottom:2px;">Starting at</span>
+                <b id="heroArtistPrice">$440 / 1,800 THB</b>
+              </div>
+              <span class="hero-book-btn">🎟️ จองทันที →</span>
             </div>
           </div>
 
@@ -205,6 +208,9 @@
               <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE W5', '14 พ.ย. 2026', 'โซน W5', 2500)">W5</button>
               <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
               <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE W10', '14 พ.ย. 2026', 'โซน W10', 2500)">W10</button>
+            </div>
+            <div class="vip-table-tap-guide" style="margin-top:10px; font-size:11px; color:var(--color-muted); display:flex; align-items:center; justify-content:center; gap:5px;">
+              <span>👆 แตะเลือกโต๊ะที่ต้องการเพื่อเริ่มจองทันที</span>
             </div>
           </div>
 
