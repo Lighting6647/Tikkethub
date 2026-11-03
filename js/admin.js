@@ -2650,6 +2650,54 @@
   window.setSettingsWizardStep = setSettingsWizardStep;
   window.switchSettingsStep = switchSettingsStep;
 
+  let currentEventStep = 1;
+  const totalEventSteps = 4;
+
+  function setEventWizardStep(step) {
+    if (step < 1) step = 1;
+    if (step > totalEventSteps) step = totalEventSteps;
+    currentEventStep = step;
+
+    for (let i = 1; i <= totalEventSteps; i++) {
+      const pane = $('eventStep' + i);
+      const pill = $('eventStepPill' + i);
+      if (pane) pane.style.display = (i === step) ? 'block' : 'none';
+      if (pill) {
+        pill.classList.toggle('active', i === step);
+        pill.classList.toggle('completed', i < step);
+      }
+    }
+
+    const prevBtn = $('eventPrevBtn');
+    const nextBtn = $('eventNextBtn');
+    if (prevBtn) prevBtn.style.display = (step > 1) ? 'inline-flex' : 'none';
+    if (nextBtn) {
+      if (step < totalEventSteps) {
+        nextBtn.style.display = 'inline-flex';
+        const nextLabels = [
+          '',
+          'ถัดไป: ผังเวที & สไตล์ →',
+          'ถัดไป: ราคา & โควตา →',
+          'ถัดไป: แบบจำลอง & รายการ →'
+        ];
+        nextBtn.textContent = nextLabels[step] || 'ถัดไป →';
+      } else {
+        nextBtn.style.display = 'none';
+      }
+    }
+
+    if (step === 4 && typeof renderVenueSimulator === 'function') {
+      renderVenueSimulator();
+    }
+  }
+
+  function switchEventStep(delta) {
+    setEventWizardStep(currentEventStep + delta);
+  }
+
+  window.setEventWizardStep = setEventWizardStep;
+  window.switchEventStep = switchEventStep;
+
   function toggleAdminSidebar(force) {
     const sidebar = $('adminSidebar');
     const backdrop = $('adminSidebarBackdrop');
@@ -3546,6 +3594,7 @@
     updateSeatingLabelsAndBadge();
     $('evFormModeTitle').textContent = '+ เพิ่มคอนเสิร์ตใหม่ / กำหนดราคาและโควตา';
     if ($('deleteEventBtn')) $('deleteEventBtn').hidden = true;
+    if (typeof setEventWizardStep === 'function') setEventWizardStep(1);
   }
 
   function recalculateEventPriceRange() {
@@ -4172,6 +4221,9 @@
     if ($('saveEventBtn')) {
       $('saveEventBtn').addEventListener('click', saveAdminEvent);
     }
+    if ($('quickSaveEventBtn')) {
+      $('quickSaveEventBtn').addEventListener('click', saveAdminEvent);
+    }
     if ($('deleteEventBtn')) {
       $('deleteEventBtn').addEventListener('click', () => deleteAdminEvent());
     }
@@ -4269,6 +4321,8 @@
         }
         $('evFormModeTitle').textContent = `กำลังแก้ไขคอนเสิร์ต #${ev.id}: ${ev.title}`;
         if ($('deleteEventBtn')) $('deleteEventBtn').hidden = false;
+        if (typeof setEventWizardStep === 'function') setEventWizardStep(1);
+        window.UI.toast(`โหลดข้อมูลคอนเสิร์ต "${ev.title}" เรียบร้อยแล้ว (ขั้นตอนที่ 1)`);
       });
     }
 

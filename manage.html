@@ -885,17 +885,58 @@
     </div>
   </div>
 
-  <!-- Event & Table Quota Manager Modal -->
+  <!-- Event & Table Quota Manager Modal (Wizard 4 Steps) -->
   <div class="modal-backdrop" id="eventManagerModal" data-dismissable="true" role="dialog" aria-modal="true" aria-labelledby="eventManagerTitle">
     <div class="modal-box" style="max-width:760px;">
       <div class="modal-header">
-        <h3 id="eventManagerTitle" style="font-weight:700;">🎤 จัดการรอบการแสดง รูปแบบเวที ผังที่นั่ง/โต๊ะ/ตั๋วยืน และโควตา (Event & Quota Manager)</h3>
-        <button class="modal-close" id="closeEventManagerBtn" aria-label="ปิด">&times;</button>
+        <div>
+          <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS EVENT WIZARD</span>
+          <h3 id="eventManagerTitle" style="font-weight:700; margin-top:2px;">ศูนย์จัดการรอบการแสดง ผังเวที & โควตาบัตร</h3>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button type="button" class="btn-fire" id="quickSaveEventBtn" style="font-size:12px; padding:5px 14px; border-radius:9999px; font-weight:700;" title="บันทึกข้อมูลคอนเสิร์ตทันที">💾 บันทึก</button>
+          <button class="modal-close" id="closeEventManagerBtn" aria-label="ปิด">&times;</button>
+        </div>
       </div>
-      <div class="modal-content">
-        <div style="background:#262626; padding:14px; border-radius:8px; border:1px solid var(--color-border-subtle);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <strong id="evFormModeTitle" style="font-size:13px; color:var(--color-accent);">+ เพิ่มคอนเสิร์ตใหม่ / แก้ไขราคาและโควตาโต๊ะ</strong>
+
+      <!-- 4-Step Wizard Header Bar (Matching Booking & Settings Wizard) -->
+      <div class="wizard-steps-header">
+        <div class="wizard-step-item active" id="eventStepPill1" onclick="window.setEventWizardStep(1)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">01</span>
+            <span class="wizard-step-icon">🎤</span>
+          </div>
+          <span class="wizard-step-label">ข้อมูลรอบแสดง</span>
+        </div>
+        <div class="wizard-step-item" id="eventStepPill2" onclick="window.setEventWizardStep(2)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">02</span>
+            <span class="wizard-step-icon">🎪</span>
+          </div>
+          <span class="wizard-step-label">ผังเวที & สไตล์</span>
+        </div>
+        <div class="wizard-step-item" id="eventStepPill3" onclick="window.setEventWizardStep(3)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">03</span>
+            <span class="wizard-step-icon">🎯</span>
+          </div>
+          <span class="wizard-step-label">ราคา & โควตา</span>
+        </div>
+        <div class="wizard-step-item" id="eventStepPill4" onclick="window.setEventWizardStep(4)">
+          <div class="wizard-step-top">
+            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-icon">🗺️</span>
+          </div>
+          <span class="wizard-step-label">แบบจำลอง & รายการ</span>
+        </div>
+      </div>
+
+      <div class="modal-content" style="padding:18px 24px;">
+
+        <!-- STEP 1: ข้อมูลรอบการแสดง (Event Info & Poster) -->
+        <div id="eventStep1" class="event-wizard-pane">
+          <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <strong id="evFormModeTitle" style="font-size:13px; color:var(--color-accent);">+ เพิ่มคอนเสิร์ตใหม่ / กำหนดราคาและโควตา</strong>
             <button type="button" class="btn-text" id="evResetFormBtn" style="font-size:12px;">ล้างฟอร์ม (สร้างใหม่)</button>
           </div>
           <input type="hidden" id="evIdInput" value="">
@@ -909,7 +950,7 @@
               <input type="text" id="evVenueInput" class="input-field holder-input" placeholder="เช่น อิมแพ็ค อารีน่า เมืองทองธานี">
             </div>
           </div>
-          <div class="holder-grid" style="margin-top:8px;">
+          <div class="holder-grid" style="margin-top:10px;">
             <div>
               <label class="holder-sub-label" for="evDateInput">วันที่แสดง *</label>
               <input type="text" id="evDateInput" class="input-field holder-input" placeholder="เช่น 20 ธ.ค. 2026">
@@ -919,9 +960,9 @@
               <input type="text" id="evPriceRangeInput" class="input-field holder-input" value="1,800 - 6,500 THB" placeholder="คำนวณอัตโนมัติจากราคาโต๊ะ">
             </div>
           </div>
-          <div style="margin-top:8px;">
+          <div style="margin-top:10px;">
             <label class="holder-sub-label" style="display:flex; justify-content:space-between; align-items:center;">
-              <span>🖼️ ช่องแนบภาพโปสเตอร์ / ภาพโปรโมทคอนเสิร์ต (Poster Image)</span>
+              <span>🖼️ ภาพโปสเตอร์ / ภาพโปรโมทคอนเสิร์ต (Poster Image)</span>
               <span class="text-muted" style="font-size:11px;">PNG, JPG หรือ URL</span>
             </label>
             <div style="display:flex; gap:8px; align-items:center;">
@@ -932,21 +973,23 @@
               </label>
               <button type="button" class="btn-outline" id="evClearImgBtn" title="ลบภาพโปสเตอร์" style="padding:9px 12px; color:#ff6b6b; border-color:rgba(255,107,107,0.4);" hidden>✕</button>
             </div>
-            <div id="evImagePreviewWrap" style="margin-top:8px; display:none;">
-              <div style="position:relative; width:100%; height:120px; border-radius:8px; overflow:hidden; border:1px solid rgba(229,9,20,0.4); background:#111;">
+            <div id="evImagePreviewWrap" style="margin-top:10px; display:none;">
+              <div style="position:relative; width:100%; height:130px; border-radius:8px; overflow:hidden; border:1px solid rgba(229,9,20,0.4); background:#111;">
                 <img id="evImagePreviewImg" src="" alt="ตัวอย่างโปสเตอร์" style="width:100%; height:100%; object-fit:cover;">
                 <span style="position:absolute; bottom:6px; right:8px; background:rgba(0,0,0,0.8); font-size:10px; padding:2px 6px; border-radius:4px; color:#fff;">ตัวอย่างภาพคอนเสิร์ต</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- รูปแบบเวที และ รูปแบบผังการชม (Stage Layout & Seating Mode) -->
-          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px; margin-top:10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <!-- STEP 2: รูปแบบเวที และ ผังการจัดที่นั่ง/การชม (Stage & Seating Format) -->
+        <div id="eventStep2" class="event-wizard-pane" style="display:none;">
+          <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:14px; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
               <span style="font-weight:700; color:#fff; font-size:13px; display:flex; align-items:center; gap:6px;">
                 <span>🎪</span> รูปแบบเวที และ รูปแบบการจัดที่นั่ง/การชม (Stage & Seating Format)
               </span>
-              <span id="evLayoutHelperBadge" class="badge-primary" style="font-size:11px; padding:2px 8px;">
+              <span id="evLayoutHelperBadge" class="badge-primary" style="font-size:11px; padding:3px 8px;">
                 เวทีหน้ามาตรฐาน · ผังโต๊ะ (4 ท่าน/โต๊ะ)
               </span>
             </div>
@@ -970,130 +1013,136 @@
                 </select>
               </div>
             </div>
-            <div style="display:flex; align-items:center; gap:8px; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.08);">
-              <label class="holder-sub-label" for="evSeatsPerTable" style="margin:0; font-size:11px;">ความจุโต๊ะ (กรณีเป็นผังโต๊ะ):</label>
-              <input type="number" id="evSeatsPerTable" class="input-field holder-input" value="4" min="1" max="20" style="width:75px; padding:4px 8px; font-size:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px dashed rgba(255,255,255,0.08);">
+              <label class="holder-sub-label" for="evSeatsPerTable" style="margin:0; font-size:12px;">ความจุโต๊ะ (กรณีเป็นผังโต๊ะ):</label>
+              <input type="number" id="evSeatsPerTable" class="input-field holder-input" value="4" min="1" max="20" style="width:80px; padding:6px 10px; font-size:12px;">
               <span class="text-muted" style="font-size:11px;">คน / 1 โต๊ะ (แสดงข้อมูลให้ลูกค้าทราบในหน้าเลือกโต๊ะ)</span>
             </div>
           </div>
+          <div style="background:rgba(255,107,0,0.06); border:1px solid rgba(255,107,0,0.25); border-radius:8px; padding:12px; font-size:12px; color:#ffaa77; line-height:1.5;">
+            💡 <strong>คำแนะนำ:</strong> รูปแบบเวทีที่เลือกจะมีผลต่อการแสดงผล Live Stage Simulator ในขั้นตอนที่ 4 และลูกค้าจะเห็นผังการแสดงแบบ Interactive ที่สมจริงตรงตามประเภทที่เลือกทันที
+          </div>
+        </div>
 
-          <!-- กำหนดราคา โควตา และรูปแบบแต่ละโซน -->
-          <div style="margin-top:12px;">
-            <label class="holder-sub-label" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <span style="font-weight:700; color:#fff; display:flex; align-items:center; gap:6px;">
-                <span>🎯</span> กำหนดราคา โควตา และรูปแบบเฉพาะแต่ละโซน (Zone Pricing, Quota & Format)
-              </span>
-              <span class="text-muted" style="font-size:11px;">กำหนดได้อิสระว่าแต่ละโซนเป็น โต๊ะ, เก้าอี้นั่ง หรือ ตั๋วยืน</span>
-            </label>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px;">
-              <!-- โซน VIP -->
-              <div style="background:rgba(229,9,20,0.08); border:1px solid rgba(229,9,20,0.3); border-radius:8px; padding:10px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                  <strong id="evLabelVip" style="color:#ff5a1f; font-size:13px;">👑 โซน VIP</strong>
-                  <span class="badge-vip" style="font-size:10px; padding:2px 6px;">VIP</span>
+        <!-- STEP 3: กำหนดราคา โควตา และรูปแบบแต่ละโซน (Zone Pricing & Quota) -->
+        <div id="eventStep3" class="event-wizard-pane" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:6px;">
+            <strong style="font-weight:700; color:#fff; display:flex; align-items:center; gap:6px; font-size:13px;">
+              <span>🎯</span> กำหนดราคา โควตา และรูปแบบเฉพาะแต่ละโซน (Zone Pricing, Quota & Format)
+            </strong>
+            <span class="text-muted" style="font-size:11px;">กำหนดได้อิสระว่าแต่ละโซนเป็น โต๊ะ, เก้าอี้นั่ง หรือ ตั๋วยืน</span>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px;">
+            <!-- โซน VIP -->
+            <div style="background:rgba(229,9,20,0.08); border:1px solid rgba(229,9,20,0.3); border-radius:8px; padding:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <strong id="evLabelVip" style="color:#ff5a1f; font-size:13px;">👑 โซน VIP</strong>
+                <span class="badge-vip" style="font-size:10px; padding:2px 6px;">VIP</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <div>
+                  <label class="holder-sub-label" for="evZoneTypeVip" style="font-size:11px;">รูปแบบโซน</label>
+                  <select id="evZoneTypeVip" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
+                    <option value="table">🍽️ โต๊ะ (Table)</option>
+                    <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
+                    <option value="standing">🧍 ตั๋วยืน (Standing)</option>
+                  </select>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                  <div>
-                    <label class="holder-sub-label" for="evZoneTypeVip" style="font-size:11px;">รูปแบบโซน</label>
-                    <select id="evZoneTypeVip" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
-                      <option value="table">🍽️ โต๊ะ (Table)</option>
-                      <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
-                      <option value="standing">🧍 ตั๋วยืน (Standing)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evPriceVip" id="evPriceLabelVip" style="font-size:11px;">ราคา (THB)</label>
-                    <input type="number" id="evPriceVip" class="input-field holder-input ev-price-calc" value="6500" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evQuotaVip" id="evQuotaLabelVip" style="font-size:11px;">โควตา</label>
-                    <input type="number" id="evQuotaVip" class="input-field holder-input" value="50" min="1" style="padding:6px 8px; font-size:12px;">
-                  </div>
+                <div>
+                  <label class="holder-sub-label" for="evPriceVip" id="evPriceLabelVip" style="font-size:11px;">ราคา (THB)</label>
+                  <input type="number" id="evPriceVip" class="input-field holder-input ev-price-calc" value="6500" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
+                </div>
+                <div>
+                  <label class="holder-sub-label" for="evQuotaVip" id="evQuotaLabelVip" style="font-size:11px;">โควตา</label>
+                  <input type="number" id="evQuotaVip" class="input-field holder-input" value="50" min="1" style="padding:6px 8px; font-size:12px;">
                 </div>
               </div>
+            </div>
 
-              <!-- โซน A -->
-              <div style="background:rgba(34,155,255,0.08); border:1px solid rgba(34,155,255,0.3); border-radius:8px; padding:10px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                  <strong id="evLabelA" style="color:#63b3ed; font-size:13px;">🥇 โซน A</strong>
-                  <span style="font-size:10px; background:rgba(34,155,255,0.2); color:#63b3ed; padding:2px 6px; border-radius:4px;">Zone A</span>
+            <!-- โซน A -->
+            <div style="background:rgba(34,155,255,0.08); border:1px solid rgba(34,155,255,0.3); border-radius:8px; padding:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <strong id="evLabelA" style="color:#63b3ed; font-size:13px;">🥇 โซน A</strong>
+                <span style="font-size:10px; background:rgba(34,155,255,0.2); color:#63b3ed; padding:2px 6px; border-radius:4px;">Zone A</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <div>
+                  <label class="holder-sub-label" for="evZoneTypeA" style="font-size:11px;">รูปแบบโซน</label>
+                  <select id="evZoneTypeA" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
+                    <option value="table">🍽️ โต๊ะ (Table)</option>
+                    <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
+                    <option value="standing">🧍 ตั๋วยืน (Standing)</option>
+                  </select>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                  <div>
-                    <label class="holder-sub-label" for="evZoneTypeA" style="font-size:11px;">รูปแบบโซน</label>
-                    <select id="evZoneTypeA" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
-                      <option value="table">🍽️ โต๊ะ (Table)</option>
-                      <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
-                      <option value="standing">🧍 ตั๋วยืน (Standing)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evPriceA" id="evPriceLabelA" style="font-size:11px;">ราคา (THB)</label>
-                    <input type="number" id="evPriceA" class="input-field holder-input ev-price-calc" value="4500" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evQuotaA" id="evQuotaLabelA" style="font-size:11px;">โควตา</label>
-                    <input type="number" id="evQuotaA" class="input-field holder-input" value="100" min="1" style="padding:6px 8px; font-size:12px;">
-                  </div>
+                <div>
+                  <label class="holder-sub-label" for="evPriceA" id="evPriceLabelA" style="font-size:11px;">ราคา (THB)</label>
+                  <input type="number" id="evPriceA" class="input-field holder-input ev-price-calc" value="4500" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
+                </div>
+                <div>
+                  <label class="holder-sub-label" for="evQuotaA" id="evQuotaLabelA" style="font-size:11px;">โควตา</label>
+                  <input type="number" id="evQuotaA" class="input-field holder-input" value="100" min="1" style="padding:6px 8px; font-size:12px;">
                 </div>
               </div>
+            </div>
 
-              <!-- โซน B -->
-              <div style="background:rgba(245,166,35,0.08); border:1px solid rgba(245,166,35,0.3); border-radius:8px; padding:10px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                  <strong id="evLabelB" style="color:#F5A623; font-size:13px;">🥈 โซน B</strong>
-                  <span style="font-size:10px; background:rgba(245,166,35,0.2); color:#F5A623; padding:2px 6px; border-radius:4px;">Zone B</span>
+            <!-- โซน B -->
+            <div style="background:rgba(245,166,35,0.08); border:1px solid rgba(245,166,35,0.3); border-radius:8px; padding:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <strong id="evLabelB" style="color:#F5A623; font-size:13px;">🥈 โซน B</strong>
+                <span style="font-size:10px; background:rgba(245,166,35,0.2); color:#F5A623; padding:2px 6px; border-radius:4px;">Zone B</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <div>
+                  <label class="holder-sub-label" for="evZoneTypeB" style="font-size:11px;">รูปแบบโซน</label>
+                  <select id="evZoneTypeB" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
+                    <option value="table">🍽️ โต๊ะ (Table)</option>
+                    <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
+                    <option value="standing">🧍 ตั๋วยืน (Standing)</option>
+                  </select>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                  <div>
-                    <label class="holder-sub-label" for="evZoneTypeB" style="font-size:11px;">รูปแบบโซน</label>
-                    <select id="evZoneTypeB" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
-                      <option value="table">🍽️ โต๊ะ (Table)</option>
-                      <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
-                      <option value="standing">🧍 ตั๋วยืน (Standing)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evPriceB" id="evPriceLabelB" style="font-size:11px;">ราคา (THB)</label>
-                    <input type="number" id="evPriceB" class="input-field holder-input ev-price-calc" value="3200" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evQuotaB" id="evQuotaLabelB" style="font-size:11px;">โควตา</label>
-                    <input type="number" id="evQuotaB" class="input-field holder-input" value="120" min="1" style="padding:6px 8px; font-size:12px;">
-                  </div>
+                <div>
+                  <label class="holder-sub-label" for="evPriceB" id="evPriceLabelB" style="font-size:11px;">ราคา (THB)</label>
+                  <input type="number" id="evPriceB" class="input-field holder-input ev-price-calc" value="3200" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
+                </div>
+                <div>
+                  <label class="holder-sub-label" for="evQuotaB" id="evQuotaLabelB" style="font-size:11px;">โควตา</label>
+                  <input type="number" id="evQuotaB" class="input-field holder-input" value="120" min="1" style="padding:6px 8px; font-size:12px;">
                 </div>
               </div>
+            </div>
 
-              <!-- โซน C -->
-              <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); border-radius:8px; padding:10px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                  <strong id="evLabelC" style="color:#10B981; font-size:13px;">🥉 โซน C</strong>
-                  <span style="font-size:10px; background:rgba(16,185,129,0.2); color:#10B981; padding:2px 6px; border-radius:4px;">Zone C</span>
+            <!-- โซน C -->
+            <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); border-radius:8px; padding:10px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <strong id="evLabelC" style="color:#10B981; font-size:13px;">🥉 โซน C</strong>
+                <span style="font-size:10px; background:rgba(16,185,129,0.2); color:#10B981; padding:2px 6px; border-radius:4px;">Zone C</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <div>
+                  <label class="holder-sub-label" for="evZoneTypeC" style="font-size:11px;">รูปแบบโซน</label>
+                  <select id="evZoneTypeC" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
+                    <option value="table">🍽️ โต๊ะ (Table)</option>
+                    <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
+                    <option value="standing">🧍 ตั๋วยืน (Standing)</option>
+                  </select>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                  <div>
-                    <label class="holder-sub-label" for="evZoneTypeC" style="font-size:11px;">รูปแบบโซน</label>
-                    <select id="evZoneTypeC" class="input-field holder-input ev-zone-type" style="padding:4px 6px; font-size:11px;">
-                      <option value="table">🍽️ โต๊ะ (Table)</option>
-                      <option value="seated">🪑 เก้าอี้นั่ง (Seat)</option>
-                      <option value="standing">🧍 ตั๋วยืน (Standing)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evPriceC" id="evPriceLabelC" style="font-size:11px;">ราคา (THB)</label>
-                    <input type="number" id="evPriceC" class="input-field holder-input ev-price-calc" value="1800" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
-                  </div>
-                  <div>
-                    <label class="holder-sub-label" for="evQuotaC" id="evQuotaLabelC" style="font-size:11px;">โควตา</label>
-                    <input type="number" id="evQuotaC" class="input-field holder-input" value="150" min="1" style="padding:6px 8px; font-size:12px;">
-                  </div>
+                <div>
+                  <label class="holder-sub-label" for="evPriceC" id="evPriceLabelC" style="font-size:11px;">ราคา (THB)</label>
+                  <input type="number" id="evPriceC" class="input-field holder-input ev-price-calc" value="1800" min="0" step="50" style="padding:6px 8px; font-size:12px; font-weight:700;">
+                </div>
+                <div>
+                  <label class="holder-sub-label" for="evQuotaC" id="evQuotaLabelC" style="font-size:11px;">โควตา</label>
+                  <input type="number" id="evQuotaC" class="input-field holder-input" value="150" min="1" style="padding:6px 8px; font-size:12px;">
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Interactive Live Stage & Venue Simulator (แบบจำลองผังเวทีและโซนที่นั่ง/โต๊ะ/ตั๋วยืน เสมือนจริง) -->
-          <div style="margin-top:14px; background:#181818; border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px; position:relative; overflow:hidden;">
+        <!-- STEP 4: แบบจำลองผังเวทีจริง & รายการรอบการแสดง (Preview & Concert List) -->
+        <div id="eventStep4" class="event-wizard-pane" style="display:none;">
+          <!-- Interactive Live Stage & Venue Simulator -->
+          <div style="background:#181818; border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px; position:relative; overflow:hidden;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:14px;">🗺️</span>
@@ -1108,16 +1157,27 @@
             <div id="simVenueContainer"></div>
           </div>
 
-          <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
-            <button type="button" class="btn-primary" id="saveEventBtn" style="flex:1;">💾 บันทึกข้อมูลคอนเสิร์ต รูปแบบเวที และโควตา</button>
-            <button type="button" class="btn-outline" id="deleteEventBtn" hidden style="border-color:rgba(255,107,107,0.5); color:#FF6B6B; padding:10px 16px;">🗑️ ลบคอนเสิร์ตนี้</button>
+          <!-- Existing Concerts List -->
+          <div style="margin-top:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span class="text-muted" style="font-size:12px;">รายการรอบการแสดงทั้งหมด (คลิกเพื่อแก้ไข หรือกด 🗑️ เพื่อลบ):</span>
+            </div>
+            <div id="adminEventsList" style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
           </div>
         </div>
 
-        <div style="margin-top:12px;">
-          <span class="text-muted" style="font-size:12px;">คลิกเลือกรายการด้านล่างเพื่อแก้ไขรูปแบบเวที/ราคา/โควตา หรือกดปุ่ม 🗑️ เพื่อลบรอบการแสดง:</span>
-          <div id="adminEventsList" style="max-height:240px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:6px;"></div>
+        <!-- Sticky Footer Navigation -->
+        <div style="position:sticky; bottom:-20px; background:rgba(13,16,24,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); padding:14px 0 6px; border-top:1px solid rgba(255,255,255,0.12); z-index:10; display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:8px; flex-wrap:wrap;">
+          <div>
+            <button type="button" class="btn-outline" id="eventPrevBtn" onclick="window.switchEventStep(-1)" style="display:none; font-size:12px; padding:8px 14px;">← ย้อนกลับ</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="btn-outline" id="deleteEventBtn" hidden style="border-color:rgba(255,107,107,0.5); color:#FF6B6B; padding:8px 14px; font-size:12px;">🗑️ ลบคอนเสิร์ตนี้</button>
+            <button type="button" class="btn-outline" id="eventNextBtn" onclick="window.switchEventStep(1)" style="font-size:12px; padding:8px 14px; color:var(--fire); border-color:var(--fire);">ถัดไป: ผังเวที & สไตล์ →</button>
+            <button type="button" class="btn-primary" id="saveEventBtn" style="padding:8px 20px; min-width:140px; font-weight:700; font-size:13px;">💾 บันทึกข้อมูลคอนเสิร์ต</button>
+          </div>
         </div>
+
       </div>
     </div>
   </div>
