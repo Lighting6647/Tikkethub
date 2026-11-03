@@ -366,7 +366,31 @@
 
 @media (max-width: 680px) {
   .hero {
-    padding: 20px 0 44px;
+    padding: max(8px, env(safe-area-inset-top, 8px)) 0 16px;
+  }
+
+  .hero-headline-elevate {
+    font-size: clamp(19px, 5.2vw, 25px);
+    margin: 4px auto 8px;
+    letter-spacing: 0.5px;
+    padding: 0 8px;
+  }
+
+  .hero-search-pill {
+    margin: 0 auto 10px;
+    padding: 0 8px;
+    max-width: 100%;
+  }
+
+  .hero-search-pill input {
+    padding: 9px 18px 9px 40px;
+    font-size: 13px;
+  }
+
+  .hero-search-pill svg {
+    left: 22px;
+    width: 15px;
+    height: 15px;
   }
 }
 
@@ -480,13 +504,17 @@
 }
 
 @media (max-width: 600px) {
+  .mockup-cards-row {
+    gap: 12px;
+  }
+
   .mockup-card {
-    padding: 16px 14px;
-    border-radius: 18px;
+    padding: 14px 12px;
+    border-radius: 16px;
   }
 
   .artist-hero-card {
-    min-height: 220px;
+    min-height: 195px;
     background-image:
       linear-gradient(180deg, rgba(14, 16, 24, 0.4) 0%, rgba(10, 11, 16, 0.95) 100%),
       radial-gradient(ellipse at 50% 0%, rgba(229, 9, 20, 0.3) 0%, transparent 70%),
@@ -494,33 +522,71 @@
   }
 
   .artist-hero-title {
-    font-size: 19px;
-    line-height: 1.25;
+    font-size: 17px;
+    line-height: 1.22;
+    margin: 2px 0;
+  }
+
+  .artist-hero-sub {
+    font-size: 10px;
+  }
+
+  .artist-hero-genre {
+    font-size: 11px;
   }
 
   .card-tags {
-    margin-bottom: 14px;
+    margin-bottom: 8px;
   }
 
   .artist-hero-body {
     margin-top: auto;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   .artist-hero-price {
-    padding-top: 12px;
+    padding-top: 8px;
+  }
+
+  .artist-hero-price b {
+    font-size: 15px;
+  }
+
+  .hero-book-btn {
+    padding: 5px 12px;
+    font-size: 11px;
   }
 
   .vip-tables-header {
     flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .vip-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .vip-artist-info {
     gap: 8px;
-    margin-bottom: 12px;
+  }
+
+  .vip-artist-info h4 {
+    font-size: 13.5px;
+  }
+
+  .vip-price b {
+    font-size: 14px;
   }
 
   .vip-table-preview-label {
     flex-wrap: wrap;
     gap: 6px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    font-size: 11px;
   }
 
   .vip-tables-grid {
@@ -528,10 +594,44 @@
   }
 
   .tbl-btn {
-    font-size: 9.5px !important;
-    min-height: 32px !important;
-    border-radius: 5px !important;
+    font-size: 9px !important;
+    min-height: 28px !important;
+    border-radius: 4px !important;
     touch-action: manipulation;
+  }
+
+  .pill-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 750px) and (max-width: 680px) {
+  .hero {
+    padding: max(4px, env(safe-area-inset-top, 4px)) 0 10px;
+  }
+
+  .hero-headline-elevate {
+    font-size: 18px;
+    margin: 2px auto 6px;
+  }
+
+  .hero-search-pill {
+    margin: 0 auto 6px;
+  }
+
+  .hero-search-pill input {
+    padding: 8px 16px 8px 36px;
+    font-size: 12px;
+  }
+
+  .category-pills {
+    margin: 0 auto 8px;
+    padding-bottom: 4px;
+  }
+
+  .artist-hero-card {
+    min-height: 180px;
   }
 }
 
@@ -909,8 +1009,8 @@
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
   scrollbar-width: none;
-  padding: 4px 16px 14px;
-  margin: 0 auto 20px;
+  padding: 2px 16px 8px;
+  margin: 0 auto 12px;
   max-width: 100%;
   box-sizing: border-box;
   justify-content: flex-start;
