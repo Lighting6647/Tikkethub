@@ -1737,7 +1737,105 @@
   gap: 14px;
 }
 
-/* Table Picker & Legend */
+/* Table Picker & Legend (Reverse-Engineered & Enhanced from officialvirgin.com) */
+.table-picker-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  border: 1px solid var(--line-hot, rgba(255, 90, 31, 0.45));
+  border-radius: var(--radius-card, 14px);
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: auto;
+}
+
+.table-picker-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+.table-picker-wrap::-webkit-scrollbar-track { background: transparent; }
+.table-picker-wrap::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 10px; border: none; }
+.table-picker-wrap::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+.table-picker-canvas {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+  background-color: #0e0e11;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 75px 75px;
+  border-radius: var(--radius-card, 14px);
+}
+
+.table-picker-item {
+  position: absolute;
+  width: 67px;
+  height: 67px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f6f1ea;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.table-picker-item i { font-size: 14px; opacity: 0.85; }
+.table-picker-item small { font-size: 10px; opacity: 0.8; font-weight: 400; line-height: 1.1; }
+.table-picker-item:has(.tp-price) { gap: 0; }
+.table-picker-item:has(.tp-price) i { font-size: 12px; }
+.table-picker-item small.tp-price { font-size: 10px; font-weight: 700; opacity: 1; color: #ffd28a; }
+.table-picker-item.is-selected small.tp-price { color: #fff; }
+
+.table-picker-item.is-available {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.28), rgba(21, 128, 61, 0.32));
+  border-color: #22c55e;
+}
+.table-picker-item.is-available:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.5);
+}
+
+.table-picker-item.is-taken {
+  background: linear-gradient(135deg, rgba(255, 45, 45, 0.28), rgba(139, 0, 0, 0.32));
+  border-color: #ff2d2d;
+  color: rgba(255, 210, 210, 0.75);
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.table-picker-item.is-reserving {
+  background: linear-gradient(135deg, rgba(255, 181, 71, 0.28), rgba(255, 90, 31, 0.32));
+  border-color: #ffb547;
+  cursor: not-allowed;
+  animation: tp-blink 1.6s infinite;
+}
+
+.table-picker-item.is-selected {
+  background: linear-gradient(100deg, #ff2d2d 0%, #ff5a1f 45%, #ff9a3c 100%);
+  border-color: #ffd28a;
+  color: #fff;
+  box-shadow: 0 0 24px rgba(255, 90, 31, 0.55);
+  animation: tp-pop 0.35s ease;
+}
+
+.table-picker-item.object-item {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #888;
+}
+
+@keyframes tp-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.55; } }
+@keyframes tp-pop { 50% { transform: scale(1.15); } }
+
 .table-picker-legend {
   display: flex;
   align-items: center;
@@ -1763,7 +1861,8 @@
 .legend-box.available { background: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.5); }
 .legend-box.taken { background: #ef4444; opacity: 0.6; }
 .legend-box.reserving { background: #eab308; box-shadow: 0 0 10px rgba(234, 179, 8, 0.5); }
-.legend-box.selected { background: var(--fire); box-shadow: 0 0 12px rgba(229, 9, 20, 0.85); }
+.legend-box.selected { background: var(--fire, #ff5a1f); box-shadow: 0 0 12px rgba(229, 9, 20, 0.85); }
+.legend-box.object { background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); }
 
 .summary-card {
   background: rgba(16, 18, 26, 0.95);
@@ -1960,3 +2059,90 @@
     white-space: normal;
   }
 }
+
+/* ==========================================================================
+   PRODUCTION ENHANCEMENTS (Reverse-Engineered from officialvirgin.com)
+   Zero breaking changes · Performance & UX Polish
+   ========================================================================== */
+
+/* 1. Native Smooth Scroll with Reduced Motion Support */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* 2. Anchor Jump Margin (Prevents Fixed Header Collision) */
+#home, #events, #artists, #news, #gallery, #how, #zones, #ticket, #contact {
+  scroll-margin-top: var(--header-h, 76px);
+}
+
+/* 3. Animated SVG Checkmark for Success / Payment Modals */
+@keyframes success-check-draw {
+  to { stroke-dashoffset: 0; }
+}
+.success-check.is-in circle {
+  animation: success-check-draw 0.6s ease forwards;
+}
+.success-check.is-in path {
+  animation: success-check-draw 0.4s ease 0.6s forwards;
+}
+
+/* 4. State Icons with Glow & Pop Animation */
+.state-icon {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 38px;
+  animation: state-icon-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes state-icon-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+.state-icon--danger {
+  background: rgba(255, 45, 45, 0.1);
+  border: 2px solid #ff2d2d;
+  color: #ff2d2d;
+  filter: drop-shadow(0 0 12px rgba(255, 45, 45, 0.5));
+}
+.state-icon--success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 2px solid #22c55e;
+  color: #22c55e;
+  filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.5));
+}
+
+/* 5. Safe Link States (:visited reset to prevent browser default purple/blue) */
+.nav-link, .nav-link:visited { color: #e9e3dc; }
+.nav-link:hover, .nav-link:visited:hover, .nav-link.is-active, .nav-link.is-active:visited { color: var(--color-primary, #ff5a1f); }
+.footer-links a, .footer-links a:visited { color: var(--color-muted, #a39d97); }
+.footer-links a:hover, .footer-links a:visited:hover { color: var(--color-primary, #ff5a1f); }
+.event-card-title a, .event-card-title a:visited,
+.event-card a, .event-card a:visited { color: inherit; }
+
+/* 6. Form Control Focus Glow */
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--fire, #ff5a1f);
+  box-shadow: 0 0 0 0.2rem rgba(255, 90, 31, 0.2);
+}
+
+/* 7. Event Poster Ratio Polish */
+.event-poster-wrap {
+  aspect-ratio: 4 / 5;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-card, 14px);
+}
+.event-poster-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(0deg, #10121a 0%, transparent 32%);
+}
+
