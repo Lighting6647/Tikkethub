@@ -178,6 +178,40 @@
     updateConfirmState();
   }
 
+  function updateUploadStage(stage, pct, text) {
+    const hud = $('slipProgressHud');
+    const fill = $('slipProgressBarFill');
+    const label = $('slipProgressStageLabel');
+    if (hud) hud.hidden = false;
+    if (fill) fill.style.width = `${pct}%`;
+    if (label) label.textContent = text;
+
+    for (let i = 1; i <= 4; i++) {
+      const row = $(`stepRow${i}`);
+      if (row) {
+        if (i < stage) {
+          row.className = 'slip-progress-step-row is-done';
+        } else if (i === stage) {
+          row.className = 'slip-progress-step-row is-current';
+        } else {
+          row.className = 'slip-progress-step-row';
+        }
+      }
+    }
+  }
+
+  function resetUploadStage() {
+    const hud = $('slipProgressHud');
+    if (hud) hud.hidden = true;
+    const fill = $('slipProgressBarFill');
+    if (fill) fill.style.width = '0%';
+    const btn = $('payConfirmBtn');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'ยืนยันการโอนเงินและรับบัตร (ขั้นตอนที่ 4) →';
+    }
+  }
+
   function isExpired() {
     return Date.now() >= deadline;
   }
@@ -196,6 +230,7 @@
     if (dz) dz.hidden = false;
     const err = $('slipError');
     if (err) err.textContent = '';
+    resetUploadStage();
     updateConfirmState();
   }
 
@@ -304,9 +339,18 @@
     clearInterval(timerId);
     setStep('verifying');
 
+    const confirmBtn = $('payConfirmBtn');
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span>⏳ กำลังประมวลผลการอัปโหลด...</span>';
+    }
+
     let saved = null;
     try {
+      updateUploadStage(1, 25, 'กำลังประมวลผลและบีบอัดรูปภาพสลิป...');
       const slipData = await compressImage(slipFile);
+
+      updateUploadStage(2, 60, 'กำลังอัปโหลดสลิปไปยังเซิร์ฟเวอร์...');
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -330,16 +374,23 @@
           slipData
         })
       });
+
+      updateUploadStage(3, 85, 'ระบบ AI กำลังตรวจสอบความถูกต้องและยอดเงิน...');
       const data = await res.json();
       if (!res.ok || data.ok === false || !data.order) {
         setStep('pay');
         startTimer();
+        resetUploadStage();
         const errEl = $('slipError');
         if (errEl) errEl.textContent = data.error || 'ส่งสลิปไม่สำเร็จ';
         if (window.UI) window.UI.toast(data.error || 'ส่งสลิปไม่สำเร็จ', 'error');
         return;
       }
+
+      updateUploadStage(4, 100, 'ออกบัตร E-Ticket และบันทึกข้อมูลเรียบร้อย!');
       if (window.TicketStore) saved = window.TicketStore.add(data.order);
+      // Brief pause to allow user to view completed stage
+      await new Promise((r) => setTimeout(r, 600));
     } catch (e) {
       /* Fallback to client-side store only when backend is unreachable */
     }
@@ -365,6 +416,7 @@
       }
     }
 
+    resetUploadStage();
     if (window.UI) window.UI.close('paymentModal');
     if (window.TicketViewer && saved) window.TicketViewer.show(saved);
   }

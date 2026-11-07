@@ -286,6 +286,130 @@
   transform: scale(0.96);
 }
 
+/* Slip Upload Status Card & Live Progress HUD */
+.slip-upload-status-card {
+  margin-top: 10px;
+  background: rgba(14, 20, 32, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.slip-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.slip-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.slip-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  font-size: 11.5px;
+}
+
+.slip-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Upload Progress HUD (Active during payment confirmation) */
+.slip-upload-progress-hud {
+  margin-top: 12px;
+  background: rgba(14, 20, 32, 0.95);
+  border: 1px solid var(--fire, #ff5a1f);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 90, 31, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: hudFadeIn 0.3s ease;
+}
+
+@keyframes hudFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.slip-progress-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.slip-progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff5a1f, #ff9a3c);
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(255, 90, 31, 0.7);
+}
+
+.slip-progress-stage-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slip-progress-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.slip-progress-step-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.slip-progress-step-row.is-done {
+  color: #4ade80;
+}
+
+.slip-progress-step-row.is-current {
+  color: var(--fire, #ff5a1f);
+  font-weight: 600;
+}
+
 .qr-error { color: var(--color-primary); font-size: 12px; text-align: center; }
 
 .pay-amount-label { font-size: 12px; color: #555; }

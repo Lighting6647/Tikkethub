@@ -700,12 +700,42 @@
             </div>
             <div id="slipPreviewWrap" hidden style="text-align:center; padding:10px 0;">
               <img id="slipPreviewImg" alt="พรีวิวสลิป" style="max-height:180px; max-width:100%; border-radius:8px; object-fit:contain; border:1px solid rgba(255,255,255,0.15);">
+              
+              <!-- Real-time Slip Upload Status Card -->
+              <div class="slip-upload-status-card" id="slipStatusCard">
+                <div class="slip-status-header">
+                  <span>📊 รายงานสถานะไฟล์สลิป</span>
+                  <span class="slip-status-badge" id="slipStatusBadge">🟢 พร้อมส่งตรวจสอบ</span>
+                </div>
+                <div class="slip-meta-grid">
+                  <div class="slip-meta-item">📁 <strong id="slipName">slip.jpg</strong></div>
+                  <div class="slip-meta-item">💾 <span id="slipSize">0 KB</span></div>
+                </div>
+              </div>
+
               <div style="margin-top:8px;">
                 <button type="button" class="btn-outline" id="slipRemove" style="font-size:11px; padding:4px 12px; border-radius:9999px;">🔄 เปลี่ยนรูปสลิป</button>
               </div>
             </div>
           </div>
           <p class="slip-error" id="slipError" role="alert" style="color:var(--fire); font-size:12px; margin-top:4px;"></p>
+
+          <!-- Live Upload & Verification Progress HUD -->
+          <div class="slip-upload-progress-hud" id="slipProgressHud" hidden>
+            <div class="slip-progress-stage-text">
+              <span id="slipProgressSpinner">⏳</span>
+              <span id="slipProgressStageLabel">กำลังเตรียมและบีบอัดรูปภาพ...</span>
+            </div>
+            <div class="slip-progress-bar-wrap">
+              <div class="slip-progress-bar-fill" id="slipProgressBarFill"></div>
+            </div>
+            <div class="slip-progress-steps-list">
+              <div class="slip-progress-step-row is-current" id="stepRow1">⚡ 1. บีบอัดและปรับคุณภาพภาพสลิป</div>
+              <div class="slip-progress-step-row" id="stepRow2">☁️ 2. อัปโหลดและบันทึกสลิปขึ้นระบบ</div>
+              <div class="slip-progress-step-row" id="stepRow3">🤖 3. AI ตรวจสอบยอดเงินและความถูกต้อง</div>
+              <div class="slip-progress-step-row" id="stepRow4">🎟️ 4. ออกบัตร E-Ticket และรหัส HMAC</div>
+            </div>
+          </div>
         </div>
 
         <div style="display:flex; gap:10px; margin-top:8px;">
