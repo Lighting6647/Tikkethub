@@ -657,9 +657,29 @@
             <span style="font-size:12px; font-weight:700; color:#111;">PROMPTPAY QR</span>
             <span style="font-size:11px; color:#666;" id="payTimerLabel">หมดอายุใน 15:00 นาที</span>
           </div>
-          <div class="pay-qr-canvas-wrap pay-qr" id="payQrWrap">
+          <div class="pay-qr-canvas-wrap pay-qr" id="payQrWrap" title="กดค้าง 2 วินาทีเพื่อบันทึกรูปภาพลงอุปกรณ์">
             <div id="payQrCanvas" class="pay-qr"></div>
+            <!-- Long-press 2-Second Hold Indicator Overlay -->
+            <div class="qr-hold-overlay" id="qrHoldOverlay" hidden>
+              <div class="qr-hold-content">
+                <svg class="qr-hold-ring" viewBox="0 0 52 52">
+                  <circle class="qr-hold-ring-bg" cx="26" cy="26" r="22"></circle>
+                  <circle class="qr-hold-ring-bar" id="qrHoldRingBar" cx="26" cy="26" r="22"></circle>
+                </svg>
+                <div class="qr-hold-icon" id="qrHoldIcon">📥</div>
+                <div class="qr-hold-label" id="qrHoldLabel">กำลังบันทึกภาพ...</div>
+              </div>
+            </div>
           </div>
+
+          <!-- Long Press Helper Badge & Direct Download Button -->
+          <div class="qr-hold-hint-bar">
+            <span class="qr-hold-hint-text">💡 <span>กดค้างที่ QR <strong>2 วินาที</strong> เพื่อบันทึกรูป</span></span>
+            <button type="button" class="btn-qr-save-pill" id="btnSaveQrManual" title="คลิกเพื่อบันทึกรูปภาพลงเครื่องทันที">
+              <span>📥 บันทึกรูป QR</span>
+            </button>
+          </div>
+
           <div class="pay-qr-target" style="text-align:center; color:#333; font-size:12px;">
             โอนเข้าบัญชี: <strong id="payTargetDisplay">095-465-4698</strong>
           </div>

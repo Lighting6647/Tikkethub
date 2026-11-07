@@ -443,8 +443,325 @@
     if (window.UI) window.UI.open('paymentModal');
   }
 
+  async function downloadQrImage() {
+    const qrEl = $('payQrCanvas') || $('payQr');
+    if (!qrEl) return false;
+    const svg = qrEl.querySelector('svg');
+    const img = qrEl.querySelector('img');
+    if (!svg && !img) return false;
+
+    if (typeof document === 'undefined' || !document.createElement) return false;
+
+    // High-resolution canvas for crystal clear bank scanner compatibility
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 720;
+    const ctx = canvas.getContext ? canvas.getContext('2d') : null;
+    if (!ctx) return false;
+
+    // 1. White background card
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Navy Blue PromptPay Brand Header
+    ctx.fillStyle = '#0E3D6B';
+    ctx.fillRect(0, 0, canvas.width, 80);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 26px "Chakra Petch", -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('PROMPTPAY QR PAYMENT', canvas.width / 2, 50);
+
+    // 3. Amount & Target details
+    const totalAmount = order ? (order.total || order.unitPrice || 0) : 0;
+    const ppTarget = formatPromptPayId(activePromptPayId);
+    const refCode = $('payRefDisplay') ? $('payRefDisplay').textContent : 'TT-0000';
+
+    ctx.fillStyle = '#E11D48';
+    ctx.font = 'bold 32px "Chakra Petch", -apple-system, sans-serif';
+    ctx.fillText(`${totalAmount.toLocaleString('th-TH')} THB`, canvas.width / 2, 135);
+
+    ctx.fillStyle = '#4B5563';
+    ctx.font = '500 17px -apple-system, sans-serif';
+    ctx.fillText(`โอนเข้าบัญชี: ${ppTarget}`, canvas.width / 2, 170);
+
+    // 4. Center QR Code drawing (380 x 380)
+    const qrSize = 380;
+    const qrX = (canvas.width - qrSize) / 2;
+    const qrY = 195;
+
+    let drawn = false;
+    if (svg) {
+      try {
+        const xml = new XMLSerializer().serializeToString(svg);
+        const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const tempImg = new Image();
+        await new Promise((resolve) => {
+          tempImg.onload = () => {
+            ctx.drawImage(tempImg, qrX, qrY, qrSize, qrSize);
+            URL.revokeObjectURL(url);
+            drawn = true;
+            resolve();
+          };
+          tempImg.onerror = resolve;
+          tempImg.src = url;
+        });
+      } catch {}
+    } else if (img) {
+      if (img.complete && img.naturalWidth) {
+        try {
+          ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+          drawn = true;
+        } catch {}
+      } else {
+        await new Promise((resolve) => {
+          const tempImg = new Image();
+          tempImg.crossOrigin = 'anonymous';
+          tempImg.onload = () => {
+            try {
+              ctx.drawImage(tempImg, qrX, qrY, qrSize, qrSize);
+              drawn = true;
+            } catch {}
+            resolve();
+          };
+          tempImg.onerror = resolve;
+          tempImg.src = img.src;
+        });
+      }
+    }
+
+    if (!drawn) {
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(qrX + 30, qrY + 30, qrSize - 60, qrSize - 60);
+    }
+
+    // 5. Footer details
+    ctx.fillStyle = '#9CA3AF';
+    ctx.font = '14px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`รหัสคำสั่งซื้อ: ${refCode} · STAGE PASS`, canvas.width / 2, 630);
+
+    ctx.fillStyle = '#4B5563';
+    ctx.font = 'bold 15px -apple-system, sans-serif';
+    ctx.fillText('เปิดแอปธนาคารแล้วเลือก "สแกนจากรูปภาพ" เพื่อชำระเงิน', canvas.width / 2, 665);
+
+    // 6. Download Trigger via Blob or DataURL
+    return new Promise((resolve) => {
+      const filename = `PromptPay-QR-${refCode}.png`;
+      if (canvas.toBlob) {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve(false);
+            return;
+          }
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            if (a.parentNode) a.parentNode.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+            resolve(true);
+          }, 400);
+        }, 'image/png');
+      } else {
+        const dataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          if (a.parentNode) a.parentNode.removeChild(a);
+          resolve(true);
+        }, 400);
+      }
+    });
+  }
+
+  function setupQrLongPress() {
+    const wrap = $('payQrWrap');
+    if (!wrap) return;
+
+    const overlay = $('qrHoldOverlay');
+    const ringBar = $('qrHoldRingBar');
+    const icon = $('qrHoldIcon');
+    const label = $('qrHoldLabel');
+    const manualBtn = $('btnSaveQrManual');
+
+    const CIRCUMFERENCE = 138.2; // 2 * PI * 22
+    const HOLD_MS = 2000; // 2-second hold requested by user
+
+    let holdTimer = null;
+    let holdStart = 0;
+    let animId = null;
+    let isHolding = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function resetOverlay() {
+      isHolding = false;
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      if (animId && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
+      if (overlay) overlay.hidden = true;
+      if (ringBar) {
+        ringBar.classList.remove('is-success');
+        ringBar.style.strokeDashoffset = String(CIRCUMFERENCE);
+      }
+      if (icon) {
+        icon.textContent = '📥';
+        icon.style.transform = 'none';
+      }
+      if (label) label.textContent = 'กำลังบันทึกภาพ...';
+    }
+
+    function updateProgress() {
+      if (!isHolding) return;
+      const elapsed = Date.now() - holdStart;
+      const progress = Math.min(1, elapsed / HOLD_MS);
+      const offset = CIRCUMFERENCE * (1 - progress);
+      if (ringBar) ringBar.style.strokeDashoffset = String(offset);
+
+      const remainSec = Math.max(0, ((HOLD_MS - elapsed) / 1000)).toFixed(1);
+      if (label && progress < 1) {
+        label.textContent = `กดค้างอีก ${remainSec} วิ...`;
+      }
+
+      if (progress < 1 && typeof requestAnimationFrame === 'function') {
+        animId = requestAnimationFrame(updateProgress);
+      }
+    }
+
+    async function onHoldSuccess() {
+      isHolding = false;
+      if (animId && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
+
+      // Success vibration pattern
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([60, 40, 80]);
+      } catch {}
+
+      if (ringBar) {
+        ringBar.classList.add('is-success');
+        ringBar.style.strokeDashoffset = '0';
+      }
+      if (icon) {
+        icon.textContent = '✓';
+        icon.style.transform = 'scale(1.2)';
+      }
+      if (label) label.textContent = 'บันทึกรูปภาพสำเร็จ!';
+
+      // Download QR Code Image
+      await downloadQrImage();
+
+      if (window.UI && window.UI.toast) {
+        window.UI.toast('บันทึกรูป QR Code ลงอุปกรณ์เรียบร้อยแล้ว (เปิดสแกนในแอปธนาคารได้ทันที)', 'success');
+      }
+
+      // Hide overlay after brief success confirmation
+      setTimeout(() => {
+        resetOverlay();
+      }, 1000);
+    }
+
+    function startHold(e) {
+      if (isHolding) return;
+      // Don't trigger if clicked on child buttons
+      if (e.target && e.target.closest && e.target.closest('.btn-qr-save-pill')) return;
+
+      isHolding = true;
+      holdStart = Date.now();
+
+      if (e.touches && e.touches[0]) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
+      } catch {}
+
+      if (overlay) overlay.hidden = false;
+      if (ringBar) {
+        ringBar.classList.remove('is-success');
+        ringBar.style.strokeDashoffset = String(CIRCUMFERENCE);
+      }
+      if (icon) icon.textContent = '📥';
+      if (label) label.textContent = 'กดค้าง 2 วิ เพื่อบันทึกภาพ...';
+
+      holdTimer = setTimeout(onHoldSuccess, HOLD_MS);
+      if (typeof requestAnimationFrame === 'function') {
+        animId = requestAnimationFrame(updateProgress);
+      }
+    }
+
+    function cancelHold() {
+      if (!isHolding) return;
+      resetOverlay();
+    }
+
+    function onTouchMove(e) {
+      if (!isHolding) return;
+      if (e.touches && e.touches[0]) {
+        const dx = Math.abs(e.touches[0].clientX - touchStartX);
+        const dy = Math.abs(e.touches[0].clientY - touchStartY);
+        if (dx > 12 || dy > 12) {
+          cancelHold();
+        }
+      }
+    }
+
+    // Touch events for Mobile (iPhone / Android)
+    wrap.addEventListener('touchstart', startHold, { passive: true });
+    wrap.addEventListener('touchend', cancelHold, { passive: true });
+    wrap.addEventListener('touchcancel', cancelHold, { passive: true });
+    wrap.addEventListener('touchmove', onTouchMove, { passive: true });
+
+    // Mouse events for Desktop
+    wrap.addEventListener('mousedown', startHold);
+    wrap.addEventListener('mouseup', cancelHold);
+    wrap.addEventListener('mouseleave', cancelHold);
+
+    // Manual Save Button
+    if (manualBtn) {
+      manualBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+        } catch {}
+        manualBtn.disabled = true;
+        const origText = manualBtn.innerHTML;
+        manualBtn.innerHTML = '<span>⏳ กำลังบันทึก...</span>';
+        await downloadQrImage();
+        if (window.UI && window.UI.toast) {
+          window.UI.toast('บันทึกรูป QR Code ลงอุปกรณ์เรียบร้อยแล้ว', 'success');
+        }
+        setTimeout(() => {
+          manualBtn.innerHTML = '<span>✓ บันทึกแล้ว</span>';
+          setTimeout(() => {
+            manualBtn.innerHTML = origText;
+            manualBtn.disabled = false;
+          }, 1500);
+        }, 500);
+      });
+    }
+  }
+
   function bind() {
     syncPromptPayConfig();
+    setupQrLongPress();
     if ($('copyPromptpayBtn')) {
       $('copyPromptpayBtn').addEventListener('click', async () => {
         try {
@@ -514,5 +831,5 @@
   }
 
   document.addEventListener('DOMContentLoaded', bind);
-  window.Checkout = { start };
+  window.Checkout = { start, downloadQrImage };
 })();
