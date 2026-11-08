@@ -3098,7 +3098,7 @@
 
     if ($('sfHeadlineInput')) $('sfHeadlineInput').value = local.headline || 'ELEVATE YOUR NIGHT';
     if ($('sfSearchPlaceholderInput')) $('sfSearchPlaceholderInput').value = local.searchPlaceholder || 'Search concerts, artists or VIP tables...';
-    if ($('sfLineOaUrlInput')) $('sfLineOaUrlInput').value = local.lineOaUrl || 'https://line.me/R/ti/p/@thaiticket';
+    if ($('sfLineOaUrlInput')) $('sfLineOaUrlInput').value = local.lineOaUrl || 'https://lin.ee/wTiGycF';
     if ($('sfFacebookUrlInput')) $('sfFacebookUrlInput').value = local.facebookUrl || 'https://facebook.com/stagepass.official';
     if ($('sfInstagramUrlInput')) $('sfInstagramUrlInput').value = local.instagramUrl || 'https://instagram.com/stagepass.th';
     if ($('sfAnnouncementInput')) $('sfAnnouncementInput').value = local.announcement || '';
@@ -3122,7 +3122,7 @@
   async function saveStorefrontSettings() {
     const headline = ($('sfHeadlineInput') ? $('sfHeadlineInput').value : '').trim() || 'ELEVATE YOUR NIGHT';
     const searchPlaceholder = ($('sfSearchPlaceholderInput') ? $('sfSearchPlaceholderInput').value : '').trim() || 'Search concerts, artists or VIP tables...';
-    const lineOaUrl = ($('sfLineOaUrlInput') ? $('sfLineOaUrlInput').value : '').trim() || 'https://line.me/R/ti/p/@thaiticket';
+    const lineOaUrl = ($('sfLineOaUrlInput') ? $('sfLineOaUrlInput').value : '').trim() || 'https://lin.ee/wTiGycF';
     const facebookUrl = ($('sfFacebookUrlInput') ? $('sfFacebookUrlInput').value : '').trim() || 'https://facebook.com/stagepass.official';
     const instagramUrl = ($('sfInstagramUrlInput') ? $('sfInstagramUrlInput').value : '').trim() || 'https://instagram.com/stagepass.th';
     const announcement = ($('sfAnnouncementInput') ? $('sfAnnouncementInput').value : '').trim();

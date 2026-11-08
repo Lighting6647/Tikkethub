@@ -868,8 +868,8 @@ if (typeof document !== 'undefined') {
         const searchInput = document.getElementById('searchInput');
         if (searchInput) searchInput.placeholder = sf.searchPlaceholder;
       }
-      if (sf.lineOaUrl) {
-        document.querySelectorAll('a[href*="line.me"]').forEach(a => a.href = sf.lineOaUrl);
+      if (sf.lineOaUrl && !/@thaiticket/i.test(sf.lineOaUrl)) {
+        document.querySelectorAll('a[href*="line.me"], a[href*="lin.ee"]').forEach(a => a.href = sf.lineOaUrl);
       }
       if (sf.facebookUrl) {
         document.querySelectorAll('a[href*="facebook.com"]').forEach(a => a.href = sf.facebookUrl);

@@ -305,7 +305,7 @@
 
     const bannerHtml = `
       <div style="background:rgba(34,155,255,0.08);border:1px solid rgba(34,155,255,0.25);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.5;">
-        🛡️ <strong>นโยบายจัดส่งบัตรเข้า LINE OA เท่านั้น:</strong> บัตรคอนเสิร์ต E-Ticket และ QR Code เข้างาน จะถูกจัดส่งตรงเข้า <strong>LINE Official Account (@thaiticket)</strong> ของผู้ซื้อเท่านั้น เพื่อความปลอดภัยสูงสุดและป้องกันการสวมสิทธิ์
+        🛡️ <strong>นโยบายจัดส่งบัตรเข้า LINE OA เท่านั้น:</strong> บัตรคอนเสิร์ต E-Ticket และ QR Code เข้างาน จะถูกจัดส่งตรงเข้า <strong>LINE Official Account (STAGE PASS)</strong> ของผู้ซื้อเท่านั้น เพื่อความปลอดภัยสูงสุดและป้องกันการสวมสิทธิ์
       </div>
     `;
 
