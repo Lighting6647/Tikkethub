@@ -336,6 +336,37 @@ function deleteEvent(id) {
   return queryAsync(`DELETE FROM events WHERE id = $1`, [Number(id)]);
 }
 
+function syncLineContact(c) {
+  if (!c || !c.userId) return Promise.resolve(null);
+  return queryAsync(
+    `INSERT INTO line_contacts (user_id, display_name, last_message, updated_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id) DO UPDATE SET
+       display_name = EXCLUDED.display_name,
+       last_message = EXCLUDED.last_message,
+       updated_at = EXCLUDED.updated_at`,
+    [
+      String(c.userId).trim(),
+      String(c.displayName || 'ลูกค้า LINE OA').trim(),
+      String(c.lastMessage || '').trim(),
+      Number(c.updatedAt) || Date.now()
+    ]
+  );
+}
+
+async function fetchLatestLineContact() {
+  const p = getPool();
+  if (!p) return null;
+  try {
+    const res = await p.query(
+      'SELECT user_id, display_name, last_message, updated_at FROM line_contacts ORDER BY updated_at DESC LIMIT 1'
+    );
+    return (res && res.rows && res.rows[0]) || null;
+  } catch {
+    return null;
+  }
+}
+
 async function hydrateSqliteFromPostgres(sqliteDb) {
   const p = getPool();
   if (!p) return false;
@@ -379,6 +410,26 @@ async function hydrateSqliteFromPostgres(sqliteDb) {
       }
     }
 
+    // 3. LINE Contacts
+    try {
+      const contactsRes = await p.query('SELECT user_id, display_name, last_message, updated_at FROM line_contacts ORDER BY updated_at ASC');
+      if (contactsRes && contactsRes.rows && contactsRes.rows.length) {
+        const contactStmt = sqliteDb.prepare(`
+          INSERT INTO line_contacts (user_id, display_name, last_message, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET
+            display_name = excluded.display_name,
+            last_message = excluded.last_message,
+            updated_at = excluded.updated_at
+        `);
+        for (const c of contactsRes.rows) {
+          try {
+            contactStmt.run(c.user_id, c.display_name, c.last_message || '', Number(c.updated_at) || Date.now());
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
     console.log(`[Supabase PostgreSQL] Hydrated ${settingsRes.rows.length} settings and ${ordersRes.rows.length} orders into local cache.`);
     return true;
   } catch (err) {
@@ -410,6 +461,8 @@ module.exports = {
   syncAuditLog,
   syncEvent,
   deleteEvent,
+  syncLineContact,
+  fetchLatestLineContact,
   hydrateSqliteFromPostgres,
   getDatabaseHost,
   isConnected: () => isConnected

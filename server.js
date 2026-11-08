@@ -469,13 +469,34 @@ async function handleApi(req, res, url) {
       const userId = ev.source && ev.source.userId;
       if (userId) {
         const text = (ev.message && ev.message.text) || ev.type || 'follow';
+        let displayName = ev.source.displayName || '';
+        if (!displayName && token) {
+          try {
+            const profRes = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (profRes.ok) {
+              const prof = await profRes.json();
+              if (prof && prof.displayName) displayName = prof.displayName;
+            }
+          } catch (_) {}
+        }
+        displayName = displayName || 'ลูกค้า LINE OA';
         db.saveLineContact({
           userId,
-          displayName: ev.source.displayName || 'ลูกค้า LINE OA',
+          displayName,
           lastMessage: text
         });
+        if (db.postgres && typeof db.postgres.syncLineContact === 'function') {
+          await db.postgres.syncLineContact({
+            userId,
+            displayName,
+            lastMessage: text,
+            updatedAt: Date.now()
+          });
+        }
         const replyRes = await replyLineWebhook(ev.replyToken, userId, token);
-        results.push({ userId, ...replyRes });
+        results.push({ userId, displayName, ...replyRes });
       }
     }
     return sendJson(res, 200, { ok: true, results });
@@ -483,15 +504,15 @@ async function handleApi(req, res, url) {
 
   if (pathname === '/api/line/simulate-webhook' && method === 'POST') {
     const body = await readJsonBody(req);
-    const latest = db.getLatestLineContact();
+    const latest = await db.getLatestLineContactAsync();
     const userId =
       (latest && latest.user_id) ||
       'U' + crypto.randomBytes(16).toString('hex');
-    const displayName = String(body.displayName || 'ลูกค้าทักแชท LINE OA').trim();
+    const displayName = (latest && latest.display_name) || String(body.displayName || 'ลูกค้าทักแชท LINE OA').trim();
     const saved = db.saveLineContact({
       userId,
       displayName,
-      lastMessage: 'ลงทะเบียนรับบัตรคอนเสิร์ต'
+      lastMessage: (latest && latest.last_message) || 'ลงทะเบียนรับบัตรคอนเสิร์ต'
     });
     const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
     const reply = await replyLineWebhook('SIMULATED_REPLY_TOKEN', saved.user_id, token);
@@ -499,12 +520,13 @@ async function handleApi(req, res, url) {
       ok: true,
       userId: saved.user_id,
       displayName: saved.display_name,
+      isRealWebhook: Boolean(latest && latest.user_id),
       webhookReply: reply.messages[0].text
     });
   }
 
   if (pathname === '/api/line/recent-contact' && method === 'GET') {
-    const latest = db.getLatestLineContact();
+    const latest = await db.getLatestLineContactAsync();
     return sendJson(res, 200, {
       ok: true,
       contact: latest

@@ -1205,6 +1205,9 @@ function restoreBackupSnapshot(snapshot) {
 
 function saveLineContact({ userId, displayName = 'ลูกค้า LINE OA', lastMessage = '' }) {
   const now = Date.now();
+  const uid = String(userId).trim();
+  const dname = String(displayName).trim();
+  const lmsg = String(lastMessage).trim();
   db.prepare(`
     INSERT INTO line_contacts (user_id, display_name, last_message, updated_at)
     VALUES (?, ?, ?, ?)
@@ -1212,12 +1215,35 @@ function saveLineContact({ userId, displayName = 'ลูกค้า LINE OA', l
       display_name = excluded.display_name,
       last_message = excluded.last_message,
       updated_at = excluded.updated_at
-  `).run(String(userId).trim(), String(displayName).trim(), String(lastMessage).trim(), now);
+  `).run(uid, dname, lmsg, now);
+  if (!isUnitTest && postgres && typeof postgres.syncLineContact === 'function') {
+    postgres.syncLineContact({ userId: uid, displayName: dname, lastMessage: lmsg, updatedAt: now }).catch(() => {});
+  }
   return getLatestLineContact();
 }
 
 function getLatestLineContact() {
   return db.prepare(`SELECT * FROM line_contacts ORDER BY updated_at DESC LIMIT 1`).get() || null;
+}
+
+async function getLatestLineContactAsync() {
+  if (!isUnitTest && postgres && typeof postgres.fetchLatestLineContact === 'function') {
+    const pgRow = await postgres.fetchLatestLineContact();
+    if (pgRow && pgRow.user_id) {
+      try {
+        db.prepare(`
+          INSERT INTO line_contacts (user_id, display_name, last_message, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET
+            display_name = excluded.display_name,
+            last_message = excluded.last_message,
+            updated_at = excluded.updated_at
+        `).run(pgRow.user_id, pgRow.display_name || 'ลูกค้า LINE OA', pgRow.last_message || '', Number(pgRow.updated_at) || Date.now());
+      } catch (_) {}
+      return pgRow;
+    }
+  }
+  return getLatestLineContact();
 }
 
 function getSetting(key, fallback = '') {
@@ -1867,6 +1893,7 @@ module.exports = {
   restoreBackupSnapshot,
   saveLineContact,
   getLatestLineContact,
+  getLatestLineContactAsync,
   getSetting,
   setSetting,
   addAuditLog,

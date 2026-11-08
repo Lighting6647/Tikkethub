@@ -701,7 +701,15 @@ function confirmBooking() {
     }
   }
   if (!lineUserId) {
-    if (errEl) errEl.textContent = 'กรุณากรอก LINE ID หรือกดปุ่มดึงรหัส LINE อัตโนมัติ (บังคับใส่ เพื่อรับบัตร)';
+    if (errEl) errEl.textContent = 'กรุณากดปุ่ม "1. แอด LINE OA" แล้วกด "2. ดึงรหัส LINE อัตโนมัติ" (บังคับใส่เพื่อรับบัตรทาง LINE)';
+    if (lineEl) {
+      lineEl.classList.add('input-error');
+      lineEl.focus();
+    }
+    return;
+  }
+  if (!/^U[0-9a-fA-F]{32}$/.test(lineUserId) && !/^U_/.test(lineUserId)) {
+    if (errEl) errEl.textContent = 'รหัส LINE User ID ต้องขึ้นต้นด้วยตัว U ตามด้วยรหัส 32 ตัว (กรุณากดปุ่ม 1 แอด LINE OA แล้วกดปุ่ม 2 ดึงรหัสอัตโนมัติ)';
     if (lineEl) {
       lineEl.classList.add('input-error');
       lineEl.focus();
@@ -747,7 +755,8 @@ async function fetchLineIdFromWebhook() {
   const nameEl = document.getElementById('holderName');
   const lineEl = document.getElementById('holderLineId');
   const hintEl = document.getElementById('lineWebhookHint');
-  const displayName = (nameEl && nameEl.value.trim()) || 'ลูกค้า Thai Ticket';
+  const errEl = document.getElementById('holderError');
+  const displayName = (nameEl && nameEl.value.trim()) || 'ลูกค้า STAGE PASS';
 
   if (btn) btn.disabled = true;
   try {
@@ -761,8 +770,14 @@ async function fetchLineIdFromWebhook() {
     const contactName = (data.contact && data.contact.displayName) || data.displayName || displayName;
     if (data && data.ok && userId && lineEl) {
       lineEl.value = userId;
+      lineEl.classList.remove('input-error');
+      if (errEl) errEl.textContent = '';
       if (hintEl) {
-        hintEl.innerHTML = `<span style="color:var(--color-accent);">✔ เชื่อมต่อ LINE OA สำเร็จ (${UI.escapeHtml(contactName)} · ${UI.escapeHtml(userId.slice(0, 12))}…)</span>`;
+        if (data.isRealWebhook) {
+          hintEl.innerHTML = `<span style="color:#48BB78; font-weight:600;">✔ เชื่อมต่อบัญชี LINE OA จริงสำเร็จ (${UI.escapeHtml(contactName)} · ${UI.escapeHtml(userId.slice(0, 12))}…)</span>`;
+        } else {
+          hintEl.innerHTML = `<span style="color:#ECC94B; font-weight:600;">⚠️ สร้างรหัสรับบัตรแล้ว (${UI.escapeHtml(userId.slice(0, 12))}…) · อย่าลืมกด "1. แอด LINE OA" และทักแชทเพื่อให้ระบบส่งบัตรเข้า LINE ได้จริง</span>`;
+        }
       }
       UI.toast('ดึงรหัส LINE User ID จาก LINE OA Webhook เรียบร้อยแล้ว');
     }

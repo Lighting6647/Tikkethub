@@ -543,14 +543,24 @@
               <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี</p>
             </div>
 
-            <div style="margin-top:8px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-                <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0;">LINE User ID <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></label>
-                <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:4px 10px; font-size:11px; border-color:var(--fire); color:var(--fire);">
-                  💬 ดึงรหัส LINE อัตโนมัติ
+            <div style="margin-top:10px; padding:12px; background:rgba(6,199,85,0.08); border:1px solid rgba(6,199,85,0.35); border-radius:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+                <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0; color:#48BB78; font-weight:700;">
+                  🟢 LINE User ID สำหรับรับบัตร E-Ticket <span class="badge-required" style="color:var(--fire); font-size:11px;">* (บังคับแอด LINE OA)</span>
+                </label>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <a href="https://lin.ee/wTiGycF" target="_blank" rel="noopener" id="bookingAddLineOaBtn" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 10px; font-size:12px; font-weight:700; background:#06C755; color:#fff; border-radius:8px; text-decoration:none; text-align:center; box-shadow:0 2px 8px rgba(6,199,85,0.3);">
+                  ➕ 1. แอด LINE OA
+                </a>
+                <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:9px 10px; font-size:12px; font-weight:700; border-color:#06C755; color:#48BB78; background:rgba(6,199,85,0.12); border-radius:8px; cursor:pointer;">
+                  💬 2. ดึงรหัส LINE อัตโนมัติ
                 </button>
               </div>
-              <input type="text" id="holderLineId" class="input-field holder-input" placeholder="เช่น Ohm หรือ U4af4980629..." required>
+              <input type="text" id="holderLineId" class="input-field holder-input" placeholder="กดปุ่ม 1 แอด LINE OA แล้วกดปุ่ม 2 (หรือวางรหัส U... จากในแชท)" required>
+              <div id="lineWebhookHint" style="font-size:11px; color:var(--color-muted); margin-top:5px; line-height:1.4;">
+                📌 <strong>ขั้นตอนรับบัตรทาง LINE:</strong> กดปุ่ม <strong>"1. แอด LINE OA"</strong> แล้วทักแชท 1 ครั้ง จากนั้นกลับมาหน้านี้กดปุ่ม <strong>"2. ดึงรหัส LINE อัตโนมัติ"</strong> (หรือคัดลอกรหัส <code>U...</code> ที่บอทส่งให้ในแชทมาวาง)
+              </div>
             </div>
 
             <div style="margin-top:10px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px; border:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
