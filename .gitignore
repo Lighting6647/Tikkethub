@@ -4,3 +4,6 @@ tests/screenshots/
 *.log
 .DS_Store
 Thumbs.db
+
+.vercel
+.env*

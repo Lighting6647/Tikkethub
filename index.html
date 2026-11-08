@@ -688,15 +688,15 @@
         <!-- Slip Upload Dropzone -->
         <div class="slip-upload-area">
           <label style="font-weight:600; font-size:13px; display:block; margin-bottom:6px;">แนบสลิปการโอนเงินเพื่อตรวจสอบอัตโนมัติ</label>
-          <div class="slip-dropzone" id="slipDropzone">
-            <input type="file" id="slipFileInput" accept="image/png,image/jpeg,image/webp" hidden>
+          <label for="slipFileInput" class="slip-dropzone" id="slipDropzone" style="cursor:pointer; display:flex;">
+            <input type="file" id="slipFileInput" accept="image/*" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;">
             <div id="slipDropPrompt">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:6px; color:var(--fire);">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
-              <p style="font-size:13px;">ลากไฟล์สลิปมาวาง หรือ <strong>คลิกเพื่อเลือกไฟล์</strong></p>
+              <p style="font-size:13px;">แตะที่นี่เพื่อ<strong>เลือกภาพสลิปจากคลังรูปภาพ</strong> หรือลากไฟล์มาวาง</p>
             </div>
             <div id="slipPreviewWrap" hidden style="text-align:center; padding:10px 0;">
               <img id="slipPreviewImg" alt="พรีวิวสลิป" style="max-height:180px; max-width:100%; border-radius:8px; object-fit:contain; border:1px solid rgba(255,255,255,0.15);">
@@ -717,7 +717,7 @@
                 <button type="button" class="btn-outline" id="slipRemove" style="font-size:11px; padding:4px 12px; border-radius:9999px;">🔄 เปลี่ยนรูปสลิป</button>
               </div>
             </div>
-          </div>
+          </label>
           <p class="slip-error" id="slipError" role="alert" style="color:var(--fire); font-size:12px; margin-top:4px;"></p>
 
           <!-- Live Upload & Verification Progress HUD -->
