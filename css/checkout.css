@@ -616,7 +616,17 @@
   justify-content: center;
 }
 
-.ticket-stage img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ticket-stage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  cursor: pointer;
+  -webkit-touch-callout: default !important;
+  user-select: auto !important;
+  -webkit-user-select: auto !important;
+  touch-action: manipulation;
+}
 .ticket-stage img[hidden] { display: none; }
 
 .ticket-skeleton {

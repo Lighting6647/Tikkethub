@@ -191,7 +191,7 @@
       // Unlock Save button once approved
       $('ticketSaveBtn').disabled = !isApproved;
       $('ticketSaveBtn').innerHTML = isApproved
-        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> บันทึกบัตร`
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> บันทึกลงอัลบั้มรูป / บันทึกบัตร`
         : 'รอแอดมินอนุมัติสลิปก่อนบันทึกบัตร';
 
       if (isApproved) {
@@ -242,22 +242,50 @@
     }
   }
 
-  function save() {
+  async function save() {
     if (!currentBlob || !current || (current.status && current.status !== 'approved')) return;
+    const file = new File([currentBlob], fileName(current), { type: 'image/png' });
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0 && window.innerWidth <= 1024);
+
+    // On iOS Safari & Mobile: Trigger Web Share API so the user can tap "Save Image" (บันทึกภาพ) straight to Camera Roll / Photos
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `STAGE PASS - บัตร ${current.title}`,
+          text: `บัตรเข้างาน ${current.title} (${current.ref})`
+        });
+        window.UI.toast('บันทึกลงอัลบั้มรูป / แชร์บัตรเรียบร้อยแล้ว');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return; // User closed sheet
+      }
+    }
+
+    // Standard download fallback (Desktop or unsupported browsers)
+    const url = $('ticketImage').dataset.url || URL.createObjectURL(currentBlob);
     const a = document.createElement('a');
-    a.href = $('ticketImage').dataset.url;
+    a.href = url;
     a.download = fileName(current);
     document.body.appendChild(a);
     a.click();
     a.remove();
-    window.UI.toast(`บันทึกบัตร ${current.ref} แล้ว`);
+    window.UI.toast(`บันทึกบัตร ${current.ref} ลงเครื่องเรียบร้อยแล้ว`);
   }
 
   async function share() {
     if (!currentBlob || !current) return;
     const file = new File([currentBlob], fileName(current), { type: 'image/png' });
     try {
-      await navigator.share({ files: [file], title: current.title });
+      if (navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: `STAGE PASS - บัตร ${current.title}`,
+          text: `บัตรเข้างาน ${current.title} (${current.ref})`
+        });
+      } else {
+        save();
+      }
     } catch (err) {
       if (err.name !== 'AbortError') window.UI.toast('แชร์ไม่สำเร็จ ใช้ปุ่มบันทึกแทนได้', 'error');
     }
@@ -328,6 +356,9 @@
   document.addEventListener('DOMContentLoaded', () => {
     $('ticketSaveBtn').addEventListener('click', save);
     $('ticketShareBtn').addEventListener('click', share);
+    if ($('ticketImage')) {
+      $('ticketImage').addEventListener('click', save);
+    }
     $('ticketCloseBtn').addEventListener('click', () => {
       stopPolling();
       window.UI.close('ticketModal');

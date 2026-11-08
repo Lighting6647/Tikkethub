@@ -16,10 +16,10 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2C16 2 26 12 26 20C26 25.5 21.5 30 16 30C10.5 30 6 25.5 6 20C6 12 16 2 16 2Z' fill='%23e50914'/%3E%3Cpath d='M16 8C16 8 22 15 22 20C22 23.3 19.3 26 16 26C12.7 26 10 23.3 10 20C10 15 16 8 16 8Z' fill='%23ff5a1f'/%3E%3C/svg%3E">
 
   <!-- Core & Theme Styles -->
-  <link rel="stylesheet" href="tokens.css?v=20261031_contact">
-  <link rel="stylesheet" href="css/checkout.css?v=20261101_qrsizing">
-  <link rel="stylesheet" href="css/virgin-theme.css?v=20261031_contact">
-  <link rel="stylesheet" href="css/gsap-themes.css?v=20261101_liquidglass">
+  <link rel="stylesheet" href="tokens.css?v=20261108_mobileperf">
+  <link rel="stylesheet" href="css/checkout.css?v=20261108_mobileperf">
+  <link rel="stylesheet" href="css/virgin-theme.css?v=20261108_mobileperf">
+  <link rel="stylesheet" href="css/gsap-themes.css?v=20261108_mobileperf">
 </head>
 <body data-nav="home">
 
@@ -812,13 +812,15 @@
           <img id="ticketImage" hidden alt="">
         </div>
         <div class="ticket-actions" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <button class="btn-primary" id="ticketSaveBtn" disabled>
-            บันทึกบัตร
+          <button class="btn-primary" id="ticketSaveBtn" disabled style="grid-column: 1 / -1; font-weight:700; font-size:15px; padding:12px;">
+            📥 บันทึกลงอัลบั้มรูป / เซฟบัตร
           </button>
-          <button class="btn-outline" id="ticketDoneBtn">เสร็จสิ้น</button>
-          <button class="btn-default" id="ticketShareBtn" hidden style="grid-column: 1 / -1;">แชร์ / บันทึกลงอัลบั้ม</button>
+          <button class="btn-outline" id="ticketDoneBtn" style="grid-column: 1 / -1;">เสร็จสิ้น</button>
+          <button class="btn-default" id="ticketShareBtn" hidden style="grid-column: 1 / -1;">แชร์ / ส่งเข้าแอปอื่น</button>
         </div>
-        <p class="ticket-tip" style="font-size:11px; text-align:center; color:var(--color-muted);">บนมือถือ สามารถกดค้างที่รูปบัตรเพื่อบันทึกลงอัลบั้มได้</p>
+        <p class="ticket-tip" style="font-size:12px; line-height:1.5; text-align:center; color:var(--color-muted); margin-top:8px;">
+          💡 <strong>สำหรับ iPhone/มือถือ:</strong> แตะปุ่มด้านบนแล้วเลือก <strong>"บันทึกภาพ" (Save Image)</strong> หรือแตะค้างที่รูปภาพบัตรเพื่อเซฟลงอัลบั้มรูปได้ทันที
+        </p>
       </div>
     </div>
   </div>
@@ -1016,11 +1018,11 @@
   <script src="js/seat-map.js?v=20261031_2"></script>
   <script src="js/ui.js?v=20261031_2"></script>
   <script src="js/ticket-store.js?v=20261031_2"></script>
-  <script src="js/ticket-renderer.js?v=20261031_2"></script>
-  <script src="js/ticket-viewer.js?v=20261031_2"></script>
-  <script src="js/checkout.js?v=20261101_qrsizing"></script>
+  <script src="js/ticket-renderer.js?v=20261108_mobileperf"></script>
+  <script src="js/ticket-viewer.js?v=20261108_mobileperf"></script>
+  <script src="js/checkout.js?v=20261108_mobileperf"></script>
   <script src="js/vendor/gsap.min.js"></script>
-  <script src="js/gsap-themes.js?v=20261101_liquidglass"></script>
-  <script src="js/app.js?v=20261031_step3fix"></script>
+  <script src="js/gsap-themes.js?v=20261108_mobileperf"></script>
+  <script src="js/app.js?v=20261108_mobileperf"></script>
 </body>
 </html>

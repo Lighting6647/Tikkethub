@@ -74,15 +74,10 @@
   background: radial-gradient(circle, rgba(121, 40, 202, 0.55) 0%, rgba(121, 40, 202, 0) 70%);
 }
 
-@media (max-width: 768px) {
-  .liquid-blob {
-    filter: blur(55px);
-    -webkit-filter: blur(55px);
-    opacity: 0.22;
+@media (max-width: 768px), (pointer: coarse) {
+  .liquid-ambient-scene {
+    display: none !important;
   }
-  .liquid-blob-1 { width: 300px; height: 300px; }
-  .liquid-blob-2 { width: 320px; height: 320px; }
-  .liquid-blob-3 { width: 340px; height: 340px; }
 }
 
 /* ==========================================================================
@@ -103,7 +98,19 @@
   overflow: hidden;
   transition: border-color 0.3s ease, box-shadow 0.35s ease, transform 0.25s ease;
   transform-style: preserve-3d;
-  will-change: transform;
+}
+
+@media (max-width: 768px) {
+  .liquid-glass,
+  .mockup-card,
+  .event-card,
+  .table-preview-card,
+  .modal-box,
+  .wizard-step-card {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    transform: none !important;
+  }
 }
 
 /* Dynamic Cursor-Tracking Specular Light Reflection */

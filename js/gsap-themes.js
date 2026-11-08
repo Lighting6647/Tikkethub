@@ -14,6 +14,8 @@
 
   // 1. Ambient Liquid Blobs Floating Animation
   function initLiquidBlobs() {
+    // Only run expensive ambient liquid floating loops on desktop screens to keep mobile 100% smooth
+    if (window.innerWidth <= 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0)) return;
     const gsap = getGsap();
     if (!gsap) return;
 
@@ -60,6 +62,7 @@
 
   // 2. Liquid Glass Dynamic Specular Light & 3D Tilt
   function setupLiquidGlassTilt() {
+    if (window.innerWidth <= 768 || ('ontouchstart' in window && navigator.maxTouchPoints > 0)) return;
     const gsap = getGsap();
     const cards = document.querySelectorAll('.mockup-card, .event-card, .table-preview-card, .liquid-glass');
 

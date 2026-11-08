@@ -5,7 +5,7 @@
 (function () {
   const W = 1080;
   const H = 1840;
-  const FONT = '"Noto Sans Thai", "Segoe UI", sans-serif';
+  const FONT = '"Kanit", "Chakra Petch", -apple-system, BlinkMacSystemFont, "Noto Sans Thai", sans-serif';
   const C = {
     primary: '#B40000',
     accent: '#229BFF',
@@ -79,9 +79,12 @@
   async function ensureFonts() {
     if (!document.fonts) return;
     try {
-      await Promise.all([
-        document.fonts.load(`700 40px "Noto Sans Thai"`),
-        document.fonts.load(`400 28px "Noto Sans Thai"`)
+      await Promise.race([
+        Promise.all([
+          document.fonts.load(`700 40px "Kanit"`),
+          document.fonts.load(`400 28px "Kanit"`)
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 200))
       ]);
     } catch {
       /* fall back to system font */
