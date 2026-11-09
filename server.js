@@ -13,7 +13,13 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { URL } = require('node:url');
 const db = require('./backend/db');
-const { sendLineTicketPush, replyLineWebhook, sendAdminNewOrderNotification } = require('./backend/line');
+const {
+  sendLineTicketPush,
+  replyLineWebhook,
+  sendAdminNewOrderNotification,
+  listRichMenuTemplates,
+  deployRichMenuToLine
+} = require('./backend/line');
 const drive = require('./backend/drive');
 const slipVerifier = require('./backend/slip-verifier');
 
@@ -365,14 +371,18 @@ async function handleApi(req, res, url) {
     });
   }
 
-  // Public Storefront Settings (Headline, search placeholder, contact channels, promo image banner)
+  // Public Storefront Settings (Headline, search placeholder, contact channels, promo image banner, LIFF ID)
   if (method === 'GET' && pathname === '/api/storefront-settings') {
     const raw = db.getSetting('storefront_settings', '');
     let settings = {};
     if (raw) {
       try { settings = JSON.parse(raw); } catch (_) {}
     }
-    return sendJson(res, 200, { ok: true, settings });
+    const lineLiffId = db.getSetting('line_liff_id', process.env.LINE_LIFF_ID || '');
+    if (lineLiffId && !settings.lineLiffId) {
+      settings.lineLiffId = lineLiffId;
+    }
+    return sendJson(res, 200, { ok: true, settings, lineLiffId });
   }
 
   // Admin Storefront Settings Update
@@ -495,7 +505,10 @@ async function handleApi(req, res, url) {
             updatedAt: Date.now()
           });
         }
-        const replyRes = await replyLineWebhook(ev.replyToken, userId, token);
+        const replyRes = await replyLineWebhook(ev.replyToken, userId, token, {
+          displayName,
+          text
+        });
         results.push({ userId, displayName, ...replyRes });
       }
     }
@@ -515,7 +528,9 @@ async function handleApi(req, res, url) {
       lastMessage: (latest && latest.last_message) || 'ลงทะเบียนรับบัตรคอนเสิร์ต'
     });
     const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
-    const reply = await replyLineWebhook('SIMULATED_REPLY_TOKEN', saved.user_id, token);
+    const reply = await replyLineWebhook('SIMULATED_REPLY_TOKEN', saved.user_id, token, {
+      displayName: saved.display_name
+    });
     return sendJson(res, 200, {
       ok: true,
       userId: saved.user_id,
@@ -1290,6 +1305,9 @@ async function handleApi(req, res, url) {
         slipVerifyBranchId,
         slipAutoApproveEnabled,
         adminLineUserId: db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || ''),
+        lineLiffId: db.getSetting('line_liff_id', process.env.LINE_LIFF_ID || ''),
+        activeRichMenuTemplate: db.getSetting('active_rich_menu_template', 'large_6grid'),
+        activeRichMenuId: db.getSetting('active_rich_menu_id', ''),
         hasGateStaffPin: Boolean(db.getSetting('gate_staff_pin', '888888'))
       });
     }
@@ -1306,6 +1324,10 @@ async function handleApi(req, res, url) {
       if (typeof body.lineChannelAccessToken === 'string' && body.lineChannelAccessToken.trim()) {
         db.setSetting('line_channel_access_token', body.lineChannelAccessToken.trim());
         changes.push('อัปเดต LINE Channel Access Token');
+      }
+      if (typeof body.lineLiffId === 'string') {
+        db.setSetting('line_liff_id', body.lineLiffId.trim());
+        changes.push(`ตั้งค่า LINE LIFF ID เป็น "${body.lineLiffId.trim() || '-'}"`);
       }
       if (typeof body.promptpayId === 'string') {
         const cleanDigits = body.promptpayId.replace(/\D/g, '');
@@ -1405,9 +1427,55 @@ async function handleApi(req, res, url) {
         slipAutoApproveEnabled: db.getSetting('slip_auto_approve_enabled', 'false') === 'true',
         hasSlipVerifyApiKey: Boolean(slipVerifyApiKey),
         slipVerifyApiKeyMasked: maskToken(slipVerifyApiKey),
-        adminLineUserId: db.getSetting('admin_line_user_id', '')
+        adminLineUserId: db.getSetting('admin_line_user_id', ''),
+        lineLiffId: db.getSetting('line_liff_id', ''),
+        activeRichMenuTemplate: db.getSetting('active_rich_menu_template', 'large_6grid'),
+        activeRichMenuId: db.getSetting('active_rich_menu_id', '')
       });
     }
+  }
+
+  // Admin LINE Rich Menu Templates & 1-Click Deployer
+  if (pathname === '/api/admin/line/rich-menu/templates' && method === 'GET') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const baseUrl = process.env.PUBLIC_BASE_URL || 'https://tikkethub.vercel.app';
+    return sendJson(res, 200, {
+      ok: true,
+      activeTemplate: db.getSetting('active_rich_menu_template', 'large_6grid'),
+      activeRichMenuId: db.getSetting('active_rich_menu_id', ''),
+      templates: listRichMenuTemplates(baseUrl)
+    });
+  }
+
+  if (pathname === '/api/admin/line/rich-menu/deploy' && method === 'POST') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const body = await readJsonBody(req).catch(() => ({}));
+    const templateKey = String(body.templateKey || 'large_6grid').trim();
+    const baseUrl = String(body.baseUrl || process.env.PUBLIC_BASE_URL || 'https://tikkethub.vercel.app').trim();
+    const token = (body.lineChannelAccessToken || db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '')).trim();
+    if (body.lineChannelAccessToken && body.lineChannelAccessToken.trim()) {
+      db.setSetting('line_channel_access_token', body.lineChannelAccessToken.trim());
+    }
+    const deployRes = await deployRichMenuToLine({
+      templateKey,
+      channelAccessToken: token,
+      baseUrl
+    });
+    if (deployRes.ok) {
+      db.setSetting('active_rich_menu_template', deployRes.templateKey);
+      db.setSetting('active_rich_menu_id', deployRes.richMenuId || '');
+      db.addAuditLog({
+        action: 'DEPLOY_RICH_MENU',
+        targetRef: deployRes.richMenuId || deployRes.templateKey,
+        detail: `${deployRes.simulated ? '[โหมดจำลอง]' : '[อัปโหลดจริง]'} ติดตั้ง LINE Rich Menu รูปแบบ ${deployRes.templateKey} (${deployRes.imageSizeKB} KB)`,
+        actor: 'Admin'
+      });
+    }
+    return sendJson(res, 200, deployRes);
   }
 
   // Admin Google Drive Connection Test

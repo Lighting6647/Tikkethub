@@ -650,10 +650,43 @@
             </div>
           </div>
 
-          <div>
-            <label class="field-label" for="settingLineTokenInput">LINE Channel Access Token (Long-lived)</label>
-            <input type="password" id="settingLineTokenInput" class="input-field holder-input" placeholder="วาง Channel Access Token จาก LINE Developers Console...">
-            <p class="text-muted" style="font-size:11px;margin-top:4px;">Webhook URL สำหรับตั้งค่าใน LINE Developers: <code>/api/line/webhook</code></p>
+          <div class="holder-grid">
+            <div>
+              <label class="field-label" for="settingLineTokenInput">LINE Channel Access Token (Long-lived)</label>
+              <input type="password" id="settingLineTokenInput" class="input-field holder-input" placeholder="วาง Channel Access Token จาก LINE Developers Console...">
+              <p class="text-muted" style="font-size:11px;margin-top:4px;">Webhook URL: <code>/api/line/webhook</code></p>
+            </div>
+            <div>
+              <label class="field-label" for="settingLineLiffIdInput">LINE LIFF ID (กรอกรหัส LINE ลูกค้าอัตโนมัติ)</label>
+              <input type="text" id="settingLineLiffIdInput" class="input-field holder-input" placeholder="เช่น 2006543210-AbCdEfGh (ถ้ามี)">
+              <p class="text-muted" style="font-size:11px;margin-top:4px;">ดึง LINE User ID + ชื่อโปรไฟล์เข้าหน้าจองอัตโนมัติ 100%</p>
+            </div>
+          </div>
+
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+              <strong style="color:#06C755; font-size:13px;">🎨 ตั้งค่า LINE Rich Menu อัตโนมัติ (1-Click Rich Menu Deployer)</strong>
+              <button type="button" class="btn-primary" id="btnDeployRichMenu" style="font-size:11px; padding:5px 12px; background:#06C755; border-color:#06C755;">
+                🚀 ติดตั้ง Rich Menu ขึ้น LINE OA ทันที
+              </button>
+            </div>
+            <div class="holder-grid" style="align-items:center;">
+              <div>
+                <label class="field-label" for="settingRichMenuTemplateSelect">เลือกรูปแบบเมนูแชท (Rich Menu Template)</label>
+                <select id="settingRichMenuTemplateSelect" class="input-field holder-input" style="font-size:12px;">
+                  <option value="large_6grid">🔥 แบบเต็มจอ 6 ปุ่ม (2500×1686 · ครบทุกฟังก์ชัน)</option>
+                  <option value="small_3grid">⚡ แบบครึ่งจอ 3 ปุ่ม (2500×843 · จองบัตร / ขอ LINE ID / ดูบัตร)</option>
+                  <option value="small_2grid">✨ แบบครึ่งจอ 2 ปุ่มใหญ่ (2500×843 · จองบัตร + ขอรหัส LINE ID)</option>
+                  <option value="small_1banner">🎯 แบบแบนเนอร์เดียว (2500×843 · Hero Banner)</option>
+                </select>
+                <p class="text-muted" id="richMenuDeployStatus" style="font-size:11px; margin-top:4px;">
+                  พร้อมอัปโหลดภาพ (&lt; 1MB) และผูกพิกัดปุ่มเข้ากับ LINE Messaging API อัตโนมัติ
+                </p>
+              </div>
+              <div style="background:#111; border:1px solid rgba(6,199,85,0.35); border-radius:8px; padding:6px; text-align:center;">
+                <img id="settingRichMenuPreviewImg" src="/rich-menu/rich-menu-large-1200x810.jpg" alt="ตัวอย่าง Rich Menu" style="max-height:92px; max-width:100%; border-radius:4px; object-fit:contain; display:block; margin:0 auto;">
+              </div>
+            </div>
           </div>
 
           <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">

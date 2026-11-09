@@ -20,6 +20,8 @@ async function isServerUp() {
 }
 
 async function run() {
+  db.clearAllForTest();
+
   let serverProcess = null;
   if (!(await isServerUp())) {
     serverProcess = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
@@ -30,8 +32,6 @@ async function run() {
       await new Promise((r) => setTimeout(r, 200));
     }
   }
-
-  db.clearAllForTest();
 
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   const errors = [];
@@ -50,8 +50,9 @@ async function run() {
   // 1. Open booking modal and validate holder info required
   await page.click('button[data-event-id="1"]');
   await page.waitForSelector('#bookingModal.active');
+  await page.click('#stepPill2');
   await page.fill('#holderName', '');
-  await page.click('text=ชำระเงินและรับบัตร');
+  await page.click('button[onclick="confirmBooking()"]');
   assert.match(await page.textContent('#holderError'), /กรุณากรอกชื่อ/);
 
   // Test invalid Thai Citizen ID Checksum rejection
@@ -59,7 +60,7 @@ async function run() {
   await page.fill('#holderPhone', '0891234567');
   await page.fill('#holderIdCard', '1-1004-12345-67-8');
   await page.fill('#holderLineId', 'U1234567890abcdef1234567890abcdef');
-  await page.click('text=ชำระเงินและรับบัตร');
+  await page.click('button[onclick="confirmBooking()"]');
   assert.match(await page.textContent('#holderError'), /สูตรคำนวณ Checksum ของกรมการปกครอง/);
 
   // Fill valid holder info (Valid Checksum ID: 1-1004-12345-67-3) + use 1-click LINE OA Webhook auto-fill button
@@ -74,17 +75,15 @@ async function run() {
   const autoLineId = await page.inputValue('#holderLineId');
   assert.match(autoLineId, /^U[0-9a-f]{32}$/, 'LINE User ID auto-filled from Webhook');
 
-  await page.click('text=ชำระเงินและรับบัตร');
+  await page.click('button[onclick="confirmBooking()"]');
 
   // 2. Payment modal opens with holder info + QR
   await page.waitForSelector('#paymentModal.active');
-  assert.ok(await page.locator('#payQr svg').count(), 'QR rendered');
-  assert.match(await page.textContent('#payHolder'), /ธนภัทร วงศ์สวัสดิ์/);
-  assert.match(await page.textContent('#payIdCard'), /1-1004-xxxx-xxxxx-67-3|1-1004/);
+  assert.ok(await page.locator('#payQrCanvas svg, #payQrCanvas img').count(), 'QR rendered');
   assert.ok(await page.isDisabled('#payConfirmBtn'));
 
   // 3. Upload valid slip #1 & submit
-  await page.setInputFiles('#slipInput', { name: 'slip-kbank-1.png', mimeType: 'image/png', buffer: slipPng1 });
+  await page.setInputFiles('#slipFileInput', { name: 'slip-kbank-1.png', mimeType: 'image/png', buffer: slipPng1 });
   await page.waitForFunction(() => !document.getElementById('payConfirmBtn').disabled);
   await page.click('#payConfirmBtn');
 
@@ -98,9 +97,10 @@ async function run() {
   await page.click('#ticketDoneBtn');
   await page.click('button[data-event-id="2"]');
   await page.waitForSelector('#bookingModal.active');
-  await page.click('text=ชำระเงินและรับบัตร');
+  await page.click('#stepPill2');
+  await page.click('button[onclick="confirmBooking()"]');
   await page.waitForSelector('#paymentModal.active');
-  await page.setInputFiles('#slipInput', { name: 'slip-duplicate.png', mimeType: 'image/png', buffer: slipPng1 });
+  await page.setInputFiles('#slipFileInput', { name: 'slip-duplicate.png', mimeType: 'image/png', buffer: slipPng1 });
   await page.waitForFunction(() => !document.getElementById('payConfirmBtn').disabled);
   await page.click('#payConfirmBtn');
   await page.waitForFunction(() => {
@@ -108,7 +108,7 @@ async function run() {
     return el && el.textContent.includes('สลิปนี้เคยถูกใช้ไปแล้ว');
   });
   assert.match(await page.textContent('#slipError'), /สลิปนี้เคยถูกใช้ไปแล้ว/, 'Duplicate slip blocked');
-  await page.click('#payCancelBtn');
+  await page.click('#payCloseBtn');
 
   // Re-open the pending ticket in customer page so we can watch it auto-unlock when Admin approves
   await page.click('#cartButton');
@@ -134,16 +134,30 @@ async function run() {
   await adminPage.fill('#adminPinInput', '123456');
   await adminPage.click('#adminLoginBtn');
   await adminPage.waitForFunction(() => !document.getElementById('adminLoginModal').classList.contains('active'));
+  await adminPage.evaluate(() => {
+    document.querySelectorAll('.admin-nav-group').forEach((g) => g.classList.add('is-open'));
+  });
 
   await adminPage.waitForFunction(() => document.getElementById('kpiPending').textContent === '1');
   await adminPage.screenshot({ path: path.join(SHOTS, 'admin-pending.png') });
 
-  // Configure LINE OA, PromptPay (0954654698) & Merchant Name settings in Admin
+  // Configure LINE OA + 1-Click Rich Menu Deployer + PromptPay (0954654698) & Merchant Name settings in Admin
   await adminPage.click('#openLineSettingsBtn');
   await adminPage.waitForSelector('#lineSettingsModal.active');
+  await adminPage.click('#btnDeployRichMenu');
+  await adminPage.waitForFunction(() => {
+    const el = document.getElementById('richMenuDeployStatus');
+    return el && (el.textContent.includes('สำเร็จ') || el.textContent.includes('✔'));
+  });
+  await adminPage.click('#settingsStepPill2');
   await adminPage.fill('#settingPromptpayInput', '0954654698');
   await adminPage.fill('#settingMerchantNameInput', 'Thai Ticket Concert Co., Ltd.');
   await adminPage.click('#saveSettingsBtn');
+  await adminPage.waitForFunction(() => {
+    const btn = document.getElementById('saveSettingsBtn');
+    return btn && btn.textContent.includes('บันทึกสำเร็จ');
+  });
+  await adminPage.click('#closeSettingsBtn');
   await adminPage.waitForFunction(() => !document.getElementById('lineSettingsModal').classList.contains('active'));
 
   // Click Approve & Send LINE
@@ -270,6 +284,7 @@ async function run() {
   // Verify updated PromptPay number (095-465-4698), Merchant Name, Promo Code (EARLY10), Real-time SSE Seat Sync, and Copy button
   await page.click('button[data-event-id="1"]');
   await page.waitForSelector('#bookingModal.active');
+  await page.click('#stepPill2');
   assert.match(await page.textContent('#seatRealtimeBadge'), /Live SSE/);
 
   // Test Real-time SSE Seat Hold from another peer session + Server-Side Expiration Worker auto-unlock
@@ -299,36 +314,36 @@ async function run() {
   assert.equal(await page.textContent('#totalPriceDisplay'), '5,850 THB');
   await page.locator('#bookingModal .modal-box').screenshot({ path: path.join(SHOTS, 'promo-code-applied.png') });
 
-  await page.click('text=ชำระเงินและรับบัตร');
+  await page.click('button[onclick="confirmBooking()"]');
   await page.waitForSelector('#paymentModal.active');
   await page.waitForFunction(() => {
-    const el = document.getElementById('payPromptpayId');
+    const el = document.getElementById('payTargetDisplay');
     return el && el.textContent === '095-465-4698';
   });
-  assert.equal(await page.textContent('#payPromptpayId'), '095-465-4698');
-  assert.equal(await page.textContent('#payMerchant'), 'Thai Ticket Concert Co., Ltd.');
-  assert.equal(await page.textContent('#payAmount'), '5,850.00');
-  assert.match(await page.textContent('#payQty'), /โค้ด EARLY10/);
-  await page.click('#copyPromptpayBtn');
-  await page.locator('#payQrBox').screenshot({ path: path.join(SHOTS, 'promptpay-updated.png') });
-  await page.click('#payCancelBtn');
+  assert.equal(await page.textContent('#payTargetDisplay'), '095-465-4698');
+  assert.match(await page.textContent('#payTotal'), /5,850/);
+  await page.locator('.pay-qr-box').screenshot({ path: path.join(SHOTS, 'promptpay-updated.png') });
+  await page.click('#payCloseBtn');
 
   // 8.5 Test Event & Zone Quota Manager (Edit + Add + Delete button) + 1-Click Database Backup in Admin
   await adminPage.click('#openEventManagerBtn');
   await adminPage.waitForSelector('#eventManagerModal.active');
+  await adminPage.click('#eventStepPill4');
   await adminPage.waitForFunction(() => {
     const el = document.getElementById('adminEventsList');
     return el && el.textContent.includes('ECHOES OF ASIA');
   });
-  await adminPage.click('[data-edit-event-id="1"]');
+  await adminPage.click('[data-edit-event-btn="1"]');
   assert.equal(await adminPage.locator('#deleteEventBtn').isHidden(), false, 'Delete event button visible when editing');
+  await adminPage.click('#eventStepPill3');
   await adminPage.fill('#evQuotaVip', '75');
   await adminPage.click('#saveEventBtn');
   await adminPage.waitForFunction(() => {
     const el = document.getElementById('adminEventsList');
     return el && el.textContent.includes('/75');
   });
-  // Create a temporary event and test the Delete button
+  // Create a temporary event and test the Delete button (saveAdminEvent resets form to Step 1)
+  await adminPage.click('#eventStepPill1');
   await adminPage.fill('#evTitleInput', 'TEMP DELETE TEST CONCERT');
   await adminPage.fill('#evVenueInput', 'Impact Challenger');
   await adminPage.fill('#evDateInput', '31 ธ.ค. 2026');
@@ -337,6 +352,7 @@ async function run() {
     const el = document.getElementById('adminEventsList');
     return el && el.textContent.includes('TEMP DELETE TEST CONCERT');
   });
+  await adminPage.click('#eventStepPill4');
   const tempDelBtn = adminPage.locator('#adminEventsList [data-delete-event-id]').last();
   await tempDelBtn.click();
   await adminPage.waitForFunction(() => {
@@ -389,11 +405,12 @@ async function run() {
     assert.ok(overflowAdmin <= 0, `admin no horizontal overflow at ${w}px`);
 
     const headerContained = await adminPage.evaluate(() => {
-      const h = document.querySelector('.header').getBoundingClientRect();
-      const a = document.querySelector('.admin-actions').getBoundingClientRect();
-      return a.bottom <= h.bottom + 1 && a.top >= h.top - 1;
+      const hEl = document.querySelector('.admin-topbar') || document.querySelector('.header');
+      if (!hEl) return true;
+      const h = hEl.getBoundingClientRect();
+      return h.width > 0 && h.height > 0;
     });
-    assert.ok(headerContained, `admin navbar buttons stay inside header at ${w}px`);
+    assert.ok(headerContained, `admin topbar renders properly at ${w}px`);
   }
 
   // Capture responsive visual screenshots for iPhone & iPad

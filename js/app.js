@@ -252,25 +252,108 @@ function formatIdCardInput(val) {
   return res;
 }
 
+const LINE_PROFILE_KEY = 'thaiticket.lineProfile.v1';
+
+function applyAutoDetectedLineProfile(userId, displayName = '', sourceLabel = 'LINE OA') {
+  const cleanId = String(userId || '').trim();
+  if (!/^U[0-9a-fA-F]{32}$/.test(cleanId) && !/^U_/.test(cleanId)) return false;
+  const cleanName = String(displayName || '').trim();
+
+  try {
+    localStorage.setItem(
+      LINE_PROFILE_KEY,
+      JSON.stringify({ userId: cleanId, displayName: cleanName, sourceLabel, updatedAt: Date.now() })
+    );
+    const prevRaw = localStorage.getItem(HOLDER_KEY);
+    const prev = prevRaw ? JSON.parse(prevRaw) : {};
+    localStorage.setItem(
+      HOLDER_KEY,
+      JSON.stringify({
+        ...prev,
+        holderName: prev.holderName || cleanName || '',
+        lineUserId: cleanId
+      })
+    );
+  } catch {
+    /* ignore */
+  }
+
+  if (typeof document !== 'undefined') {
+    const lineEl = document.getElementById('holderLineId');
+    const nameEl = document.getElementById('holderName');
+    const hintEl = document.getElementById('lineWebhookHint');
+    if (lineEl) {
+      lineEl.value = cleanId;
+      lineEl.classList.remove('input-error');
+    }
+    if (nameEl && !nameEl.value && cleanName) {
+      nameEl.value = cleanName;
+    }
+    if (hintEl) {
+      const safeName = cleanName ? `${cleanName} · ` : '';
+      hintEl.innerHTML = `<span style="color:#48BB78; font-weight:600;">✔ เชื่อมต่อรหัส LINE อัตโนมัติสำเร็จ (${safeName}${cleanId.slice(0, 12)}… · ${sourceLabel})</span>`;
+    }
+  }
+  return true;
+}
+
+function initLineLiffAutoFill(liffId) {
+  const cleanLiffId = String(liffId || '').trim();
+  if (!cleanLiffId || typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  const runLiff = async () => {
+    try {
+      if (!window.liff) return;
+      await window.liff.init({ liffId: cleanLiffId });
+      if (window.liff.isLoggedIn()) {
+        const profile = await window.liff.getProfile();
+        if (profile && profile.userId) {
+          applyAutoDetectedLineProfile(profile.userId, profile.displayName || '', 'LINE LIFF');
+        }
+      } else if (window.liff.isInClient && window.liff.isInClient()) {
+        window.liff.login();
+      }
+    } catch {
+      /* ignore LIFF init error when outside LINE domain */
+    }
+  };
+
+  if (window.liff) {
+    runLiff();
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+  script.async = true;
+  script.onload = runLiff;
+  document.head.appendChild(script);
+}
+
 function loadSavedHolder() {
   try {
     const raw = localStorage.getItem(HOLDER_KEY);
+    const lineProfileRaw = localStorage.getItem(LINE_PROFILE_KEY);
     const clearBtn = document.getElementById('clearSavedHolderBtn');
     const badgeEl = document.getElementById('savedHolderBadge');
-    if (!raw) {
+    if (!raw && !lineProfileRaw) {
       if (clearBtn) clearBtn.hidden = true;
       if (badgeEl) badgeEl.hidden = true;
       return;
     }
-    const saved = JSON.parse(raw);
+    const saved = raw ? JSON.parse(raw) : {};
+    const lineProf = lineProfileRaw ? JSON.parse(lineProfileRaw) : null;
     let loadedAny = false;
     const nameEl = document.getElementById('holderName');
     const phoneEl = document.getElementById('holderPhone');
     const idEl = document.getElementById('holderIdCard');
     const lineEl = document.getElementById('holderLineId');
+    const hintEl = document.getElementById('lineWebhookHint');
 
-    if (saved.holderName && nameEl && !nameEl.value) {
-      nameEl.value = saved.holderName;
+    const effectiveName = saved.holderName || (lineProf && lineProf.displayName) || '';
+    const effectiveLineId = saved.lineUserId || (lineProf && lineProf.userId) || '';
+
+    if (effectiveName && nameEl && !nameEl.value) {
+      nameEl.value = effectiveName;
       loadedAny = true;
     }
     if (saved.holderPhone && phoneEl && !phoneEl.value) {
@@ -281,9 +364,13 @@ function loadSavedHolder() {
       idEl.value = formatIdCardInput(saved.holderIdCard);
       loadedAny = true;
     }
-    if (saved.lineUserId && lineEl && !lineEl.value) {
-      lineEl.value = saved.lineUserId;
+    if (effectiveLineId && lineEl && !lineEl.value) {
+      lineEl.value = effectiveLineId;
       loadedAny = true;
+      if (hintEl && lineProf && lineProf.userId === effectiveLineId) {
+        const safeName = lineProf.displayName ? `${lineProf.displayName} · ` : '';
+        hintEl.innerHTML = `<span style="color:#48BB78; font-weight:600;">✔ เชื่อมต่อรหัส LINE อัตโนมัติสำเร็จ (${safeName}${effectiveLineId.slice(0, 12)}… · ${lineProf.sourceLabel || 'LINE OA'})</span>`;
+      }
     }
     if (clearBtn) clearBtn.hidden = !loadedAny;
     if (badgeEl) badgeEl.hidden = !loadedAny;
@@ -295,6 +382,7 @@ function loadSavedHolder() {
 function clearSavedHolderInfo() {
   try {
     localStorage.removeItem(HOLDER_KEY);
+    localStorage.removeItem(LINE_PROFILE_KEY);
   } catch {
     /* ignore */
   }
@@ -912,12 +1000,32 @@ if (typeof document !== 'undefined') {
       }
     } catch (_) {}
 
+    // Handle URL query parameters from LINE Rich Menu / Webhook Deep-Link (?lineUserId=U...&lineName=...&action=my-tickets)
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlLineId = params.get('lineUserId') || params.get('line_user_id');
+      const urlLineName = params.get('lineName') || params.get('displayName') || '';
+      const urlAction = params.get('action');
+      if (urlLineId && applyAutoDetectedLineProfile(urlLineId, urlLineName, 'LINE OA Deep-Link')) {
+        if (window.UI && typeof window.UI.toast === 'function') {
+          setTimeout(() => {
+            window.UI.toast(`🟢 เชื่อมต่อบัญชี LINE อัตโนมัติสำเร็จ (${urlLineName || urlLineId.slice(0, 10) + '…'})`);
+          }, 350);
+        }
+      }
+      if (urlAction === 'my-tickets') {
+        setTimeout(() => openMyTicketsModal(), 450);
+      }
+    } catch (_) {}
+
     // Live sync from server for all visitors
     fetch('/api/storefront-settings')
       .then(res => res.json())
       .then(data => {
-        if (data && data.ok && data.settings) {
-          applyStorefrontSettings(data.settings);
+        if (data && data.ok) {
+          if (data.settings) applyStorefrontSettings(data.settings);
+          const liffId = data.lineLiffId || (data.settings && data.settings.lineLiffId) || '';
+          if (liffId) initLineLiffAutoFill(liffId);
         }
       })
       .catch(() => {});
@@ -943,6 +1051,8 @@ if (typeof window !== 'undefined') {
   window.formatPhoneInput = formatPhoneInput;
   window.formatIdCardInput = formatIdCardInput;
   window.clearSavedHolderInfo = clearSavedHolderInfo;
+  window.applyAutoDetectedLineProfile = applyAutoDetectedLineProfile;
+  window.initLineLiffAutoFill = initLineLiffAutoFill;
   window.filterCategory = filterCategory;
   window.onHeroSearch = onHeroSearch;
   window.updateHeroCardForCategory = updateHeroCardForCategory;
@@ -955,6 +1065,8 @@ if (typeof module !== 'undefined') {
     formatPhoneInput,
     formatIdCardInput,
     loadSavedHolder,
-    clearSavedHolderInfo
+    clearSavedHolderInfo,
+    applyAutoDetectedLineProfile,
+    initLineLiffAutoFill
   };
 }

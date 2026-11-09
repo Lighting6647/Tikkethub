@@ -252,17 +252,367 @@ async function sendLineTicketPush(order, channelAccessToken) {
   }
 }
 
-function buildWebhookReplyMessages(userId) {
-  return [
-    {
-      type: 'text',
-      text: `สวัสดีครับ! รหัส LINE User ID ของคุณสำหรับรับบัตรคอนเสิร์ตคือ:\n${userId}\n\nคัดลอกรหัสนี้ไปวางในช่อง LINE User ID บนหน้าจองบัตร หรือกดปุ่ม "ดึงรหัส LINE อัตโนมัติ" ได้เลยครับ`
+const fs = require('node:fs');
+const path = require('node:path');
+
+const DEFAULT_BASE_URL = process.env.PUBLIC_BASE_URL || 'https://tikkethub.vercel.app';
+
+const RICH_MENU_TEMPLATES = {
+  large_6grid: {
+    key: 'large_6grid',
+    title: 'แบบเต็มจอ 6 ปุ่ม (Large 2500×1686 · ครบทุกฟังก์ชัน)',
+    badge: 'แนะนำ (6 ปุ่ม)',
+    size: { width: 2500, height: 1686 },
+    chatBarText: '🎫 เมนูจองบัตร & รับ E-Ticket',
+    previewImage: '/rich-menu/rich-menu-large-1200x810.jpg',
+    fileJpg: 'rich-menu-large-2500x1686.jpg',
+    filePng: 'rich-menu-large-1200x810.png',
+    buildAreas(baseUrl) {
+      const base = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+      const colW = 833;
+      const rowH = 843;
+      return [
+        {
+          bounds: { x: 0, y: 0, width: colW, height: rowH },
+          action: { type: 'uri', label: 'จองบัตร / เลือกโต๊ะ', uri: `${base}/` }
+        },
+        {
+          bounds: { x: colW, y: 0, width: colW, height: rowH },
+          action: { type: 'message', label: 'ขอรหัส LINE ID', text: 'บัตร' }
+        },
+        {
+          bounds: { x: colW * 2, y: 0, width: 2500 - colW * 2, height: rowH },
+          action: { type: 'uri', label: 'บัตร E-Ticket ของฉัน', uri: `${base}/?action=my-tickets` }
+        },
+        {
+          bounds: { x: 0, y: rowH, width: colW, height: rowH },
+          action: { type: 'uri', label: 'ผังที่นั่ง & โซนราคา', uri: `${base}/#eventsSection` }
+        },
+        {
+          bounds: { x: colW, y: rowH, width: colW, height: rowH },
+          action: { type: 'message', label: 'ชำระเงิน & แนบสลิป', text: 'วิธีชำระเงิน' }
+        },
+        {
+          bounds: { x: colW * 2, y: rowH, width: 2500 - colW * 2, height: rowH },
+          action: { type: 'message', label: 'ติดต่อแอดมิน 24 ชม.', text: 'ติดต่อแอดมิน' }
+        }
+      ];
     }
-  ];
+  },
+  small_3grid: {
+    key: 'small_3grid',
+    title: 'แบบครึ่งจอ 3 ปุ่ม (Compact 2500×843 · จองบัตร / ขอ LINE ID / ดูบัตร)',
+    badge: 'กะทัดรัด (3 ปุ่ม)',
+    size: { width: 2500, height: 843 },
+    chatBarText: '🎫 จองบัตร / ขอรหัส LINE ID',
+    previewImage: '/rich-menu/rich-menu-small-1200x405.jpg',
+    fileJpg: 'rich-menu-small-2500x843.jpg',
+    filePng: 'rich-menu-small-1200x405.png',
+    buildAreas(baseUrl) {
+      const base = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+      const colW = 833;
+      return [
+        {
+          bounds: { x: 0, y: 0, width: colW, height: 843 },
+          action: { type: 'uri', label: 'จองบัตรคอนเสิร์ต', uri: `${base}/` }
+        },
+        {
+          bounds: { x: colW, y: 0, width: colW, height: 843 },
+          action: { type: 'message', label: 'ขอรหัส LINE ID', text: 'บัตร' }
+        },
+        {
+          bounds: { x: colW * 2, y: 0, width: 2500 - colW * 2, height: 843 },
+          action: { type: 'uri', label: 'ดูบัตร / ติดต่อเรา', uri: `${base}/?action=my-tickets` }
+        }
+      ];
+    }
+  },
+  small_2grid: {
+    key: 'small_2grid',
+    title: 'แบบครึ่งจอ 2 ปุ่มใหญ่ (Split 2500×843 · จองบัตร + ขอรหัส LINE ID)',
+    badge: 'ชัดเจน (2 ปุ่ม)',
+    size: { width: 2500, height: 843 },
+    chatBarText: '🎫 จองบัตร & รับรหัส LINE ID',
+    previewImage: '/rich-menu/rich-menu-small-2grid-2500x843.jpg',
+    fileJpg: 'rich-menu-small-2grid-2500x843.jpg',
+    filePng: 'rich-menu-small-2grid-2500x843.png',
+    buildAreas(baseUrl) {
+      const base = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+      return [
+        {
+          bounds: { x: 0, y: 0, width: 1250, height: 843 },
+          action: { type: 'uri', label: 'จองบัตรคอนเสิร์ต & โต๊ะ VIP', uri: `${base}/` }
+        },
+        {
+          bounds: { x: 1250, y: 0, width: 1250, height: 843 },
+          action: { type: 'message', label: 'ขอรหัส LINE ID รับบัตร', text: 'บัตร' }
+        }
+      ];
+    }
+  },
+  small_1banner: {
+    key: 'small_1banner',
+    title: 'แบบแบนเนอร์เดียว (Hero Banner 2500×843 · แตะซ้ายจองบัตร / แตะขวาขอ LINE ID)',
+    badge: 'พรีเมียมแบนเนอร์',
+    size: { width: 2500, height: 843 },
+    chatBarText: '🎫 แตะเพื่อจองบัตรคอนเสิร์ต',
+    previewImage: '/rich-menu/rich-menu-small-1banner-2500x843.jpg',
+    fileJpg: 'rich-menu-small-1banner-2500x843.jpg',
+    filePng: 'rich-menu-small-1banner-2500x843.png',
+    buildAreas(baseUrl) {
+      const base = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+      return [
+        {
+          bounds: { x: 0, y: 0, width: 1250, height: 843 },
+          action: { type: 'uri', label: 'แตะเพื่อจองบัตรบนเว็บ', uri: `${base}/` }
+        },
+        {
+          bounds: { x: 1250, y: 0, width: 1250, height: 843 },
+          action: { type: 'message', label: 'รับรหัส LINE ID', text: 'บัตร' }
+        }
+      ];
+    }
+  }
+};
+
+function listRichMenuTemplates(baseUrl = DEFAULT_BASE_URL) {
+  return Object.values(RICH_MENU_TEMPLATES).map((tpl) => ({
+    key: tpl.key,
+    title: tpl.title,
+    badge: tpl.badge,
+    size: tpl.size,
+    chatBarText: tpl.chatBarText,
+    previewImage: tpl.previewImage,
+    areasCount: tpl.buildAreas(baseUrl).length,
+    areas: tpl.buildAreas(baseUrl)
+  }));
 }
 
-async function replyLineWebhook(replyToken, userId, channelAccessToken) {
-  const messages = buildWebhookReplyMessages(userId);
+function buildRichMenuPayload(templateKey = 'large_6grid', baseUrl = DEFAULT_BASE_URL) {
+  const tpl = RICH_MENU_TEMPLATES[templateKey] || RICH_MENU_TEMPLATES.large_6grid;
+  return {
+    size: tpl.size,
+    selected: true,
+    name: `STAGE PASS - ${tpl.key}`,
+    chatBarText: tpl.chatBarText,
+    areas: tpl.buildAreas(baseUrl)
+  };
+}
+
+async function deployRichMenuToLine({ templateKey = 'large_6grid', channelAccessToken = '', baseUrl = DEFAULT_BASE_URL } = {}) {
+  const tpl = RICH_MENU_TEMPLATES[templateKey] || RICH_MENU_TEMPLATES.large_6grid;
+  const payload = buildRichMenuPayload(tpl.key, baseUrl);
+  const token = String(channelAccessToken || '').trim();
+
+  const richMenuDir = path.join(__dirname, '..', 'rich-menu');
+  const jpgPath = path.join(richMenuDir, tpl.fileJpg);
+  const pngPath = path.join(richMenuDir, tpl.filePng);
+  let imagePath = fs.existsSync(jpgPath) ? jpgPath : pngPath;
+  let contentType = imagePath.endsWith('.jpg') ? 'image/jpeg' : 'image/png';
+
+  if (!fs.existsSync(imagePath)) {
+    return {
+      ok: false,
+      error: `ไม่พบไฟล์ภาพ Rich Menu (${tpl.fileJpg})`
+    };
+  }
+
+  const imageBuffer = fs.readFileSync(imagePath);
+
+  if (!token) {
+    return {
+      ok: true,
+      simulated: true,
+      templateKey: tpl.key,
+      richMenuId: `richmenu-sim-${tpl.key}-${Date.now()}`,
+      imageSizeKB: Math.round(imageBuffer.length / 1024),
+      payload,
+      message: `จำลองการติดตั้ง Rich Menu "${tpl.title}" สำเร็จ (${Math.round(imageBuffer.length / 1024)} KB) · กรุณาใส่ LINE Channel Access Token เพื่ออัปโหลดขึ้นบัญชี LINE OA จริง`
+    };
+  }
+
+  try {
+    // Step 1: Create Rich Menu object on LINE Messaging API
+    const createRes = await fetch('https://api.line.me/v2/bot/richmenu', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      return {
+        ok: false,
+        error: `สร้างโครงสร้าง Rich Menu บน LINE API ไม่สำเร็จ (${createRes.status}): ${errText.slice(0, 200)}`
+      };
+    }
+
+    const { richMenuId } = await createRes.json();
+
+    // Step 2: Upload Rich Menu Image (< 1MB) to api-data.line.me
+    const uploadRes = await fetch(`https://api-data.line.me/v2/bot/richmenu/${encodeURIComponent(richMenuId)}/content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': contentType,
+        Authorization: `Bearer ${token}`
+      },
+      body: imageBuffer
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      return {
+        ok: false,
+        richMenuId,
+        error: `อัปโหลดรูปภาพ Rich Menu ไม่สำเร็จ (${uploadRes.status}): ${errText.slice(0, 200)}`
+      };
+    }
+
+    // Step 3: Set as Default Rich Menu for all LINE OA users
+    const defaultRes = await fetch(`https://api.line.me/v2/bot/user/all/richmenu/${encodeURIComponent(richMenuId)}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!defaultRes.ok) {
+      const errText = await defaultRes.text();
+      return {
+        ok: false,
+        richMenuId,
+        error: `ตั้งค่า Default Rich Menu ไม่สำเร็จ (${defaultRes.status}): ${errText.slice(0, 200)}`
+      };
+    }
+
+    return {
+      ok: true,
+      simulated: false,
+      templateKey: tpl.key,
+      richMenuId,
+      imageSizeKB: Math.round(imageBuffer.length / 1024),
+      payload,
+      message: `ติดตั้งและเปิดใช้งาน LINE Rich Menu (${tpl.title}) บน LINE OA สำเร็จ! (ID: ${richMenuId})`
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `ไม่สามารถเชื่อมต่อ LINE Messaging API: ${err.message}`
+    };
+  }
+}
+
+function buildWebhookReplyMessages(userId, options = {}) {
+  const baseUrl = String(options.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+  const displayName = String(options.displayName || '').trim();
+  const incomingText = String(options.text || '').trim();
+
+  const autoFillUrl = `${baseUrl}/?lineUserId=${encodeURIComponent(userId)}${displayName ? `&lineName=${encodeURIComponent(displayName)}` : ''}`;
+  const myTicketsUrl = `${baseUrl}/?lineUserId=${encodeURIComponent(userId)}&action=my-tickets`;
+
+  const idTextMessage = {
+    type: 'text',
+    text: `สวัสดีครับ! รหัส LINE User ID ของคุณสำหรับรับบัตรคอนเสิร์ตคือ:\n${userId}\n\nคัดลอกรหัสนี้ไปวางในช่อง LINE User ID บนหน้าจองบัตร หรือกดปุ่ม "จองบัตรพร้อมเชื่อม LINE อัตโนมัติ" ด้านล่างได้เลยครับ`
+  };
+
+  const quickBookingFlex = {
+    type: 'flex',
+    altText: 'เชื่อมต่อ LINE สำเร็จ! กดปุ่มเพื่อจองบัตรโดยกรอกรหัส LINE อัตโนมัติ',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#06C755',
+        paddingAll: '14px',
+        contents: [
+          {
+            type: 'text',
+            text: '🟢 เชื่อมต่อบัญชีรับบัตร E-Ticket สำเร็จ',
+            color: '#FFFFFF',
+            weight: 'bold',
+            size: 'sm'
+          }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#1E1E1E',
+        paddingAll: '16px',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: displayName ? `บัญชีของคุณ: ${displayName}` : 'รหัสรับบัตรของคุณพร้อมใช้งานแล้ว',
+            color: '#FFFFFF',
+            weight: 'bold',
+            size: 'sm',
+            wrap: true
+          },
+          {
+            type: 'text',
+            text: `LINE ID: ${userId}`,
+            color: '#68D391',
+            size: 'xs',
+            wrap: true
+          },
+          {
+            type: 'text',
+            text: incomingText === 'วิธีชำระเงิน'
+              ? '💡 ขั้นตอนชำระเงิน: เลือกโต๊ะ/โซน -> สแกนจ่ายผ่าน QR PromptPay -> แนบรูปสลิปในหน้าเว็บ ระบบตรวจสลิปและส่งบัตรเข้าแชทนี้ทันที'
+              : incomingText === 'ติดต่อแอดมิน'
+              ? '💬 ต้องการสอบถามรอบการแสดง เหมาโต๊ะ VIP หรือแจ้งปัญหา พิมพ์ข้อความทิ้งไว้ในแชทนี้ได้เลยครับ แอดมินดูแลตลอด 24 ชม.'
+              : 'แตะปุ่มด้านล่างเพื่อเข้าหน้าเว็บโดยกรอกรหัส LINE User ID ให้อัตโนมัติ 100% ไม่ต้องคัดลอกวางเอง',
+            color: '#CCCCCC',
+            size: 'xs',
+            wrap: true,
+            margin: 'sm'
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#1E1E1E',
+        paddingAll: '14px',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#06C755',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '🎫 จองบัตร (กรอก LINE ID อัตโนมัติ)',
+              uri: autoFillUrl
+            }
+          },
+          {
+            type: 'button',
+            style: 'secondary',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '🎟️ เปิดดูบัตร E-Ticket ของฉัน',
+              uri: myTicketsUrl
+            }
+          }
+        ]
+      }
+    }
+  };
+
+  return [idTextMessage, quickBookingFlex];
+}
+
+async function replyLineWebhook(replyToken, userId, channelAccessToken, options = {}) {
+  const messages = buildWebhookReplyMessages(userId, options);
   const token = String(channelAccessToken || '').trim();
   if (!token || !replyToken || replyToken === 'SIMULATED_REPLY_TOKEN') {
     return { replied: false, simulated: true, messages };
@@ -400,6 +750,9 @@ module.exports = {
   sendLineTicketPush,
   sendAdminNewOrderNotification,
   buildWebhookReplyMessages,
-  replyLineWebhook
+  replyLineWebhook,
+  listRichMenuTemplates,
+  buildRichMenuPayload,
+  deployRichMenuToLine
 };
 

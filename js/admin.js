@@ -2768,6 +2768,8 @@
       const driveWebhook = typeof data.googleDriveWebhookUrl !== 'undefined' ? data.googleDriveWebhookUrl : (localCache ? localCache.googleDriveWebhookUrl || '' : '');
       const driveEmail = typeof data.googleServiceAccountEmail !== 'undefined' ? data.googleServiceAccountEmail : (localCache ? localCache.googleServiceAccountEmail || '' : '');
       const adminLineUser = typeof data.adminLineUserId !== 'undefined' ? data.adminLineUserId : (localCache ? localCache.adminLineUserId || '' : '');
+      const lineLiffId = typeof data.lineLiffId !== 'undefined' ? data.lineLiffId : (localCache ? localCache.lineLiffId || '' : '');
+      const activeRichMenuTemplate = data.activeRichMenuTemplate || (localCache && localCache.activeRichMenuTemplate) || 'large_6grid';
       const slipProvider = typeof data.slipVerifyProvider !== 'undefined' ? data.slipVerifyProvider : (localCache ? localCache.slipVerifyProvider || 'simulator' : 'simulator');
       const slipBranch = typeof data.slipVerifyBranchId !== 'undefined' ? data.slipVerifyBranchId : (localCache ? localCache.slipVerifyBranchId || '' : '');
       const slipAuto = typeof data.slipAutoApproveEnabled !== 'undefined' ? data.slipAutoApproveEnabled : (localCache && typeof localCache.slipAutoApproveEnabled !== 'undefined' ? localCache.slipAutoApproveEnabled : false);
@@ -2829,6 +2831,17 @@
       if ($('settingAdminLineUserInput')) {
         $('settingAdminLineUserInput').value = adminLineUser;
       }
+      if ($('settingLineLiffIdInput')) {
+        $('settingLineLiffIdInput').value = lineLiffId;
+      }
+      if ($('settingRichMenuTemplateSelect')) {
+        $('settingRichMenuTemplateSelect').value = activeRichMenuTemplate;
+        updateRichMenuPreviewImg(activeRichMenuTemplate);
+      }
+      if ($('richMenuDeployStatus') && data.activeRichMenuId) {
+        $('richMenuDeployStatus').style.color = '#68D391';
+        $('richMenuDeployStatus').textContent = `✔ ติดตั้งแล้ว (${data.activeRichMenuTemplate || 'large_6grid'} · ID: ${data.activeRichMenuId})`;
+      }
       if ($('adminAlertTestStatus')) {
         $('adminAlertTestStatus').hidden = true;
       }
@@ -2849,6 +2862,8 @@
           slipVerifyBranchId: slipBranch,
           slipAutoApproveEnabled: slipAuto,
           adminLineUserId: adminLineUser,
+          lineLiffId,
+          activeRichMenuTemplate,
           hasLineToken: Boolean(data.hasLineToken),
           hasSlipVerifyApiKey: Boolean(data.hasSlipVerifyApiKey)
         };
@@ -2889,6 +2904,7 @@
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
     const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
+    const lineLiffId = $('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value.trim() : '';
 
     try {
       let prev = {};
@@ -2906,6 +2922,7 @@
         slipVerifyBranchId,
         slipAutoApproveEnabled,
         adminLineUserId,
+        lineLiffId,
         slipVerifyApiKey: slipVerifyApiKey || prev.slipVerifyApiKey || '',
         hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey)
       };
@@ -2933,7 +2950,8 @@
         slipVerifyProvider,
         slipVerifyBranchId,
         slipAutoApproveEnabled,
-        adminLineUserId
+        adminLineUserId,
+        lineLiffId
       };
       if (slipVerifyApiKey) payload.slipVerifyApiKey = slipVerifyApiKey;
       fetch('/api/settings', {
@@ -2961,6 +2979,7 @@
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
     const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
+    const lineLiffId = $('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value.trim() : '';
 
     const payload = {
       promptpayId,
@@ -2973,7 +2992,8 @@
       slipVerifyProvider,
       slipVerifyBranchId,
       slipAutoApproveEnabled,
-      adminLineUserId
+      adminLineUserId,
+      lineLiffId
     };
     if (token) payload.lineChannelAccessToken = token;
     if (adminPin) payload.adminPin = adminPin;
@@ -3211,6 +3231,61 @@
         statusEl.style.color = '#FF6B6B';
         statusEl.textContent = `เกิดข้อผิดพลาด: ${err.message}`;
       }
+    }
+  }
+
+  function updateRichMenuPreviewImg(templateKey) {
+    const img = $('settingRichMenuPreviewImg');
+    if (!img) return;
+    const map = {
+      large_6grid: '/rich-menu/rich-menu-large-1200x810.jpg',
+      small_3grid: '/rich-menu/rich-menu-small-1200x405.jpg',
+      small_2grid: '/rich-menu/rich-menu-small-2grid-2500x843.jpg',
+      small_1banner: '/rich-menu/rich-menu-small-1banner-2500x843.jpg'
+    };
+    img.src = map[templateKey] || map.large_6grid;
+  }
+
+  async function deployRichMenu() {
+    const btn = $('btnDeployRichMenu');
+    const statusEl = $('richMenuDeployStatus');
+    const templateKey = $('settingRichMenuTemplateSelect') ? $('settingRichMenuTemplateSelect').value : 'large_6grid';
+    const lineChannelAccessToken = $('settingLineTokenInput') ? $('settingLineTokenInput').value.trim() : '';
+
+    if (btn) btn.disabled = true;
+    if (statusEl) {
+      statusEl.style.color = 'var(--color-accent)';
+      statusEl.textContent = '⏳ กำลังสร้าง Rich Menu อัปโหลดภาพ และตั้งค่าเป็น Default บน LINE OA...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/line/rich-menu/deploy', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          templateKey,
+          lineChannelAccessToken,
+          baseUrl: window.location.origin.includes('localhost')
+            ? 'https://tikkethub.vercel.app'
+            : window.location.origin
+        })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'ติดตั้ง Rich Menu ไม่สำเร็จ');
+
+      if (statusEl) {
+        statusEl.style.color = data.simulated ? '#ECC94B' : '#68D391';
+        statusEl.textContent = data.message || '✔ ติดตั้ง LINE Rich Menu สำเร็จเรียบร้อย!';
+      }
+      window.UI.toast(data.message || 'ติดตั้ง LINE Rich Menu สำเร็จ!');
+    } catch (err) {
+      if (statusEl) {
+        statusEl.style.color = '#FF6B6B';
+        statusEl.textContent = `❌ ${err.message}`;
+      }
+      window.UI.toast(err.message, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -4358,7 +4433,7 @@
       'settingPromptpayInput', 'settingMerchantNameInput', 'settingBankNameInput',
       'settingBankAccountInput', 'settingDriveFolderInput', 'settingDriveEmailInput',
       'settingSlipProviderInput', 'settingSlipBranchInput', 'settingSlipAutoApprove',
-      'settingAdminLineUserInput'
+      'settingAdminLineUserInput', 'settingLineLiffIdInput'
     ];
     settingInputs.forEach((id) => {
       const el = $(id);
@@ -4367,6 +4442,14 @@
         el.addEventListener('change', autoSaveSettingsDraft);
       }
     });
+    if ($('settingRichMenuTemplateSelect')) {
+      $('settingRichMenuTemplateSelect').addEventListener('change', (e) => {
+        updateRichMenuPreviewImg(e.target.value);
+      });
+    }
+    if ($('btnDeployRichMenu')) {
+      $('btnDeployRichMenu').addEventListener('click', deployRichMenu);
+    }
 
     if ($('openStorefrontSettingsBtn')) {
       $('openStorefrontSettingsBtn').addEventListener('click', openStorefrontSettings);

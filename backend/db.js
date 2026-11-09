@@ -838,26 +838,23 @@ function syncCustomEventsWithDb() {
       if (!ev || !ev.title) continue;
       const numId = Number(ev.id);
       if (numId && deletedIds.has(numId)) continue;
-      if (numId && existingIds.has(numId)) {
+      if (!existingIds.has(numId) && !existingTitles.has(String(ev.title).trim().toLowerCase())) {
         db.prepare(`
-          UPDATE events
-          SET title = ?, category = ?, date = ?, venue = ?, price_range = ?, badge = ?, is_accent = ?, gradient = ?, image = ?,
-              quota_vip = ?, quota_a = ?, quota_b = ?, quota_c = ?
-          WHERE id = ?
+          INSERT INTO events (
+            title, category, date, venue, price_range, badge, is_accent, gradient, image,
+            quota_vip, quota_a, quota_b, quota_c,
+            price_vip, price_a, price_b, price_c,
+            stage_layout, seating_type, zone_type_vip, zone_type_a, zone_type_b, zone_type_c, seats_per_table
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           ev.title, ev.category || 'world', ev.date || '', ev.venue || '', ev.priceRange || '1,800 - 6,500 THB',
           ev.badge || 'เปิดจำหน่าย', ev.isAccent ? 1 : 0, ev.gradient || 'linear-gradient(135deg, #4d1313, #1f1f1f)',
           ev.image || '', Number(ev.quotaVip || 50), Number(ev.quotaA || 100), Number(ev.quotaB || 120), Number(ev.quotaC || 150),
-          numId
-        );
-      } else if (!existingTitles.has(String(ev.title).trim().toLowerCase())) {
-        db.prepare(`
-          INSERT INTO events (title, category, date, venue, price_range, badge, is_accent, gradient, image, quota_vip, quota_a, quota_b, quota_c)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          ev.title, ev.category || 'world', ev.date || '', ev.venue || '', ev.priceRange || '1,800 - 6,500 THB',
-          ev.badge || 'เปิดจำหน่าย', ev.isAccent ? 1 : 0, ev.gradient || 'linear-gradient(135deg, #4d1313, #1f1f1f)',
-          ev.image || '', Number(ev.quotaVip || 50), Number(ev.quotaA || 100), Number(ev.quotaB || 120), Number(ev.quotaC || 150)
+          Number(ev.priceVip || 6500), Number(ev.priceA || 4500), Number(ev.priceB || 3200), Number(ev.priceC || 1800),
+          ev.stageLayout || 'standard', ev.seatingType || 'table',
+          ev.zoneTypeVip || 'table', ev.zoneTypeA || 'table', ev.zoneTypeB || 'table', ev.zoneTypeC || 'table',
+          Number(ev.seatsPerTable || 4)
         );
       }
     }
