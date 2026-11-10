@@ -647,6 +647,10 @@
                 <span class="text-muted">💬 LINE Messaging API:</span>
                 <span id="settingTokenStatus" style="font-size:11px; font-weight:600; color:var(--color-accent);">ยังไม่ได้ตั้งค่า</span>
               </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+                <span class="text-muted">🛡️ Webhook Signature:</span>
+                <span id="settingSecretStatus" style="font-size:11px; font-weight:600; color:#F5A623;">รอตั้งค่า Channel Secret</span>
+              </div>
             </div>
           </div>
 
@@ -657,10 +661,16 @@
               <p class="text-muted" style="font-size:11px;margin-top:4px;">Webhook URL: <code>/api/line/webhook</code></p>
             </div>
             <div>
-              <label class="field-label" for="settingLineLiffIdInput">LINE LIFF ID (กรอกรหัส LINE ลูกค้าอัตโนมัติ)</label>
-              <input type="text" id="settingLineLiffIdInput" class="input-field holder-input" placeholder="เช่น 2006543210-AbCdEfGh (ถ้ามี)">
-              <p class="text-muted" style="font-size:11px;margin-top:4px;">ดึง LINE User ID + ชื่อโปรไฟล์เข้าหน้าจองอัตโนมัติ 100%</p>
+              <label class="field-label" for="settingLineSecretInput">LINE Channel Secret (ตรวจ HMAC-SHA256 Signature)</label>
+              <input type="password" id="settingLineSecretInput" class="input-field holder-input" placeholder="วาง Channel Secret เพื่อป้องกัน Webhook สแปม...">
+              <p class="text-muted" style="font-size:11px;margin-top:4px;">ใช้ตรวจสอบ <code>x-line-signature</code> ป้องกันคำขอปลอมแปลง 100%</p>
             </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="field-label" for="settingLineLiffIdInput">LINE LIFF ID (กรอกรหัส LINE ลูกค้าอัตโนมัติ)</label>
+            <input type="text" id="settingLineLiffIdInput" class="input-field holder-input" placeholder="เช่น 2006543210-AbCdEfGh (ถ้ามี)">
+            <p class="text-muted" style="font-size:11px;margin-top:4px;">ดึง LINE User ID + ชื่อโปรไฟล์เข้าหน้าจองอัตโนมัติ 100%</p>
           </div>
 
           <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">

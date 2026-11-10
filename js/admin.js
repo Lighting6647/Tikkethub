@@ -2784,6 +2784,18 @@
       $('settingTokenStatus').textContent = (data.hasLineToken || (localCache && localCache.hasLineToken))
         ? `ตั้งค่าแล้ว (${data.lineTokenMasked || '••••••••'})`
         : 'ยังไม่ได้ตั้งค่า (ทำงานในโหมดพรีวิว Flex Message อัตโนมัติ)';
+      if ($('settingSecretStatus')) {
+        const hasSecret = Boolean(data.hasLineSecret || (localCache && localCache.hasLineSecret));
+        $('settingSecretStatus').innerHTML = hasSecret
+          ? `<span style="color:#68D391;">🛡️ ตรวจสอบ Signature สมบูรณ์ (${data.lineSecretMasked || '••••••••'})</span>`
+          : `<span style="color:#F5A623;">⚠️ รอตั้งค่า Channel Secret (ยังไม่เปิด Signature Check)</span>`;
+      }
+      if ($('settingLineSecretInput')) {
+        $('settingLineSecretInput').value = '';
+        $('settingLineSecretInput').placeholder = (data.hasLineSecret || (localCache && localCache.hasLineSecret))
+          ? `•••••••• (${data.lineSecretMasked || 'ตั้งค่าแล้ว'})`
+          : 'วาง Channel Secret เพื่อป้องกัน Webhook สแปม...';
+      }
       $('settingPromptpayInput').value = promptpayId;
       if ($('settingMerchantNameInput')) {
         $('settingMerchantNameInput').value = merchantName;
@@ -2905,6 +2917,7 @@
     const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
     const lineLiffId = $('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value.trim() : '';
+    const lineChannelSecret = $('settingLineSecretInput') ? $('settingLineSecretInput').value.trim() : '';
 
     try {
       let prev = {};
@@ -2923,6 +2936,8 @@
         slipAutoApproveEnabled,
         adminLineUserId,
         lineLiffId,
+        lineChannelSecret: lineChannelSecret || prev.lineChannelSecret || '',
+        hasLineSecret: Boolean(lineChannelSecret || prev.lineChannelSecret),
         slipVerifyApiKey: slipVerifyApiKey || prev.slipVerifyApiKey || '',
         hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey)
       };
@@ -2953,6 +2968,7 @@
         adminLineUserId,
         lineLiffId
       };
+      if (lineChannelSecret) payload.lineChannelSecret = lineChannelSecret;
       if (slipVerifyApiKey) payload.slipVerifyApiKey = slipVerifyApiKey;
       fetch('/api/settings', {
         method: 'PUT',
@@ -2980,6 +2996,7 @@
     const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
     const lineLiffId = $('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value.trim() : '';
+    const lineSecret = $('settingLineSecretInput') ? $('settingLineSecretInput').value.trim() : '';
 
     const payload = {
       promptpayId,
@@ -2996,6 +3013,7 @@
       lineLiffId
     };
     if (token) payload.lineChannelAccessToken = token;
+    if (lineSecret) payload.lineChannelSecret = lineSecret;
     if (adminPin) payload.adminPin = adminPin;
     if (gateStaffPin) payload.gateStaffPin = gateStaffPin;
     if (googleServiceAccountPrivateKey) payload.googleServiceAccountPrivateKey = googleServiceAccountPrivateKey;
@@ -4433,7 +4451,7 @@
       'settingPromptpayInput', 'settingMerchantNameInput', 'settingBankNameInput',
       'settingBankAccountInput', 'settingDriveFolderInput', 'settingDriveEmailInput',
       'settingSlipProviderInput', 'settingSlipBranchInput', 'settingSlipAutoApprove',
-      'settingAdminLineUserInput', 'settingLineLiffIdInput'
+      'settingAdminLineUserInput', 'settingLineLiffIdInput', 'settingLineSecretInput'
     ];
     settingInputs.forEach((id) => {
       const el = $(id);

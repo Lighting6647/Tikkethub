@@ -5,6 +5,8 @@
  *    returning their `LINE User ID` so they can link it in 1 click on the booking form.
  */
 
+const crypto = require('node:crypto');
+
 function buildTicketFlexMessage(order) {
   const qrPayload = order.qrPayload || ('THAITICKET|' + order.ref + '|' + (order.zone || '') + '|' + (order.qty || 1) + (order.qrSignature ? '|SIG:' + order.qrSignature : ''));
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(qrPayload)}`;
@@ -745,6 +747,50 @@ async function sendAdminNewOrderNotification(channelAccessToken, adminUserId, or
   }
 }
 
+/**
+ * Compute official LINE Webhook HMAC-SHA256 signature
+ * @param {string|Buffer} rawBody
+ * @param {string} channelSecret
+ * @returns {string} base64 signature
+ */
+function computeLineSignature(rawBody, channelSecret) {
+  if (!rawBody || !channelSecret) return '';
+  const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(String(rawBody), 'utf8');
+  return crypto.createHmac('sha256', channelSecret).update(bodyBuffer).digest('base64');
+}
+
+/**
+ * Validates the x-line-signature header using timing-safe comparison
+ * @param {string|Buffer} rawBody
+ * @param {string} signature
+ * @param {string} channelSecret
+ * @returns {{ ok: boolean, verified: boolean, reason: string }}
+ */
+function validateLineWebhookSignature(rawBody, signature, channelSecret) {
+  if (!channelSecret || typeof channelSecret !== 'string' || !channelSecret.trim()) {
+    // Secret not configured: allow in development/testing mode with unverified flag
+    return { ok: true, verified: false, reason: 'SECRET_NOT_CONFIGURED' };
+  }
+  if (!signature || typeof signature !== 'string' || !signature.trim()) {
+    return { ok: false, verified: false, reason: 'MISSING_SIGNATURE' };
+  }
+
+  const expected = computeLineSignature(rawBody, channelSecret.trim());
+  const sigBuffer = Buffer.from(signature.trim(), 'utf8');
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+
+  if (sigBuffer.length !== expectedBuffer.length) {
+    return { ok: false, verified: false, reason: 'INVALID_SIGNATURE' };
+  }
+
+  const match = crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+  return {
+    ok: match,
+    verified: match,
+    reason: match ? 'VALID_SIGNATURE' : 'INVALID_SIGNATURE'
+  };
+}
+
 module.exports = {
   buildTicketFlexMessage,
   sendLineTicketPush,
@@ -753,6 +799,8 @@ module.exports = {
   replyLineWebhook,
   listRichMenuTemplates,
   buildRichMenuPayload,
-  deployRichMenuToLine
+  deployRichMenuToLine,
+  computeLineSignature,
+  validateLineWebhookSignature
 };
 

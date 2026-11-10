@@ -18,7 +18,9 @@ const {
   replyLineWebhook,
   sendAdminNewOrderNotification,
   listRichMenuTemplates,
-  deployRichMenuToLine
+  deployRichMenuToLine,
+  computeLineSignature,
+  validateLineWebhookSignature
 } = require('./backend/line');
 const drive = require('./backend/drive');
 const slipVerifier = require('./backend/slip-verifier');
@@ -164,9 +166,15 @@ function sendJson(res, status, data, extraHeaders = {}) {
 
 function readJsonBody(req, maxBytes = 8 * 1024 * 1024) {
   if (req.body) {
-    if (typeof req.body === 'object') return Promise.resolve(req.body);
+    if (typeof req.body === 'object') {
+      if (!req.rawBody) {
+        try { req.rawBody = JSON.stringify(req.body); } catch (_) {}
+      }
+      return Promise.resolve(req.body);
+    }
     try {
-      return Promise.resolve(JSON.parse(String(req.body)));
+      req.rawBody = String(req.body);
+      return Promise.resolve(JSON.parse(req.rawBody));
     } catch {
       return Promise.reject(Object.assign(new Error('รูปแบบข้อมูล JSON ไม่ถูกต้อง'), { status: 400 }));
     }
@@ -186,6 +194,7 @@ function readJsonBody(req, maxBytes = 8 * 1024 * 1024) {
     req.on('end', () => {
       try {
         const raw = Buffer.concat(chunks).toString('utf8');
+        req.rawBody = raw;
         resolve(raw ? JSON.parse(raw) : {});
       } catch {
         reject(Object.assign(new Error('รูปแบบข้อมูล JSON ไม่ถูกต้อง'), { status: 400 }));
@@ -468,10 +477,55 @@ async function handleApi(req, res, url) {
     );
   }
 
-  // LINE Official Account Webhook & 1-click Auto-fill Helper
+  // LINE Official Account Webhook with Automated HMAC-SHA256 Signature Verification & Rate-Limiter
   if (pathname === '/api/line/webhook' && method === 'POST') {
-    const body = await readJsonBody(req);
-    const events = Array.isArray(body.events) ? body.events : [];
+    // 1. Sliding-Window Rate Limiter (Per IP & Global)
+    const ipRl = checkRateLimit(`line_webhook_ip:${ip}`, 120, 60000);
+    const globalRl = checkRateLimit('line_webhook_global', 300, 60000);
+    if (!ipRl.allowed || !globalRl.allowed) {
+      return sendJson(
+        res,
+        429,
+        {
+          ok: false,
+          code: 'RATE_LIMITED',
+          error: 'คำขอถี่เกินกำหนด (Rate limit exceeded) กรุณารอสักครู่แล้วส่งใหม่'
+        },
+        {
+          'Retry-After': '60',
+          'X-RateLimit-Remaining': '0'
+        }
+      );
+    }
+
+    // 2. Read Request Body
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch (err) {
+      return sendJson(res, 400, { ok: false, error: 'รูปแบบคำขอ JSON ไม่ถูกต้อง' });
+    }
+
+    // 3. Automated HMAC-SHA256 Signature Verification
+    const signature = req.headers['x-line-signature'] || '';
+    const channelSecret = db.getSetting('line_channel_secret', process.env.LINE_CHANNEL_SECRET || '');
+    const sigResult = validateLineWebhookSignature(req.rawBody || '', signature, channelSecret);
+
+    if (!sigResult.ok) {
+      db.addAuditLog({
+        action: 'LINE_WEBHOOK_SIGNATURE_FAILED',
+        targetRef: ip,
+        detail: `ปฏิเสธคำขอ LINE Webhook เนื่องจาก Signature ไม่ถูกต้อง (${sigResult.reason}) จาก IP: ${ip}`,
+        actor: 'SecurityGateway'
+      });
+      return sendJson(res, 401, {
+        ok: false,
+        code: 'INVALID_SIGNATURE',
+        error: 'LINE Webhook signature verification failed (x-line-signature mismatch or missing)'
+      });
+    }
+
+    const events = Array.isArray(body && body.events) ? body.events : [];
     const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
     const results = [];
 
@@ -512,7 +566,7 @@ async function handleApi(req, res, url) {
         results.push({ userId, displayName, ...replyRes });
       }
     }
-    return sendJson(res, 200, { ok: true, results });
+    return sendJson(res, 200, { ok: true, results, verified: sigResult.verified });
   }
 
   if (pathname === '/api/line/simulate-webhook' && method === 'POST') {
@@ -1267,6 +1321,7 @@ async function handleApi(req, res, url) {
     }
     if (method === 'GET') {
       const token = db.getSetting('line_channel_access_token', '');
+      const lineSecret = db.getSetting('line_channel_secret', process.env.LINE_CHANNEL_SECRET || '');
       const promptpayId = db.getSetting('promptpay_id', '');
       const merchantName = db.getSetting('merchant_name', '');
       const bankAccount = db.getSetting('bank_account', '');
@@ -1283,6 +1338,8 @@ async function handleApi(req, res, url) {
         ok: true,
         hasLineToken: Boolean(token),
         lineTokenMasked: maskToken(token),
+        hasLineSecret: Boolean(lineSecret),
+        lineSecretMasked: maskToken(lineSecret),
         promptpayId,
         merchantName,
         bankAccount,
@@ -1324,6 +1381,10 @@ async function handleApi(req, res, url) {
       if (typeof body.lineChannelAccessToken === 'string' && body.lineChannelAccessToken.trim()) {
         db.setSetting('line_channel_access_token', body.lineChannelAccessToken.trim());
         changes.push('อัปเดต LINE Channel Access Token');
+      }
+      if (typeof body.lineChannelSecret === 'string') {
+        db.setSetting('line_channel_secret', body.lineChannelSecret.trim());
+        changes.push(body.lineChannelSecret.trim() ? 'อัปเดต LINE Channel Secret (เปิดใช้งาน Signature Verification)' : 'ล้างการตั้งค่า LINE Channel Secret');
       }
       if (typeof body.lineLiffId === 'string') {
         db.setSetting('line_liff_id', body.lineLiffId.trim());
@@ -1600,6 +1661,7 @@ if (require.main === module) {
 module.exports = requestHandler;
 module.exports.server = server;
 module.exports.requestHandler = requestHandler;
+module.exports.createAdminToken = createAdminToken;
 module.exports.resetRateLimitsForTest = resetRateLimitsForTest;
 module.exports.buildCsv = buildCsv;
 module.exports.buildGuestListCsv = buildGuestListCsv;

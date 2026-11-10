@@ -144,6 +144,7 @@ async function run() {
   // Configure LINE OA + 1-Click Rich Menu Deployer + PromptPay (0954654698) & Merchant Name settings in Admin
   await adminPage.click('#openLineSettingsBtn');
   await adminPage.waitForSelector('#lineSettingsModal.active');
+  await adminPage.fill('#settingLineSecretInput', 'sec_test_e2e_signature_123');
   await adminPage.click('#btnDeployRichMenu');
   await adminPage.waitForFunction(() => {
     const el = document.getElementById('richMenuDeployStatus');
