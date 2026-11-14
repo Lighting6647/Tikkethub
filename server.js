@@ -95,6 +95,21 @@ if (typeof seatExpirationWorker.unref === 'function') {
   seatExpirationWorker.unref();
 }
 
+// Automated Daily SQLite Backup Worker on VPS (7-day retention)
+if (!process.env.VERCEL && !process.execArgv.includes('--test') && !process.env.NODE_TEST_CONTEXT) {
+  try {
+    db.createDailyDbBackup({ force: false, maxKeep: 7 });
+  } catch (_) {}
+  const dailyBackupTimer = setInterval(() => {
+    try {
+      db.createDailyDbBackup({ force: false, maxKeep: 7 });
+    } catch (_) {}
+  }, 6 * 60 * 60 * 1000);
+  if (typeof dailyBackupTimer.unref === 'function') {
+    dailyBackupTimer.unref();
+  }
+}
+
 // Admin & Gate Staff Session Token (HMAC-SHA256)
 function createAdminToken(role = 'admin') {
   const safeRole = role === 'gate_staff' ? 'gate_staff' : 'admin';
@@ -1627,8 +1642,75 @@ async function handleApi(req, res, url) {
       uptimeSec: Math.floor(process.uptime()),
       nodeVersion: process.version,
       hostname: os.hostname(),
-      postgresConnected: Boolean(db.postgres && db.postgres.isConnected())
+      postgresConnected: Boolean(db.postgres && db.postgres.isConnected()),
+      backups: db.listDbBackups(),
+      slipStats: db.getSlipStorageStats()
     });
+  }
+
+  // Admin 1-Click Download Raw SQLite .db Snapshot
+  if (pathname === '/api/admin/db/download-sqlite' && method === 'GET') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 401, { ok: false, unauthorized: true });
+    }
+    const buf = db.exportRawSqliteBuffer();
+    const day = new Date().toISOString().slice(0, 10);
+    db.addAuditLog({
+      action: 'DB_SQLITE_DOWNLOAD',
+      detail: `ดาวน์โหลดฐานข้อมูล SQLite (.db) ขนาด ${Math.max(1, Math.round(buf.length / 1024))} KB`,
+      actor: 'Admin'
+    });
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.sqlite3',
+      'Content-Disposition': `attachment; filename="tickets-backup-${day}.db"`,
+      'Content-Length': String(buf.length),
+      'Cache-Control': 'no-store'
+    });
+    return res.end(buf);
+  }
+
+  // Admin Trigger Daily SQLite Snapshot on VPS Now (7-day retention)
+  if (pathname === '/api/admin/db/backup-now' && method === 'POST') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    if (!isFullAdmin(req)) {
+      return sendJson(res, 200, {
+        ok: false,
+        forbidden: true,
+        error: 'เฉพาะแอดมินหลักเท่านั้นที่สามารถสั่งสำรองฐานข้อมูลบน VPS ได้'
+      });
+    }
+    const result = db.createDailyDbBackup({ force: true, maxKeep: 7 });
+    db.addAuditLog({
+      action: 'DB_DAILY_SNAPSHOT',
+      targetRef: result.fileName || '',
+      detail: `สำรองฐานข้อมูลลง VPS สำเร็จ (${result.fileName} · ${result.sizeKB} KB)`,
+      actor: 'Admin'
+    });
+    return sendJson(res, 200, result);
+  }
+
+  // Admin Slip Storage Cleanup Tool (compact reviewed slip images to <1KB SVG certificate)
+  if (pathname === '/api/admin/db/cleanup-slips' && method === 'POST') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    if (!isFullAdmin(req)) {
+      return sendJson(res, 200, {
+        ok: false,
+        forbidden: true,
+        error: 'เฉพาะแอดมินหลักเท่านั้นที่สามารถล้างรูปสลิปเก่าได้'
+      });
+    }
+    const body = await readJsonBody(req).catch(() => ({}));
+    const result = db.cleanupReviewedSlips({ olderThanDays: Number((body && body.olderThanDays) || 0) });
+    db.addAuditLog({
+      action: 'DB_SLIP_CLEANUP',
+      detail: `ล้างรูปสลิปที่ตรวจแล้ว ${result.cleanedCount} รายการ คืนพื้นที่ได้ ${result.freedKB} KB`,
+      actor: 'Admin'
+    });
+    return sendJson(res, 200, result);
   }
 
   // Admin Live LINE Webhook Readiness & Signature Self-Check

@@ -788,6 +788,13 @@
               <span>🗄️ โหมดจัดเก็บ: <strong style="color:#10B981;">SQLite WAL (VPS Disk)</strong></span>
               <span>📦 ขนาดฐานข้อมูล: <strong id="vpsStep3DbSize">กำลังเช็ก...</strong></span>
               <span>⚡ หน่วยความจำระบบ: <strong id="vpsStep3RamUsage">กำลังเช็ก...</strong></span>
+              <span>🕒 สำรองบน VPS ล่าสุด: <strong id="vpsStep3LastBackup">กำลังเช็ก...</strong></span>
+              <span>🖼️ รูปสลิปใน DB: <strong id="vpsStep3SlipStats">กำลังเช็ก...</strong></span>
+            </div>
+            <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;">
+              <button type="button" class="btn-outline" id="btnDownloadSqliteDb" style="font-size:11px; padding:5px 10px; border-color:rgba(56,189,248,0.45); color:#38BDF8;">📥 ดาวน์โหลดฐานข้อมูล (.db)</button>
+              <button type="button" class="btn-outline" id="btnCreateVpsBackupNow" style="font-size:11px; padding:5px 10px; border-color:rgba(16,185,129,0.45); color:#10B981;">💾 สำรองเก็บไว้บน VPS ทันที (เก็บ 7 วัน)</button>
+              <button type="button" class="btn-outline" id="btnCleanupReviewedSlips" style="font-size:11px; padding:5px 10px; border-color:rgba(245,158,11,0.45); color:#FBBF24;">🧹 ล้างรูปสลิปที่ตรวจแล้ว (คืนพื้นที่ VPS)</button>
             </div>
           </div>
           <p class="text-muted" id="driveTestStatus" style="font-size:11px; margin-top:8px;" hidden></p>
@@ -1363,6 +1370,6 @@
 
   <script src="js/ui.js"></script>
   <script src="js/vendor/jsQR.js"></script>
-  <script src="js/admin.js?v=20261114_vps_pure"></script>
+  <script src="js/admin.js?v=20261114_vps_tools"></script>
 </body>
 </html>

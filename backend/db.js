@@ -6,10 +6,12 @@
 const { DatabaseSync } = require('node:sqlite');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const crypto = require('node:crypto');
 const postgres = require('./postgres');
 
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data'));
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const isUnitTest = process.execArgv.includes('--test') || Boolean(process.env.NODE_TEST_CONTEXT);
@@ -1863,6 +1865,192 @@ function recoverOrdersFromClient(clientTickets) {
   };
 }
 
+function buildCleanedSlipSvgDataUrl(orderRow) {
+  const esc = (v) => String(v || '').replace(/[<>&"']/g, '');
+  const ref = esc(orderRow.ref || 'TT0000').slice(0, 20);
+  const holder = esc(orderRow.holder_name || orderRow.holderName || '-').slice(0, 16);
+  const total = Number(orderRow.total || 0).toLocaleString('th-TH');
+  const shortHash = esc(orderRow.slip_hash || orderRow.slipHash || 'NO_HASH').slice(0, 12);
+  const statusLabel = orderRow.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธแล้ว';
+  const statusColor = orderRow.status === 'approved' ? '#10B981' : '#EF4444';
+  const svg =
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 150'>` +
+    `<rect width='360' height='150' rx='8' fill='#18181b'/>` +
+    `<text x='16' y='32' fill='${statusColor}' font-size='15' font-weight='bold'>${statusLabel}</text>` +
+    `<text x='344' y='32' fill='#a1a1aa' font-size='11' text-anchor='end'>SLIP_ARCHIVED_ON_VPS</text>` +
+    `<text x='16' y='64' fill='#fff' font-size='14'>${ref} · ${total} THB</text>` +
+    `<text x='16' y='92' fill='#d4d4d8' font-size='12'>${holder}</text>` +
+    `<text x='16' y='124' fill='#71717a' font-size='11'>SHA256:${shortHash}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function getSlipStorageStats() {
+  const row = db.prepare(`
+    SELECT
+      COUNT(*) AS totalOrders,
+      COALESCE(SUM(CASE WHEN slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500 THEN 1 ELSE 0 END), 0) AS rawSlipCount,
+      COALESCE(SUM(CASE WHEN slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500 THEN LENGTH(slip_data) ELSE 0 END), 0) AS rawSlipBytes,
+      COALESCE(SUM(CASE WHEN status IN ('approved', 'rejected') AND (slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500) THEN 1 ELSE 0 END), 0) AS cleanableSlipCount,
+      COALESCE(SUM(CASE WHEN status IN ('approved', 'rejected') AND (slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500) THEN LENGTH(slip_data) ELSE 0 END), 0) AS cleanableSlipBytes
+    FROM orders
+  `).get() || {};
+  return {
+    totalOrders: Number(row.totalOrders || 0),
+    rawSlipCount: Number(row.rawSlipCount || 0),
+    rawSlipKB: Math.round(Number(row.rawSlipBytes || 0) / 1024),
+    cleanableSlipCount: Number(row.cleanableSlipCount || 0),
+    cleanableSlipKB: Math.round(Number(row.cleanableSlipBytes || 0) / 1024)
+  };
+}
+
+function cleanupReviewedSlips({ olderThanDays = 0 } = {}) {
+  const days = Math.max(0, Number(olderThanDays || 0));
+  const cutoff = days > 0 ? Date.now() - days * 86400000 : null;
+  const rows = cutoff !== null
+    ? db.prepare(`
+        SELECT ref, total, holder_name, slip_hash, status, slip_data, slip_mime, issued_at
+        FROM orders
+        WHERE status IN ('approved', 'rejected')
+          AND (slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500)
+          AND issued_at <= ?
+      `).all(cutoff)
+    : db.prepare(`
+        SELECT ref, total, holder_name, slip_hash, status, slip_data, slip_mime, issued_at
+        FROM orders
+        WHERE status IN ('approved', 'rejected')
+          AND (slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500)
+      `).all();
+
+  let cleanedCount = 0;
+  let freedBytes = 0;
+  if (rows.length > 0) {
+    const updateStmt = db.prepare(`UPDATE orders SET slip_mime = 'image/svg+xml', slip_data = ? WHERE ref = ?`);
+    db.exec('BEGIN');
+    try {
+      for (const row of rows) {
+        const archivedSvg = buildCleanedSlipSvgDataUrl(row);
+        const beforeBytes = Buffer.byteLength(String(row.slip_data || ''), 'utf8');
+        const afterBytes = Buffer.byteLength(archivedSvg, 'utf8');
+        updateStmt.run(archivedSvg, row.ref);
+        cleanedCount += 1;
+        freedBytes += Math.max(0, beforeBytes - afterBytes);
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    try {
+      db.exec('PRAGMA wal_checkpoint(TRUNCATE); VACUUM;');
+    } catch (_) {}
+  }
+
+  return {
+    ok: true,
+    cleanedCount,
+    freedKB: Math.max(0, Math.round(freedBytes / 1024)),
+    stats: getSlipStorageStats()
+  };
+}
+
+function listDbBackups({ backupDir = BACKUPS_DIR } = {}) {
+  if (!fs.existsSync(backupDir)) return [];
+  const entries = fs.readdirSync(backupDir);
+  const files = [];
+  for (const name of entries) {
+    if (!/^tickets-backup-.*\.(db|sqlite|json)$/i.test(name)) continue;
+    const fullPath = path.join(backupDir, name);
+    try {
+      const st = fs.statSync(fullPath);
+      if (!st.isFile()) continue;
+      files.push({
+        fileName: name,
+        sizeKB: Math.max(1, Math.round(st.size / 1024)),
+        updatedAt: st.mtimeMs
+      });
+    } catch (_) {}
+  }
+  files.sort((a, b) => {
+    const cmp = b.fileName.localeCompare(a.fileName);
+    return cmp !== 0 ? cmp : b.updatedAt - a.updatedAt;
+  });
+  return files;
+}
+
+function createDailyDbBackup({ backupDir = BACKUPS_DIR, force = false, maxKeep = 7, dateStr } = {}) {
+  fs.mkdirSync(backupDir, { recursive: true });
+  const day = dateStr || new Date().toISOString().slice(0, 10);
+  const fileName = `tickets-backup-${day}.db`;
+  const targetPath = path.join(backupDir, fileName);
+
+  if (!force && fs.existsSync(targetPath)) {
+    try {
+      const st = fs.statSync(targetPath);
+      if (st.isFile() && st.size > 0) {
+        return {
+          ok: true,
+          skipped: true,
+          fileName,
+          sizeKB: Math.max(1, Math.round(st.size / 1024)),
+          backups: listDbBackups({ backupDir })
+        };
+      }
+    } catch (_) {}
+  }
+
+  if (fs.existsSync(targetPath)) {
+    fs.unlinkSync(targetPath);
+  }
+
+  try {
+    db.exec(`VACUUM INTO '${targetPath.replace(/'/g, "''")}'`);
+  } catch (vacErr) {
+    if (!isUnitTest && dbPath !== ':memory:' && fs.existsSync(dbPath)) {
+      try {
+        db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+      } catch (_) {}
+      fs.copyFileSync(dbPath, targetPath);
+    } else {
+      throw vacErr;
+    }
+  }
+
+  const keepLimit = Math.max(1, Number(maxKeep || 7));
+  const currentBackups = listDbBackups({ backupDir });
+  if (currentBackups.length > keepLimit) {
+    for (const stale of currentBackups.slice(keepLimit)) {
+      try {
+        fs.unlinkSync(path.join(backupDir, stale.fileName));
+      } catch (_) {}
+    }
+  }
+
+  const finalStat = fs.statSync(targetPath);
+  return {
+    ok: true,
+    skipped: false,
+    fileName,
+    sizeKB: Math.max(1, Math.round(finalStat.size / 1024)),
+    backups: listDbBackups({ backupDir })
+  };
+}
+
+function exportRawSqliteBuffer() {
+  const tmpPath = path.join(os.tmpdir(), `tickets-export-${Date.now()}-${process.pid}.db`);
+  try {
+    if (fs.existsSync(tmpPath)) {
+      fs.unlinkSync(tmpPath);
+    }
+    db.exec(`VACUUM INTO '${tmpPath.replace(/'/g, "''")}'`);
+    return fs.readFileSync(tmpPath);
+  } finally {
+    try {
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+    } catch (_) {}
+  }
+}
+
 function clearAllForTest() {
   db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events; DELETE FROM seat_holds;`);
   setSetting('deleted_event_ids', '[]');
@@ -1907,6 +2095,11 @@ module.exports = {
   getGateThroughputMonitor,
   computeTicketSignature,
   buildSignedQrPayload,
+  getSlipStorageStats,
+  cleanupReviewedSlips,
+  listDbBackups,
+  createDailyDbBackup,
+  exportRawSqliteBuffer,
   postgres
 };
 

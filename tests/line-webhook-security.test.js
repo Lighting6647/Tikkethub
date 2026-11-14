@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { computeLineSignature, validateLineWebhookSignature } = require('../backend/line');
 const db = require('../backend/db');
 const requestHandler = require('../server');
@@ -322,4 +325,160 @@ test('GET /api/admin/system-health and POST /api/admin/line/webhook-ping work wi
   assert.equal(pingWithSecret.json.signatureConfigured, true);
   assert.equal(pingWithSecret.json.signatureVerified, true);
   assert.equal(pingWithSecret.json.webhookPath, '/api/line/webhook');
+  assert.ok(Array.isArray(healthRes.json.backups));
+  assert.equal(typeof healthRes.json.slipStats, 'object');
+});
+
+test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed slip cleanup', async () => {
+  function mockBinaryReqRes({ method, path: reqPath, headers = {}, body = '' }) {
+    const stream = new (require('node:stream').Readable)();
+    stream.push(body);
+    stream.push(null);
+    stream.method = method;
+    stream.url = reqPath;
+    stream.headers = headers;
+
+    return new Promise((resolve) => {
+      let statusCode = 200;
+      const resHeaders = {};
+      const chunks = [];
+
+      const res = {
+        writeHead: (code, hdrs) => {
+          statusCode = code;
+          if (hdrs) {
+            for (const [k, v] of Object.entries(hdrs)) {
+              resHeaders[k.toLowerCase()] = v;
+              resHeaders[k] = v;
+            }
+          }
+        },
+        setHeader: (name, val) => {
+          resHeaders[name.toLowerCase()] = val;
+          resHeaders[name] = val;
+        },
+        end: (data) => {
+          if (data) {
+            chunks.push(Buffer.isBuffer(data) ? data : Buffer.from(String(data)));
+          }
+          const buffer = Buffer.concat(chunks);
+          const bodyStr = buffer.toString('utf8');
+          let json = null;
+          try { json = JSON.parse(bodyStr); } catch (_) {}
+          resolve({ statusCode, headers: resHeaders, buffer, body: bodyStr, json });
+        }
+      };
+
+      requestHandler(stream, res);
+    });
+  }
+
+  // 1. Test Daily Backup & 7-Day Pruning in isolated temp folder
+  const tempBackupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tt-daily-backup-'));
+  try {
+    for (let day = 1; day <= 9; day++) {
+      const dateStr = `2026-11-0${day}`;
+      const r = db.createDailyDbBackup({ backupDir: tempBackupDir, maxKeep: 7, dateStr });
+      assert.equal(r.ok, true);
+      assert.equal(r.skipped, false);
+    }
+    const kept = db.listDbBackups({ backupDir: tempBackupDir });
+    assert.equal(kept.length, 7);
+    assert.equal(kept[0].fileName, 'tickets-backup-2026-11-09.db');
+    assert.equal(kept[kept.length - 1].fileName, 'tickets-backup-2026-11-03.db');
+
+    const skipRes = db.createDailyDbBackup({ backupDir: tempBackupDir, maxKeep: 7, dateStr: '2026-11-09', force: false });
+    assert.equal(skipRes.skipped, true);
+
+    const forceRes = db.createDailyDbBackup({ backupDir: tempBackupDir, maxKeep: 7, dateStr: '2026-11-09', force: true });
+    assert.equal(forceRes.skipped, false);
+    const snapshotBuf = fs.readFileSync(path.join(tempBackupDir, 'tickets-backup-2026-11-09.db'));
+    assert.equal(snapshotBuf.subarray(0, 16).toString('utf8'), 'SQLite format 3\0');
+  } finally {
+    fs.rmSync(tempBackupDir, { recursive: true, force: true });
+  }
+
+  const adminToken = createAdminToken('admin');
+  const staffToken = createAdminToken('gate_staff');
+
+  // 2. Test GET /api/admin/db/download-sqlite
+  const unauthDl = await mockBinaryReqRes({ method: 'GET', path: '/api/admin/db/download-sqlite' });
+  assert.equal(unauthDl.statusCode, 401);
+  assert.equal(unauthDl.json.unauthorized, true);
+
+  const authDl = await mockBinaryReqRes({
+    method: 'GET',
+    path: '/api/admin/db/download-sqlite',
+    headers: { cookie: `tt_admin_session=${adminToken}` }
+  });
+  assert.equal(authDl.statusCode, 200);
+  assert.equal(authDl.headers['content-type'], 'application/vnd.sqlite3');
+  assert.match(authDl.headers['content-disposition'], /attachment; filename="tickets-backup-\d{4}-\d{2}-\d{2}\.db"/);
+  assert.equal(authDl.buffer.subarray(0, 16).toString('utf8'), 'SQLite format 3\0');
+
+  // 3. Test POST /api/admin/db/cleanup-slips (compacts approved/rejected, leaves pending intact)
+  const makeLargePngSlip = (tag) => `data:image/png;base64,${Buffer.alloc(3600, tag).toString('base64')}`;
+  const approvedOrd = db.createOrder({
+    title: 'TEST CLEANUP SHOW',
+    date: '14 พ.ย. 2026',
+    venue: 'Impact Arena',
+    zone: 'VIP Standing',
+    qty: 1,
+    unitPrice: 4500,
+    total: 4500,
+    holderName: 'คุณสมชาย ทดสอบล้างสลิป',
+    holderPhone: '081-234-5678',
+    slipName: 'approved-slip.png',
+    slipMime: 'image/png',
+    slipData: makeLargePngSlip('A')
+  });
+  db.updateOrderStatus(approvedOrd.ref, { status: 'approved', lineSent: 0 });
+
+  const pendingOrd = db.createOrder({
+    title: 'TEST CLEANUP SHOW',
+    date: '14 พ.ย. 2026',
+    venue: 'Impact Arena',
+    zone: 'Zone A',
+    qty: 1,
+    unitPrice: 2500,
+    total: 2500,
+    holderName: 'คุณวิภา รอตรวจสอบ',
+    holderPhone: '089-999-8888',
+    slipName: 'pending-slip.png',
+    slipMime: 'image/png',
+    slipData: makeLargePngSlip('P')
+  });
+
+  // Gate staff should be forbidden from cleanup or backup
+  const staffCleanup = await mockBinaryReqRes({
+    method: 'POST',
+    path: '/api/admin/db/cleanup-slips',
+    headers: { 'content-type': 'application/json', cookie: `tt_admin_session=${staffToken}` },
+    body: '{}'
+  });
+  assert.equal(staffCleanup.json.forbidden, true);
+
+  // Full admin triggers cleanup
+  const cleanRes = await mockBinaryReqRes({
+    method: 'POST',
+    path: '/api/admin/db/cleanup-slips',
+    headers: { 'content-type': 'application/json', cookie: `tt_admin_session=${adminToken}` },
+    body: JSON.stringify({ olderThanDays: 0 })
+  });
+  assert.equal(cleanRes.statusCode, 200);
+  assert.equal(cleanRes.json.ok, true);
+  assert.ok(cleanRes.json.cleanedCount >= 1);
+  assert.ok(cleanRes.json.freedKB >= 1);
+
+  const afterApproved = db.getOrder(approvedOrd.ref);
+  assert.equal(afterApproved.slipMime, 'image/svg+xml');
+  assert.ok(afterApproved.slipData.startsWith('data:image/svg+xml;utf8,'));
+  assert.ok(Buffer.byteLength(afterApproved.slipData, 'utf8') < 1024, 'Cleaned SVG certificate should stay under 1 KB');
+  assert.equal(afterApproved.slipHash, approvedOrd.slipHash);
+  assert.equal(afterApproved.total, approvedOrd.total);
+  assert.equal(afterApproved.holderName, approvedOrd.holderName);
+
+  const afterPending = db.getOrder(pendingOrd.ref);
+  assert.equal(afterPending.slipMime, 'image/png');
+  assert.equal(afterPending.slipData, pendingOrd.slipData);
 });

@@ -3416,6 +3416,21 @@
       if ($('vpsStep3RamUsage')) {
         $('vpsStep3RamUsage').textContent = `${data.memoryRssMB} MB`;
       }
+      if ($('vpsStep3LastBackup')) {
+        if (Array.isArray(data.backups) && data.backups.length > 0) {
+          const latest = data.backups[0];
+          $('vpsStep3LastBackup').textContent = `${latest.fileName} (${latest.sizeKB} KB · เก็บ ${data.backups.length}/7 วัน)`;
+        } else {
+          $('vpsStep3LastBackup').textContent = 'ยังไม่มีสแนปช็อต';
+        }
+      }
+      if ($('vpsStep3SlipStats')) {
+        if (data.slipStats) {
+          $('vpsStep3SlipStats').textContent = `${data.slipStats.rawSlipCount} รูป (${data.slipStats.rawSlipKB} KB · ล้างได้ ${data.slipStats.cleanableSlipCount} รายการ)`;
+        } else {
+          $('vpsStep3SlipStats').textContent = '-';
+        }
+      }
       if (dotEl) {
         const dotColor = data.isVpsPersistent || data.postgresConnected ? '#10B981' : '#FFB300';
         dotEl.style.background = dotColor;
@@ -3435,6 +3450,111 @@
       return data;
     } catch (_) {
       return null;
+    }
+  }
+
+  function setStep3ToolStatus(message, color = 'var(--color-accent)') {
+    const statusEl = $('driveTestStatus');
+    if (!statusEl) return;
+    statusEl.hidden = false;
+    statusEl.style.color = color;
+    statusEl.textContent = message;
+  }
+
+  async function downloadSqliteDatabase() {
+    const btn = $('btnDownloadSqliteDb');
+    if (btn) btn.disabled = true;
+    setStep3ToolStatus('⏳ กำลังสร้างสแนปช็อตฐานข้อมูล .db เพื่อดาวน์โหลด...');
+    try {
+      const res = await fetch('/api/admin/db/download-sqlite', { headers: getAuthHeaders() });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'ดาวน์โหลดไฟล์ฐานข้อมูลไม่สำเร็จ');
+      }
+      const blob = await res.blob();
+      const day = new Date().toISOString().slice(0, 10);
+      const fileName = `tickets-backup-${day}.db`;
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      const sizeKB = Math.max(1, Math.round(blob.size / 1024));
+      setStep3ToolStatus(`✔ ดาวน์โหลดไฟล์ ${fileName} (${sizeKB} KB) เรียบร้อยแล้ว`, '#68D391');
+      if (window.UI && window.UI.toast) {
+        window.UI.toast(`ดาวน์โหลดฐานข้อมูล ${fileName} (${sizeKB} KB) สำเร็จ`);
+      }
+    } catch (err) {
+      setStep3ToolStatus(`เกิดข้อผิดพลาด: ${err.message}`, '#FF6B6B');
+      if (window.UI && window.UI.toast) {
+        window.UI.toast(err.message || 'ดาวน์โหลดไม่สำเร็จ', 'error');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function triggerVpsBackupNow() {
+    const btn = $('btnCreateVpsBackupNow');
+    if (btn) btn.disabled = true;
+    setStep3ToolStatus('⏳ กำลังสำรองฐานข้อมูลเก็บไว้บน VPS (SQLite VACUUM INTO)...');
+    try {
+      const res = await fetch('/api/admin/db/backup-now', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'สำรองฐานข้อมูลบน VPS ไม่สำเร็จ');
+      }
+      await loadSystemHealth(false);
+      const totalKept = Array.isArray(data.backups) ? data.backups.length : 1;
+      setStep3ToolStatus(`✔ สำรองไฟล์ ${data.fileName} (${data.sizeKB} KB) บน VPS แล้ว · เก็บล่าสุด ${totalKept}/7 วัน`, '#68D391');
+      if (window.UI && window.UI.toast) {
+        window.UI.toast(`สำรองฐานข้อมูลบน VPS (${data.fileName}) สำเร็จ`);
+      }
+    } catch (err) {
+      setStep3ToolStatus(`เกิดข้อผิดพลาด: ${err.message}`, '#FF6B6B');
+      if (window.UI && window.UI.toast) {
+        window.UI.toast(err.message || 'สำรองฐานข้อมูลไม่สำเร็จ', 'error');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function cleanupReviewedSlipsAction() {
+    const btn = $('btnCleanupReviewedSlips');
+    if (btn) btn.disabled = true;
+    setStep3ToolStatus('⏳ กำลังบีบอัดรูปสลิปของออเดอร์ที่ตรวจแล้วและคืนพื้นที่ฐานข้อมูล...');
+    try {
+      const res = await fetch('/api/admin/db/cleanup-slips', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ olderThanDays: 0 })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'ล้างรูปสลิปเก่าไม่สำเร็จ');
+      }
+      await Promise.all([loadSystemHealth(false), loadOrders()]);
+      const msg = data.cleanedCount > 0
+        ? `✔ ล้างรูปสลิปที่ตรวจแล้ว ${data.cleanedCount} รายการ คืนพื้นที่ได้ ${data.freedKB} KB (คงประวัติยอดและรหัส SHA-256 ครบถ้วน)`
+        : '✔ ไม่มีรูปสลิปเก่าที่ต้องล้างในขณะนี้ (รายการที่รอตรวจยังเก็บภาพต้นฉบับไว้ครบถ้วน)';
+      setStep3ToolStatus(msg, '#68D391');
+      if (window.UI && window.UI.toast) {
+        window.UI.toast(data.cleanedCount > 0 ? `ล้างรูปสลิปแล้ว ${data.cleanedCount} รายการ (${data.freedKB} KB)` : 'ไม่พบรูปสลิปที่ต้องล้าง');
+      }
+    } catch (err) {
+      setStep3ToolStatus(`เกิดข้อผิดพลาด: ${err.message}`, '#FF6B6B');
+      if (window.UI && window.UI.toast) {
+        window.UI.toast(err.message || 'ล้างรูปสลิปไม่สำเร็จ', 'error');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -4970,6 +5090,15 @@
     }
     if ($('btnTestDrive')) {
       $('btnTestDrive').addEventListener('click', testDriveConnection);
+    }
+    if ($('btnDownloadSqliteDb')) {
+      $('btnDownloadSqliteDb').addEventListener('click', downloadSqliteDatabase);
+    }
+    if ($('btnCreateVpsBackupNow')) {
+      $('btnCreateVpsBackupNow').addEventListener('click', triggerVpsBackupNow);
+    }
+    if ($('btnCleanupReviewedSlips')) {
+      $('btnCleanupReviewedSlips').addEventListener('click', cleanupReviewedSlipsAction);
     }
     if ($('btnTestSlip')) {
       $('btnTestSlip').addEventListener('click', testSlipVerification);
