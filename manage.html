@@ -791,7 +791,12 @@
               <span>🕒 สำรองบน VPS ล่าสุด: <strong id="vpsStep3LastBackup">กำลังเช็ก...</strong></span>
               <span>🖼️ รูปสลิปใน DB: <strong id="vpsStep3SlipStats">กำลังเช็ก...</strong></span>
             </div>
-            <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;">
+            <div style="margin-top:12px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+              <select id="vpsExcelExportFilter" class="input-field" style="font-size:11px; padding:4px 8px; width:auto; min-width:210px; height:auto;">
+                <option value="all">📋 ทุกรอบการแสดง (ข้อมูลทั้งหมด)</option>
+                <option value="status:approved">✅ เฉพาะออเดอร์อนุมัติแล้ว (ปิดยอดบัญชี)</option>
+                <option value="status:pending">⏳ เฉพาะออเดอร์รอตรวจสลิป</option>
+              </select>
               <button type="button" class="btn-outline" id="btnDownloadSqliteDb" style="font-size:11px; padding:5px 10px; border-color:rgba(56,189,248,0.45); color:#38BDF8;">📊 ดาวน์โหลดฐานข้อมูล (Excel .xlsx)</button>
               <button type="button" class="btn-outline" id="btnCreateVpsBackupNow" style="font-size:11px; padding:5px 10px; border-color:rgba(16,185,129,0.45); color:#10B981;">💾 สำรองเก็บไว้บน VPS ทันที (เก็บ 7 วัน)</button>
               <button type="button" class="btn-outline" id="btnCleanupReviewedSlips" style="font-size:11px; padding:5px 10px; border-color:rgba(245,158,11,0.45); color:#FBBF24;">🧹 ล้างรูปสลิปที่ตรวจแล้ว (คืนพื้นที่ VPS)</button>
@@ -1370,6 +1375,6 @@
 
   <script src="js/ui.js"></script>
   <script src="js/vendor/jsQR.js"></script>
-  <script src="js/admin.js?v=20261114_vps_excel"></script>
+  <script src="js/admin.js?v=20261114_excel_pro"></script>
 </body>
 </html>

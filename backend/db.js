@@ -2140,6 +2140,17 @@ function buildZipArchive(entries) {
   return Buffer.concat([...localParts, centralDirBuf, eocd]);
 }
 
+function sanitizeSpreadsheetCell(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const str = String(value ?? '');
+  if (!str || str === '-') return str;
+  const trimmed = str.replace(/^[\t\r\n ]+/, '');
+  if (/^[=+\-@]/.test(trimmed) || /^[\t\r]/.test(str)) {
+    return `'${str.replace(/^[\t\r\n]+/, '')}`;
+  }
+  return str;
+}
+
 function escapeXml(value) {
   return String(value ?? '')
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
@@ -2179,7 +2190,8 @@ function buildWorksheetXml(rows, colWidths = []) {
             return `<c r="${ref}" s="3" t="n"><v>${val}</v></c>`;
           }
           const styleId = isHeader ? 1 : 2;
-          return `<c r="${ref}" s="${styleId}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(val)}</t></is></c>`;
+          const safeVal = isHeader ? val : sanitizeSpreadsheetCell(val);
+          return `<c r="${ref}" s="${styleId}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(safeVal)}</t></is></c>`;
         })
         .join('');
       return `<row r="${rowNum}"${isHeader ? ' ht="24" customHeight="1"' : ''}>${cellsXml}</row>`;
@@ -2201,10 +2213,21 @@ function buildWorksheetXml(rows, colWidths = []) {
   );
 }
 
-function exportDatabaseExcelBuffer() {
-  const orders = listOrders({ includeSlipData: false });
-  const events = listEventsWithQuota();
+function exportDatabaseExcelBuffer(options = {}) {
+  const eventTitleFilter = String((options && options.eventTitle) || '').trim();
+  const statusFilter = String((options && options.status) || 'all').trim();
+
+  let orders = listOrders({ includeSlipData: false });
+  let events = listEventsWithQuota();
   const auditLogs = listAuditLogs(500);
+
+  if (eventTitleFilter && eventTitleFilter !== 'all') {
+    orders = orders.filter((o) => String(o.title || '').trim() === eventTitleFilter);
+    events = events.filter((ev) => String(ev.title || '').trim() === eventTitleFilter);
+  }
+  if (statusFilter && statusFilter !== 'all') {
+    orders = orders.filter((o) => o.status === statusFilter);
+  }
 
   const statusText = (s) => (s === 'approved' ? 'อนุมัติแล้ว' : s === 'rejected' ? 'ปฏิเสธแล้ว' : 'รอตรวจสอบ');
   const lineText = (m) => (m === 1 ? 'ส่งเข้า LINE สำเร็จ' : m === 2 ? 'พร้อมส่ง (พรีวิว)' : 'ยังไม่ส่ง');
@@ -2255,6 +2278,138 @@ function exportDatabaseExcelBuffer() {
       o.checkedInAt > 0 ? `เข้างานแล้ว (${fmtTime(o.checkedInAt)}${o.checkedInBy ? ` · ${o.checkedInBy}` : ''})` : 'ยังไม่เข้างาน',
       fmtTime(o.issuedAt)
     ])
+  ];
+
+  // Sheet 2: Accounting Summary Sheet (สรุปยอดบัญชี)
+  const acctMap = new Map();
+  for (const o of orders) {
+    const title = String(o.title || '-').trim();
+    const zone = String(o.zone || '-').trim();
+    const key = `${title}|||${zone}`;
+    if (!acctMap.has(key)) {
+      acctMap.set(key, {
+        title,
+        zone,
+        totalOrders: 0,
+        approvedOrders: 0,
+        pendingOrders: 0,
+        rejectedOrders: 0,
+        approvedTickets: 0,
+        grossTHB: 0,
+        discountTHB: 0,
+        netApprovedTHB: 0,
+        pendingTHB: 0,
+        checkedInTickets: 0
+      });
+    }
+    const g = acctMap.get(key);
+    g.totalOrders += 1;
+    const net = Number(o.total || 0);
+    const disc = Number(o.discountAmount || 0);
+    const qty = Number(o.qty || 0);
+    if (o.status === 'approved') {
+      g.approvedOrders += 1;
+      g.approvedTickets += qty;
+      g.grossTHB += net + disc;
+      g.discountTHB += disc;
+      g.netApprovedTHB += net;
+      if (o.checkedInAt > 0) g.checkedInTickets += qty;
+    } else if (o.status === 'pending') {
+      g.pendingOrders += 1;
+      g.pendingTHB += net;
+    } else if (o.status === 'rejected') {
+      g.rejectedOrders += 1;
+    }
+  }
+
+  if (acctMap.size === 0 && events.length > 0) {
+    for (const ev of events) {
+      acctMap.set(`${ev.title}|||ทุกโซน`, {
+        title: ev.title,
+        zone: 'ทุกโซน',
+        totalOrders: 0,
+        approvedOrders: 0,
+        pendingOrders: 0,
+        rejectedOrders: 0,
+        approvedTickets: 0,
+        grossTHB: 0,
+        discountTHB: 0,
+        netApprovedTHB: 0,
+        pendingTHB: 0,
+        checkedInTickets: 0
+      });
+    }
+  }
+
+  let grandTotalOrders = 0;
+  let grandApprovedOrders = 0;
+  let grandPendingOrders = 0;
+  let grandRejectedOrders = 0;
+  let grandApprovedTickets = 0;
+  let grandGrossTHB = 0;
+  let grandDiscountTHB = 0;
+  let grandNetApprovedTHB = 0;
+  let grandPendingTHB = 0;
+  let grandCheckedInTickets = 0;
+
+  const accountingDataRows = [];
+  for (const g of acctMap.values()) {
+    grandTotalOrders += g.totalOrders;
+    grandApprovedOrders += g.approvedOrders;
+    grandPendingOrders += g.pendingOrders;
+    grandRejectedOrders += g.rejectedOrders;
+    grandApprovedTickets += g.approvedTickets;
+    grandGrossTHB += g.grossTHB;
+    grandDiscountTHB += g.discountTHB;
+    grandNetApprovedTHB += g.netApprovedTHB;
+    grandPendingTHB += g.pendingTHB;
+    grandCheckedInTickets += g.checkedInTickets;
+    accountingDataRows.push([
+      g.title,
+      g.zone,
+      g.totalOrders,
+      g.approvedOrders,
+      g.pendingOrders,
+      g.rejectedOrders,
+      g.approvedTickets,
+      g.grossTHB,
+      g.discountTHB,
+      g.netApprovedTHB,
+      g.pendingTHB,
+      g.checkedInTickets
+    ]);
+  }
+
+  const accountingRows = [
+    [
+      'คอนเสิร์ต / รายการสรุป',
+      'โซนที่นั่ง',
+      'ออเดอร์ทั้งหมด',
+      'อนุมัติแล้ว (รายการ)',
+      'รอตรวจ (รายการ)',
+      'ปฏิเสธ (รายการ)',
+      'บัตรที่อนุมัติ (ใบ)',
+      'ยอดก่อนส่วนลด (THB)',
+      'ส่วนลดรวม (THB)',
+      'รายได้สุทธิที่อนุมัติ (THB)',
+      'ยอดรอตรวจสอบ (THB)',
+      'เช็กอินเข้างานแล้ว (ใบ)'
+    ],
+    ...accountingDataRows,
+    [
+      'รวมสุทธิทั้งหมด (GRAND TOTAL)',
+      'ทุกโซนรวมกัน',
+      grandTotalOrders,
+      grandApprovedOrders,
+      grandPendingOrders,
+      grandRejectedOrders,
+      grandApprovedTickets,
+      grandGrossTHB,
+      grandDiscountTHB,
+      grandNetApprovedTHB,
+      grandPendingTHB,
+      grandCheckedInTickets
+    ]
   ];
 
   const eventsRows = [
@@ -2308,10 +2463,13 @@ function exportDatabaseExcelBuffer() {
   const sheet1Xml = buildWorksheetXml(ordersRows, [
     16, 30, 18, 26, 16, 22, 12, 16, 14, 16, 24, 16, 22, 34, 15, 28, 36, 20, 28, 22
   ]);
-  const sheet2Xml = buildWorksheetXml(eventsRows, [
+  const sheet2Xml = buildWorksheetXml(accountingRows, [
+    34, 20, 16, 18, 16, 16, 18, 20, 16, 22, 20, 20
+  ]);
+  const sheet3Xml = buildWorksheetXml(eventsRows, [
     12, 32, 18, 26, 16, 14, 14, 12, 16, 12, 12, 16, 12, 12, 16, 12, 12, 16
   ]);
-  const sheet3Xml = buildWorksheetXml(logsRows, [22, 24, 18, 56, 18]);
+  const sheet4Xml = buildWorksheetXml(logsRows, [22, 24, 18, 56, 18]);
 
   const contentTypesXml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -2323,6 +2481,7 @@ function exportDatabaseExcelBuffer() {
     `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
     `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
     `<Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+    `<Override PartName="/xl/worksheets/sheet4.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
     `</Types>`;
 
   const rootRelsXml =
@@ -2336,8 +2495,9 @@ function exportDatabaseExcelBuffer() {
     `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
     `<sheets>` +
     `<sheet name="คำสั่งซื้อและสลิป" sheetId="1" r:id="rId1"/>` +
-    `<sheet name="คอนเสิร์ตและโควตา" sheetId="2" r:id="rId2"/>` +
-    `<sheet name="ประวัติระบบ" sheetId="3" r:id="rId3"/>` +
+    `<sheet name="สรุปยอดบัญชี" sheetId="2" r:id="rId2"/>` +
+    `<sheet name="คอนเสิร์ตและโควตา" sheetId="3" r:id="rId3"/>` +
+    `<sheet name="ประวัติระบบ" sheetId="4" r:id="rId4"/>` +
     `</sheets>` +
     `</workbook>`;
 
@@ -2347,7 +2507,8 @@ function exportDatabaseExcelBuffer() {
     `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
     `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>` +
     `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/>` +
-    `<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+    `<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet4.xml"/>` +
+    `<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
     `</Relationships>`;
 
   const stylesXml =
@@ -2383,7 +2544,8 @@ function exportDatabaseExcelBuffer() {
     { name: 'xl/styles.xml', data: stylesXml },
     { name: 'xl/worksheets/sheet1.xml', data: sheet1Xml },
     { name: 'xl/worksheets/sheet2.xml', data: sheet2Xml },
-    { name: 'xl/worksheets/sheet3.xml', data: sheet3Xml }
+    { name: 'xl/worksheets/sheet3.xml', data: sheet3Xml },
+    { name: 'xl/worksheets/sheet4.xml', data: sheet4Xml }
   ]);
 }
 
@@ -2437,6 +2599,7 @@ module.exports = {
   createDailyDbBackup,
   exportRawSqliteBuffer,
   exportDatabaseExcelBuffer,
+  sanitizeSpreadsheetCell,
   postgres
 };
 

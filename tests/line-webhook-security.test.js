@@ -504,4 +504,23 @@ test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed 
   assert.ok(authExcel.buffer.includes(Buffer.from('xl/worksheets/sheet1.xml', 'utf8')));
   assert.ok(authExcel.buffer.includes(Buffer.from('คำสั่งซื้อและสลิป', 'utf8')));
   assert.ok(authExcel.buffer.includes(Buffer.from(approvedOrd.ref, 'utf8')));
+
+  // 5. Test Formula Injection Guard, 4th Sheet (Accounting Summary), and Filtered Excel Export
+  assert.equal(db.sanitizeSpreadsheetCell('=CMD|"/c calc"!A0'), '\'=CMD|"/c calc"!A0');
+  assert.equal(db.sanitizeSpreadsheetCell('+SUM(A1:A2)'), '\'+SUM(A1:A2)');
+  assert.equal(db.sanitizeSpreadsheetCell('@HYPERLINK("http://evil")'), '\'@HYPERLINK("http://evil")');
+  assert.equal(db.sanitizeSpreadsheetCell('-'), '-');
+  assert.equal(db.sanitizeSpreadsheetCell(4500), 4500);
+
+  const filteredExcel = await mockBinaryReqRes({
+    method: 'GET',
+    path: '/api/admin/db/export-excel?status=approved',
+    headers: { cookie: `tt_admin_session=${adminToken}` }
+  });
+  assert.equal(filteredExcel.statusCode, 200);
+  assert.ok(filteredExcel.buffer.includes(Buffer.from('สรุปยอดบัญชี', 'utf8')));
+  assert.ok(filteredExcel.buffer.includes(Buffer.from('xl/worksheets/sheet4.xml', 'utf8')));
+  assert.ok(filteredExcel.buffer.includes(Buffer.from('GRAND TOTAL', 'utf8')));
+  assert.ok(filteredExcel.buffer.includes(Buffer.from(approvedOrd.ref, 'utf8')));
+  assert.ok(!filteredExcel.buffer.includes(Buffer.from(pendingOrd.ref, 'utf8')), 'Approved filter must exclude pending order');
 });

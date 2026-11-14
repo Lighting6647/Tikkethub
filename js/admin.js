@@ -496,6 +496,7 @@
       }
       applyStatsToDom(stats);
       loadSystemHealth(false);
+      populateExcelEventFilterOptions();
     } catch {
       /* ignore */
     }
@@ -2874,6 +2875,7 @@
         }).catch(() => {});
       }
       loadSystemHealth(false);
+      populateExcelEventFilterOptions();
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
       if ($('settingGateStaffPinInput')) $('settingGateStaffPinInput').value = '';
@@ -3461,12 +3463,65 @@
     statusEl.textContent = message;
   }
 
+  async function populateExcelEventFilterOptions() {
+    const sel = $('vpsExcelExportFilter');
+    if (!sel) return;
+    const prevVal = sel.value || 'all';
+    let eventsList = Array.isArray(adminEventsCache) ? adminEventsCache : [];
+    if (!eventsList.length) {
+      try {
+        const res = await fetch('/api/events', { cache: 'no-store' });
+        const data = await res.json();
+        if (data && data.ok && Array.isArray(data.events)) {
+          adminEventsCache = filterDeletedEvents(data.events);
+          eventsList = adminEventsCache;
+        }
+      } catch (_) {}
+    }
+
+    sel.innerHTML = '';
+    const baseOpts = [
+      { value: 'all', label: '📋 ทุกรอบการแสดง (ข้อมูลทั้งหมด)' },
+      { value: 'status:approved', label: '✅ เฉพาะออเดอร์อนุมัติแล้ว (ปิดยอดบัญชี)' },
+      { value: 'status:pending', label: '⏳ เฉพาะออเดอร์รอตรวจสลิป' }
+    ];
+    baseOpts.forEach((o) => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      sel.appendChild(opt);
+    });
+
+    const seenTitles = new Set();
+    eventsList.forEach((ev) => {
+      const t = String((ev && ev.title) || '').trim();
+      if (!t || seenTitles.has(t)) return;
+      seenTitles.add(t);
+      const opt = document.createElement('option');
+      opt.value = `event:${t}`;
+      opt.textContent = `🎤 ${t}`;
+      sel.appendChild(opt);
+    });
+
+    const hasPrev = Array.from(sel.options).some((o) => o.value === prevVal);
+    sel.value = hasPrev ? prevVal : 'all';
+  }
+
   async function downloadSqliteDatabase() {
     const btn = $('btnDownloadSqliteDb');
     if (btn) btn.disabled = true;
-    setStep3ToolStatus('⏳ กำลังสร้างไฟล์ Excel (.xlsx) รวมข้อมูลออเดอร์และสลิปทั้งหมด...');
+    const filterEl = $('vpsExcelExportFilter');
+    const filterVal = filterEl ? filterEl.value : 'all';
+    const qs = new URLSearchParams();
+    if (filterVal.startsWith('status:')) {
+      qs.set('status', filterVal.slice(7));
+    } else if (filterVal.startsWith('event:')) {
+      qs.set('event', filterVal.slice(6));
+    }
+    const queryStr = qs.toString() ? `?${qs.toString()}` : '';
+    setStep3ToolStatus('⏳ กำลังสร้างไฟล์ Excel (.xlsx) พร้อมชีตสรุปยอดบัญชี...');
     try {
-      const res = await fetch('/api/admin/db/export-excel', { headers: getAuthHeaders() });
+      const res = await fetch(`/api/admin/db/export-excel${queryStr}`, { headers: getAuthHeaders() });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'ดาวน์โหลดไฟล์ Excel ไม่สำเร็จ');
@@ -3483,7 +3538,7 @@
       a.remove();
       URL.revokeObjectURL(objectUrl);
       const sizeKB = Math.max(1, Math.round(blob.size / 1024));
-      setStep3ToolStatus(`✔ ดาวน์โหลดไฟล์ Excel ${fileName} (${sizeKB} KB) เรียบร้อยแล้ว`, '#68D391');
+      setStep3ToolStatus(`✔ ดาวน์โหลดไฟล์ Excel ${fileName} (${sizeKB} KB · 4 ชีต รวมสรุปยอดบัญชี) เรียบร้อยแล้ว`, '#68D391');
       if (window.UI && window.UI.toast) {
         window.UI.toast(`ดาวน์โหลดไฟล์ Excel ${fileName} (${sizeKB} KB) สำเร็จ`);
       }
@@ -5118,6 +5173,7 @@
       loadStats();
       loadOrders();
       loadSystemHealth(false);
+      populateExcelEventFilterOptions();
       window.UI.toast('อัปเดตข้อมูลล่าสุดแล้ว');
     });
   }

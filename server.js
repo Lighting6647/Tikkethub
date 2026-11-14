@@ -270,7 +270,8 @@ function buildCsv(orders) {
   ];
 
   const escCsv = (val) => {
-    const s = String(val ?? '').replace(/"/g, '""');
+    const safeVal = db.sanitizeSpreadsheetCell(val);
+    const s = String(safeVal ?? '').replace(/"/g, '""');
     return `"${s}"`;
   };
 
@@ -329,7 +330,8 @@ function buildGuestListCsv(orders) {
   ];
 
   const escCsv = (val) => {
-    const s = String(val ?? '').replace(/"/g, '""');
+    const safeVal = db.sanitizeSpreadsheetCell(val);
+    const s = String(safeVal ?? '').replace(/"/g, '""');
     return `"${s}"`;
   };
 
@@ -1674,11 +1676,14 @@ async function handleApi(req, res, url) {
     if (!isAdminAuthenticated(req)) {
       return sendJson(res, 401, { ok: false, unauthorized: true });
     }
-    const buf = db.exportDatabaseExcelBuffer();
+    const eventTitle = (url.searchParams.get('event') || '').trim();
+    const status = (url.searchParams.get('status') || 'all').trim();
+    const buf = db.exportDatabaseExcelBuffer({ eventTitle, status });
     const day = new Date().toISOString().slice(0, 10);
+    const filterNote = eventTitle ? `คอนเสิร์ต "${eventTitle}"` : (status !== 'all' ? `สถานะ ${status}` : 'ข้อมูลทั้งหมด');
     db.addAuditLog({
       action: 'DB_EXCEL_DOWNLOAD',
-      detail: `ดาวน์โหลดฐานข้อมูลเป็น Excel (.xlsx) ขนาด ${Math.max(1, Math.round(buf.length / 1024))} KB`,
+      detail: `ดาวน์โหลดฐานข้อมูลเป็น Excel (.xlsx) [${filterNote}] ขนาด ${Math.max(1, Math.round(buf.length / 1024))} KB`,
       actor: 'Admin'
     });
     res.writeHead(200, {
