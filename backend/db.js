@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
+const zlib = require('node:zlib');
 const postgres = require('./postgres');
 
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : path.join(__dirname, '..', 'data'));
@@ -2051,6 +2052,341 @@ function exportRawSqliteBuffer() {
   }
 }
 
+let crcTable = null;
+function crc32Buf(buf) {
+  if (typeof zlib.crc32 === 'function') {
+    return zlib.crc32(buf) >>> 0;
+  }
+  if (!crcTable) {
+    crcTable = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) {
+        c = c & 1 ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      crcTable[i] = c >>> 0;
+    }
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = crcTable[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function buildZipArchive(entries) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const modDate = 0x5421;
+  const modTime = 0x0000;
+
+  for (const entry of entries) {
+    const nameBuf = Buffer.from(String(entry.name), 'utf8');
+    const dataBuf = Buffer.isBuffer(entry.data) ? entry.data : Buffer.from(String(entry.data), 'utf8');
+    const crc = crc32Buf(dataBuf);
+
+    const localHdr = Buffer.alloc(30 + nameBuf.length);
+    localHdr.writeUInt32LE(0x04034b50, 0);
+    localHdr.writeUInt16LE(20, 4);
+    localHdr.writeUInt16LE(0x0800, 6);
+    localHdr.writeUInt16LE(0, 8);
+    localHdr.writeUInt16LE(modTime, 10);
+    localHdr.writeUInt16LE(modDate, 12);
+    localHdr.writeUInt32LE(crc, 14);
+    localHdr.writeUInt32LE(dataBuf.length, 18);
+    localHdr.writeUInt32LE(dataBuf.length, 22);
+    localHdr.writeUInt16LE(nameBuf.length, 26);
+    localHdr.writeUInt16LE(0, 28);
+    nameBuf.copy(localHdr, 30);
+
+    localParts.push(localHdr, dataBuf);
+
+    const cdHdr = Buffer.alloc(46 + nameBuf.length);
+    cdHdr.writeUInt32LE(0x02014b50, 0);
+    cdHdr.writeUInt16LE(20, 4);
+    cdHdr.writeUInt16LE(20, 6);
+    cdHdr.writeUInt16LE(0x0800, 8);
+    cdHdr.writeUInt16LE(0, 10);
+    cdHdr.writeUInt16LE(modTime, 12);
+    cdHdr.writeUInt16LE(modDate, 14);
+    cdHdr.writeUInt32LE(crc, 16);
+    cdHdr.writeUInt32LE(dataBuf.length, 20);
+    cdHdr.writeUInt32LE(dataBuf.length, 24);
+    cdHdr.writeUInt16LE(nameBuf.length, 28);
+    cdHdr.writeUInt16LE(0, 30);
+    cdHdr.writeUInt16LE(0, 32);
+    cdHdr.writeUInt16LE(0, 34);
+    cdHdr.writeUInt16LE(0, 36);
+    cdHdr.writeUInt32LE(0, 38);
+    cdHdr.writeUInt32LE(offset, 42);
+    nameBuf.copy(cdHdr, 46);
+
+    centralParts.push(cdHdr);
+    offset += localHdr.length + dataBuf.length;
+  }
+
+  const centralDirBuf = Buffer.concat(centralParts);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(centralDirBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, centralDirBuf, eocd]);
+}
+
+function escapeXml(value) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function colIndexToLetters(index) {
+  let n = index;
+  let letters = '';
+  while (n >= 0) {
+    letters = String.fromCharCode((n % 26) + 65) + letters;
+    n = Math.floor(n / 26) - 1;
+  }
+  return letters;
+}
+
+function buildWorksheetXml(rows, colWidths = []) {
+  const maxCols = Math.max(1, colWidths.length, ...rows.map((r) => r.length));
+  const colsXml = colWidths.length
+    ? `<cols>${colWidths
+        .map((w, idx) => `<col min="${idx + 1}" max="${idx + 1}" width="${Number(w || 18)}" customWidth="1"/>`)
+        .join('')}</cols>`
+    : '';
+
+  const rowsXml = rows
+    .map((row, rIdx) => {
+      const rowNum = rIdx + 1;
+      const isHeader = rIdx === 0;
+      const cellsXml = row
+        .map((val, cIdx) => {
+          const ref = `${colIndexToLetters(cIdx)}${rowNum}`;
+          if (!isHeader && typeof val === 'number' && Number.isFinite(val)) {
+            return `<c r="${ref}" s="3" t="n"><v>${val}</v></c>`;
+          }
+          const styleId = isHeader ? 1 : 2;
+          return `<c r="${ref}" s="${styleId}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(val)}</t></is></c>`;
+        })
+        .join('');
+      return `<row r="${rowNum}"${isHeader ? ' ht="24" customHeight="1"' : ''}>${cellsXml}</row>`;
+    })
+    .join('');
+
+  const lastCol = colIndexToLetters(maxCols - 1);
+  const autoFilter = rows.length > 0 ? `<autoFilter ref="A1:${lastCol}${rows.length}"/>` : '';
+
+  return (
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
+    `<sheetFormatPr defaultRowHeight="19"/>` +
+    colsXml +
+    `<sheetData>${rowsXml}</sheetData>` +
+    autoFilter +
+    `</worksheet>`
+  );
+}
+
+function exportDatabaseExcelBuffer() {
+  const orders = listOrders({ includeSlipData: false });
+  const events = listEventsWithQuota();
+  const auditLogs = listAuditLogs(500);
+
+  const statusText = (s) => (s === 'approved' ? 'อนุมัติแล้ว' : s === 'rejected' ? 'ปฏิเสธแล้ว' : 'รอตรวจสอบ');
+  const lineText = (m) => (m === 1 ? 'ส่งเข้า LINE สำเร็จ' : m === 2 ? 'พร้อมส่ง (พรีวิว)' : 'ยังไม่ส่ง');
+  const fmtTime = (ts) => (ts > 0 ? new Date(Number(ts)).toLocaleString('th-TH') : '-');
+
+  const ordersRows = [
+    [
+      'รหัสการจอง (Ref)',
+      'คอนเสิร์ต',
+      'วันที่แสดง',
+      'สถานที่',
+      'โซน',
+      'เลขที่นั่ง/โต๊ะ',
+      'จำนวน (ใบ)',
+      'ราคาต่อใบ (THB)',
+      'ส่วนลด (THB)',
+      'ยอดสุทธิ (THB)',
+      'ชื่อผู้ถือบัตร',
+      'เบอร์โทรศัพท์',
+      'เลขบัตรประชาชน / Passport',
+      'LINE User ID',
+      'สถานะสลิป',
+      'รายละเอียดตรวจสลิป',
+      'รหัสสลิปซ้ำ (SHA-256)',
+      'สถานะส่ง LINE',
+      'สถานะเข้างาน (Check-in)',
+      'เวลาสั่งซื้อ'
+    ],
+    ...orders.map((o) => [
+      o.ref,
+      o.title,
+      o.date,
+      o.venue,
+      o.zone,
+      Array.isArray(o.seats) && o.seats.length ? o.seats.join(', ') : '-',
+      Number(o.qty || 0),
+      Number(o.unitPrice || 0),
+      Number(o.discountAmount || 0),
+      Number(o.total || 0),
+      o.holderName || '-',
+      String(o.holderPhone || '-'),
+      String(o.holderIdCard || '-'),
+      o.lineUserId || '-',
+      statusText(o.status),
+      o.verificationDetail || o.rejectReason || '-',
+      o.slipHash || '-',
+      lineText(o.lineSent),
+      o.checkedInAt > 0 ? `เข้างานแล้ว (${fmtTime(o.checkedInAt)}${o.checkedInBy ? ` · ${o.checkedInBy}` : ''})` : 'ยังไม่เข้างาน',
+      fmtTime(o.issuedAt)
+    ])
+  ];
+
+  const eventsRows = [
+    [
+      'Event ID',
+      'ชื่อคอนเสิร์ต',
+      'วันที่แสดง',
+      'สถานที่',
+      'สถานะรอบแสดง',
+      'ราคา VIP (THB)',
+      'คงเหลือ VIP',
+      'โควตา VIP',
+      'ราคา Zone A (THB)',
+      'คงเหลือ A',
+      'โควตา A',
+      'ราคา Zone B (THB)',
+      'คงเหลือ B',
+      'โควตา B',
+      'ราคา Zone C (THB)',
+      'คงเหลือ C',
+      'โควตา C',
+      'บัตรคงเหลือรวม'
+    ],
+    ...events.map((ev) => [
+      Number(ev.id || 0),
+      ev.title,
+      ev.date,
+      ev.venue,
+      ev.badge || 'เปิดจำหน่าย',
+      Number(ev.priceVip || 0),
+      Number(ev.remainingVip || 0),
+      Number(ev.quotaVip || 0),
+      Number(ev.priceA || 0),
+      Number(ev.remainingA || 0),
+      Number(ev.quotaA || 0),
+      Number(ev.priceB || 0),
+      Number(ev.remainingB || 0),
+      Number(ev.quotaB || 0),
+      Number(ev.priceC || 0),
+      Number(ev.remainingC || 0),
+      Number(ev.quotaC || 0),
+      Number(ev.remainingTotal || 0)
+    ])
+  ];
+
+  const logsRows = [
+    ['เวลาทำรายการ', 'กิจกรรม (Action)', 'อ้างอิง (Ref)', 'รายละเอียด', 'ผู้ดำเนินการ'],
+    ...auditLogs.map((l) => [fmtTime(l.createdAt), l.action, l.targetRef || '-', l.detail, l.actor || 'Admin'])
+  ];
+
+  const sheet1Xml = buildWorksheetXml(ordersRows, [
+    16, 30, 18, 26, 16, 22, 12, 16, 14, 16, 24, 16, 22, 34, 15, 28, 36, 20, 28, 22
+  ]);
+  const sheet2Xml = buildWorksheetXml(eventsRows, [
+    12, 32, 18, 26, 16, 14, 14, 12, 16, 12, 12, 16, 12, 12, 16, 12, 12, 16
+  ]);
+  const sheet3Xml = buildWorksheetXml(logsRows, [22, 24, 18, 56, 18]);
+
+  const contentTypesXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+    `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+    `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+    `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+    `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+    `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+    `<Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+    `</Types>`;
+
+  const rootRelsXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
+    `</Relationships>`;
+
+  const workbookXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+    `<sheets>` +
+    `<sheet name="คำสั่งซื้อและสลิป" sheetId="1" r:id="rId1"/>` +
+    `<sheet name="คอนเสิร์ตและโควตา" sheetId="2" r:id="rId2"/>` +
+    `<sheet name="ประวัติระบบ" sheetId="3" r:id="rId3"/>` +
+    `</sheets>` +
+    `</workbook>`;
+
+  const workbookRelsXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+    `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>` +
+    `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/>` +
+    `<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+    `</Relationships>`;
+
+  const stylesXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    `<fonts count="2">` +
+    `<font><sz val="11"/><color rgb="FF111827"/><name val="Calibri"/></font>` +
+    `<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>` +
+    `</fonts>` +
+    `<fills count="3">` +
+    `<fill><patternFill patternType="none"/></fill>` +
+    `<fill><patternFill patternType="gray125"/></fill>` +
+    `<fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/></patternFill></fill>` +
+    `</fills>` +
+    `<borders count="2">` +
+    `<border><left/><right/><top/><bottom/><diagonal/></border>` +
+    `<border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border>` +
+    `</borders>` +
+    `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+    `<cellXfs count="4">` +
+    `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+    `<xf numFmtId="49" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` +
+    `<xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"><alignment vertical="center"/></xf>` +
+    `<xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"><alignment vertical="center"/></xf>` +
+    `</cellXfs>` +
+    `</styleSheet>`;
+
+  return buildZipArchive([
+    { name: '[Content_Types].xml', data: contentTypesXml },
+    { name: '_rels/.rels', data: rootRelsXml },
+    { name: 'xl/workbook.xml', data: workbookXml },
+    { name: 'xl/_rels/workbook.xml.rels', data: workbookRelsXml },
+    { name: 'xl/styles.xml', data: stylesXml },
+    { name: 'xl/worksheets/sheet1.xml', data: sheet1Xml },
+    { name: 'xl/worksheets/sheet2.xml', data: sheet2Xml },
+    { name: 'xl/worksheets/sheet3.xml', data: sheet3Xml }
+  ]);
+}
+
 function clearAllForTest() {
   db.exec(`DELETE FROM orders; DELETE FROM line_contacts; DELETE FROM audit_logs; DELETE FROM events; DELETE FROM seat_holds;`);
   setSetting('deleted_event_ids', '[]');
@@ -2100,6 +2436,7 @@ module.exports = {
   listDbBackups,
   createDailyDbBackup,
   exportRawSqliteBuffer,
+  exportDatabaseExcelBuffer,
   postgres
 };
 

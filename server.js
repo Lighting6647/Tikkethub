@@ -1669,6 +1669,27 @@ async function handleApi(req, res, url) {
     return res.end(buf);
   }
 
+  // Admin 1-Click Export Entire Database to Excel (.xlsx)
+  if (pathname === '/api/admin/db/export-excel' && method === 'GET') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 401, { ok: false, unauthorized: true });
+    }
+    const buf = db.exportDatabaseExcelBuffer();
+    const day = new Date().toISOString().slice(0, 10);
+    db.addAuditLog({
+      action: 'DB_EXCEL_DOWNLOAD',
+      detail: `ดาวน์โหลดฐานข้อมูลเป็น Excel (.xlsx) ขนาด ${Math.max(1, Math.round(buf.length / 1024))} KB`,
+      actor: 'Admin'
+    });
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="thaiticket-database-${day}.xlsx"`,
+      'Content-Length': String(buf.length),
+      'Cache-Control': 'no-store'
+    });
+    return res.end(buf);
+  }
+
   // Admin Trigger Daily SQLite Snapshot on VPS Now (7-day retention)
   if (pathname === '/api/admin/db/backup-now' && method === 'POST') {
     if (!isAdminAuthenticated(req)) {

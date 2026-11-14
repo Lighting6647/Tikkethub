@@ -3464,16 +3464,16 @@
   async function downloadSqliteDatabase() {
     const btn = $('btnDownloadSqliteDb');
     if (btn) btn.disabled = true;
-    setStep3ToolStatus('⏳ กำลังสร้างสแนปช็อตฐานข้อมูล .db เพื่อดาวน์โหลด...');
+    setStep3ToolStatus('⏳ กำลังสร้างไฟล์ Excel (.xlsx) รวมข้อมูลออเดอร์และสลิปทั้งหมด...');
     try {
-      const res = await fetch('/api/admin/db/download-sqlite', { headers: getAuthHeaders() });
+      const res = await fetch('/api/admin/db/export-excel', { headers: getAuthHeaders() });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'ดาวน์โหลดไฟล์ฐานข้อมูลไม่สำเร็จ');
+        throw new Error(errData.error || 'ดาวน์โหลดไฟล์ Excel ไม่สำเร็จ');
       }
       const blob = await res.blob();
       const day = new Date().toISOString().slice(0, 10);
-      const fileName = `tickets-backup-${day}.db`;
+      const fileName = `thaiticket-database-${day}.xlsx`;
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -3483,9 +3483,9 @@
       a.remove();
       URL.revokeObjectURL(objectUrl);
       const sizeKB = Math.max(1, Math.round(blob.size / 1024));
-      setStep3ToolStatus(`✔ ดาวน์โหลดไฟล์ ${fileName} (${sizeKB} KB) เรียบร้อยแล้ว`, '#68D391');
+      setStep3ToolStatus(`✔ ดาวน์โหลดไฟล์ Excel ${fileName} (${sizeKB} KB) เรียบร้อยแล้ว`, '#68D391');
       if (window.UI && window.UI.toast) {
-        window.UI.toast(`ดาวน์โหลดฐานข้อมูล ${fileName} (${sizeKB} KB) สำเร็จ`);
+        window.UI.toast(`ดาวน์โหลดไฟล์ Excel ${fileName} (${sizeKB} KB) สำเร็จ`);
       }
     } catch (err) {
       setStep3ToolStatus(`เกิดข้อผิดพลาด: ${err.message}`, '#FF6B6B');

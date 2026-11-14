@@ -481,4 +481,27 @@ test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed 
   const afterPending = db.getOrder(pendingOrd.ref);
   assert.equal(afterPending.slipMime, 'image/png');
   assert.equal(afterPending.slipData, pendingOrd.slipData);
+
+  // 4. Test GET /api/admin/db/export-excel (.xlsx OpenXML archive)
+  const unauthExcel = await mockBinaryReqRes({ method: 'GET', path: '/api/admin/db/export-excel' });
+  assert.equal(unauthExcel.statusCode, 401);
+  assert.equal(unauthExcel.json.unauthorized, true);
+
+  const authExcel = await mockBinaryReqRes({
+    method: 'GET',
+    path: '/api/admin/db/export-excel',
+    headers: { cookie: `tt_admin_session=${adminToken}` }
+  });
+  assert.equal(authExcel.statusCode, 200);
+  assert.equal(
+    authExcel.headers['content-type'],
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  assert.match(authExcel.headers['content-disposition'], /attachment; filename="thaiticket-database-\d{4}-\d{2}-\d{2}\.xlsx"/);
+  assert.equal(authExcel.buffer[0], 0x50);
+  assert.equal(authExcel.buffer[1], 0x4b);
+  assert.ok(authExcel.buffer.includes(Buffer.from('xl/workbook.xml', 'utf8')));
+  assert.ok(authExcel.buffer.includes(Buffer.from('xl/worksheets/sheet1.xml', 'utf8')));
+  assert.ok(authExcel.buffer.includes(Buffer.from('คำสั่งซื้อและสลิป', 'utf8')));
+  assert.ok(authExcel.buffer.includes(Buffer.from(approvedOrd.ref, 'utf8')));
 });
