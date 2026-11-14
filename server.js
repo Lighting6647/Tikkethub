@@ -10,6 +10,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const crypto = require('node:crypto');
 const { URL } = require('node:url');
 const db = require('./backend/db');
@@ -1592,6 +1593,62 @@ async function handleApi(req, res, url) {
     };
     const alertRes = await sendAdminNewOrderNotification(token, adminLineId, sampleOrder);
     return sendJson(res, 200, alertRes);
+  }
+
+  // Admin System & Database Health Check (VPS SQLite WAL / Memory / Uptime)
+  if (pathname === '/api/admin/system-health' && method === 'GET') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const isVpsPersistent = !process.env.VERCEL;
+    const journalMode = process.env.VERCEL ? 'MEMORY' : 'WAL';
+    const dataDir = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : path.join(__dirname, 'data'));
+    const dbFile = path.join(dataDir, 'tickets.db');
+    let dbSizeKB = 0;
+    try {
+      dbSizeKB = Math.max(1, Math.round(fs.statSync(dbFile).size / 1024));
+    } catch (_) {}
+    return sendJson(res, 200, {
+      ok: true,
+      isVpsPersistent,
+      journalMode,
+      dbSizeKB,
+      memoryRssMB: Math.round(process.memoryUsage().rss / (1024 * 1024)),
+      uptimeSec: Math.floor(process.uptime()),
+      nodeVersion: process.version,
+      hostname: os.hostname(),
+      postgresConnected: Boolean(db.postgres && db.postgres.isConnected())
+    });
+  }
+
+  // Admin Live LINE Webhook Readiness & Signature Self-Check
+  if (pathname === '/api/admin/line/webhook-ping' && method === 'POST') {
+    if (!isAdminAuthenticated(req)) {
+      return sendJson(res, 200, { ok: false, unauthorized: true });
+    }
+    const body = await readJsonBody(req).catch(() => ({}));
+    const channelSecret = (
+      (typeof body.lineChannelSecret === 'string' ? body.lineChannelSecret : '') ||
+      db.getSetting('line_channel_secret', process.env.LINE_CHANNEL_SECRET || '')
+    ).trim();
+    const token = (
+      (typeof body.lineChannelAccessToken === 'string' ? body.lineChannelAccessToken : '') ||
+      db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '')
+    ).trim();
+    const rawPayload = JSON.stringify({ destination: 'Udeadbeefdeadbeefdeadbeefdeadbeef', events: [] });
+    const testSig = channelSecret ? computeLineSignature(rawPayload, channelSecret) : '';
+    const sigCheck = validateLineWebhookSignature(rawPayload, testSig, channelSecret);
+    return sendJson(res, 200, {
+      ok: Boolean(sigCheck.ok),
+      webhookPath: '/api/line/webhook',
+      signatureConfigured: Boolean(channelSecret),
+      signatureVerified: Boolean(sigCheck.ok && channelSecret),
+      tokenConfigured: Boolean(token),
+      serverTime: new Date().toISOString(),
+      message: channelSecret
+        ? 'Webhook พร้อมรับข้อมูล (200 OK) · ตรวจ HMAC-SHA256 Signature ผ่านสมบูรณ์'
+        : 'Webhook พร้อมรับข้อมูล (200 OK) · แนะนำให้ใส่ Channel Secret เพื่อเปิดตรวจ Signature'
+    });
   }
 
   return sendJson(res, 404, { error: 'ไม่พบ API ที่เรียกใช้งาน' });

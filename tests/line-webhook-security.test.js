@@ -245,3 +245,81 @@ test('GET/PUT /api/settings manages LINE Channel Secret securely', async () => {
   // Clean up
   db.setSetting('line_channel_secret', '');
 });
+
+test('GET /api/admin/system-health and POST /api/admin/line/webhook-ping work with admin auth', async () => {
+  function mockReqRes({ method, path, headers = {}, body = '' }) {
+    const stream = new (require('node:stream').Readable)();
+    stream.push(body);
+    stream.push(null);
+    stream.method = method;
+    stream.url = path;
+    stream.headers = headers;
+
+    return new Promise((resolve) => {
+      let statusCode = 200;
+      const resHeaders = {};
+      let responseBody = '';
+
+      const res = {
+        writeHead: (code, hdrs) => {
+          statusCode = code;
+          if (hdrs) {
+            for (const [k, v] of Object.entries(hdrs)) {
+              resHeaders[k.toLowerCase()] = v;
+              resHeaders[k] = v;
+            }
+          }
+        },
+        setHeader: (name, val) => {
+          resHeaders[name.toLowerCase()] = val;
+          resHeaders[name] = val;
+        },
+        end: (data) => {
+          if (data) responseBody += data;
+          let json = null;
+          try { json = JSON.parse(responseBody); } catch (_) {}
+          resolve({ statusCode, headers: resHeaders, body: responseBody, json });
+        }
+      };
+
+      requestHandler(stream, res);
+    });
+  }
+
+  const adminToken = createAdminToken('admin');
+
+  // Unauthorized requests should report unauthorized: true
+  const unauthHealth = await mockReqRes({ method: 'GET', path: '/api/admin/system-health' });
+  assert.equal(unauthHealth.json.unauthorized, true);
+
+  const unauthPing = await mockReqRes({ method: 'POST', path: '/api/admin/line/webhook-ping', body: '{}' });
+  assert.equal(unauthPing.json.unauthorized, true);
+
+  // Authorized system-health
+  const healthRes = await mockReqRes({
+    method: 'GET',
+    path: '/api/admin/system-health',
+    headers: { cookie: `tt_admin_session=${adminToken}` }
+  });
+  assert.equal(healthRes.statusCode, 200);
+  assert.equal(healthRes.json.ok, true);
+  assert.equal(typeof healthRes.json.journalMode, 'string');
+  assert.equal(typeof healthRes.json.memoryRssMB, 'number');
+  assert.equal(typeof healthRes.json.uptimeSec, 'number');
+
+  // Authorized webhook-ping with secret
+  const pingWithSecret = await mockReqRes({
+    method: 'POST',
+    path: '/api/admin/line/webhook-ping',
+    headers: {
+      'content-type': 'application/json',
+      cookie: `tt_admin_session=${adminToken}`
+    },
+    body: JSON.stringify({ lineChannelSecret: 'ping-secret-12345' })
+  });
+  assert.equal(pingWithSecret.statusCode, 200);
+  assert.equal(pingWithSecret.json.ok, true);
+  assert.equal(pingWithSecret.json.signatureConfigured, true);
+  assert.equal(pingWithSecret.json.signatureVerified, true);
+  assert.equal(pingWithSecret.json.webhookPath, '/api/line/webhook');
+});

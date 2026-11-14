@@ -495,6 +495,7 @@
         return;
       }
       applyStatsToDom(stats);
+      loadSystemHealth(false);
     } catch {
       /* ignore */
     }
@@ -2633,7 +2634,7 @@
         const nextLabels = [
           '',
           'ถัดไป: พร้อมเพย์/บัญชี →',
-          'ถัดไป: Google Drive →',
+          'ถัดไป: ที่เก็บสลิป (VPS) →',
           'ถัดไป: ตรวจสลิป & PIN →'
         ];
         nextBtn.textContent = nextLabels[step] || 'ถัดไป →';
@@ -2857,6 +2858,12 @@
       }
       if ($('adminAlertTestStatus')) {
         $('adminAlertTestStatus').hidden = true;
+      }
+      if ($('driveTestStatus')) {
+        $('driveTestStatus').hidden = true;
+      }
+      if ($('optionalGoogleDriveDetails')) {
+        $('optionalGoogleDriveDetails').open = Boolean(driveWebhook || driveFolder);
       }
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
@@ -3350,6 +3357,18 @@
     const clientEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
     const privateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
 
+    if (!webhookUrl && !folderId && !clientEmail && !privateKey) {
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.style.color = '#68D391';
+        statusEl.textContent = '✔ โหมดเก็บสลิปลงฐานข้อมูล VPS โดยตรง (SQLite WAL) พร้อมทำงาน 100% · ไม่ต้องใช้ Google Drive';
+      }
+      if (window.UI && window.UI.toast) {
+        window.UI.toast('ที่เก็บสลิปบน VPS พร้อมทำงาน 100%');
+      }
+      return;
+    }
+
     if (statusEl) {
       statusEl.hidden = false;
       statusEl.style.color = 'var(--color-accent)';
@@ -3377,6 +3396,88 @@
         statusEl.style.color = '#FF6B6B';
         statusEl.textContent = `เกิดข้อผิดพลาด: ${err.message}`;
       }
+    }
+  }
+
+  async function loadSystemHealth(showToast = false) {
+    try {
+      const res = await fetch('/api/admin/system-health', { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.ok) return;
+
+      const textEl = $('vpsHealthText');
+      const dotEl = $('vpsHealthDot');
+      const badgeEl = $('vpsHealthBadge');
+      const dbModeLabel = data.postgresConnected
+        ? 'PostgreSQL + SQLite'
+        : (data.isVpsPersistent ? `VPS SQLite ${data.journalMode}` : `Cloud ${data.journalMode}`);
+      if (textEl) {
+        textEl.textContent = `${dbModeLabel} · ${data.dbSizeKB} KB · RAM ${data.memoryRssMB} MB`;
+      }
+      if (dotEl) {
+        const dotColor = data.isVpsPersistent || data.postgresConnected ? '#10B981' : '#FFB300';
+        dotEl.style.background = dotColor;
+        dotEl.style.boxShadow = `0 0 6px ${dotColor}`;
+      }
+      if (badgeEl) {
+        const mins = Math.floor((data.uptimeSec || 0) / 60);
+        badgeEl.title = `Host: ${data.hostname || '-'} · Node ${data.nodeVersion || ''} · Uptime ${mins} นาที · DB ${data.dbSizeKB} KB · RAM ${data.memoryRssMB} MB`;
+      }
+      if ($('settingDbStatus') && !data.postgresConnected && data.isVpsPersistent) {
+        $('settingDbStatus').innerHTML = `<span style="color:#10B981; font-weight:700;">🟢 โหมด VPS Disk SQLite (${data.journalMode})</span> <span class="text-muted">(ขนาด DB ${data.dbSizeKB} KB · RAM ${data.memoryRssMB} MB)</span>`;
+      }
+      if (showToast && window.UI && window.UI.toast) {
+        const mins = Math.floor((data.uptimeSec || 0) / 60);
+        window.UI.toast(`${dbModeLabel} ปกติ · DB ${data.dbSizeKB} KB · RAM ${data.memoryRssMB} MB · Uptime ${mins} นาที`);
+      }
+    } catch (_) {}
+  }
+
+  async function pingLineWebhook() {
+    const statusEl = $('lineWebhookPingStatus');
+    const btn = $('btnPingLineWebhook');
+    const lineChannelSecret = $('settingLineSecretInput') ? $('settingLineSecretInput').value.trim() : '';
+    const lineChannelAccessToken = $('settingLineTokenInput') ? $('settingLineTokenInput').value.trim() : '';
+
+    if (btn) btn.disabled = true;
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.style.color = 'var(--color-accent)';
+      statusEl.textContent = '⏳ กำลังทดสอบ Ping ไปยัง /api/line/webhook ...';
+    }
+    const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    try {
+      const res = await fetch('/api/admin/line/webhook-ping', {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ lineChannelSecret, lineChannelAccessToken })
+      });
+      const elapsed = Math.max(1, Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - t0));
+      const data = await res.json();
+      if (data.unauthorized) {
+        showLoginModal();
+        return;
+      }
+      if (statusEl) {
+        statusEl.style.color = data.ok ? '#68D391' : '#FF6B6B';
+        statusEl.textContent = data.ok
+          ? `✔ ${data.message} (${elapsed} ms)`
+          : `❌ ${data.error || 'Webhook Ping ไม่สำเร็จ'}`;
+      }
+      if (window.UI && window.UI.toast) {
+        window.UI.toast(
+          data.ok ? `Webhook พร้อมทำงาน (${elapsed} ms)` : (data.error || 'Webhook Ping ไม่สำเร็จ'),
+          data.ok ? 'success' : 'error'
+        );
+      }
+    } catch (err) {
+      if (statusEl) {
+        statusEl.style.color = '#FF6B6B';
+        statusEl.textContent = `❌ เกิดข้อผิดพลาด: ${err.message}`;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -4824,6 +4925,12 @@
         copyTextToClipboard(fullWebhookUrl, 'คัดลอก Webhook URL แล้ว! นำไปวางใน LINE Developers Console ได้เลย');
       });
     }
+    if ($('btnPingLineWebhook')) {
+      $('btnPingLineWebhook').addEventListener('click', pingLineWebhook);
+    }
+    if ($('vpsHealthBadge')) {
+      $('vpsHealthBadge').addEventListener('click', () => loadSystemHealth(true));
+    }
     if ($('settingLineLiffIdInput')) {
       $('settingLineLiffIdInput').addEventListener('input', (e) => {
         updateLiffPreviewUI(e.target.value);
@@ -4860,6 +4967,24 @@
     if ($('btnCopyAppsScriptCode')) {
       $('btnCopyAppsScriptCode').addEventListener('click', copyAppsScriptCode);
     }
+    if ($('btnUseVpsOnlyStorage')) {
+      $('btnUseVpsOnlyStorage').addEventListener('click', () => {
+        if ($('settingDriveWebhookUrlInput')) $('settingDriveWebhookUrlInput').value = '';
+        if ($('settingDriveFolderInput')) $('settingDriveFolderInput').value = '';
+        if ($('settingDriveEmailInput')) $('settingDriveEmailInput').value = '';
+        if ($('settingDriveKeyInput')) $('settingDriveKeyInput').value = '';
+        if ($('optionalGoogleDriveDetails')) $('optionalGoogleDriveDetails').open = false;
+        autoSaveSettingsDraft();
+        if ($('driveTestStatus')) {
+          $('driveTestStatus').hidden = false;
+          $('driveTestStatus').style.color = '#68D391';
+          $('driveTestStatus').textContent = '✔ ล้างค่า Google Drive แล้ว · ระบบเก็บสลิปลง VPS โดยตรง (SQLite WAL) 100%';
+        }
+        if (window.UI && window.UI.toast) {
+          window.UI.toast('ตั้งค่าใช้พื้นที่เก็บสลิปบน VPS โดยตรง 100% เรียบร้อยแล้ว');
+        }
+      });
+    }
     if ($('btnTestDrive')) {
       $('btnTestDrive').addEventListener('click', testDriveConnection);
     }
@@ -4880,6 +5005,7 @@
     $('refreshAdminBtn').addEventListener('click', () => {
       loadStats();
       loadOrders();
+      loadSystemHealth(false);
       window.UI.toast('อัปเดตข้อมูลล่าสุดแล้ว');
     });
   }

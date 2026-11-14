@@ -1275,19 +1275,21 @@ function setSetting(key, value) {
     `).run(key, String(value));
   } catch (_) {}
   postgres.syncSetting(key, value);
-  const candidatePaths = [
-    path.join(DATA_DIR, 'settings.json'),
-    path.join(__dirname, '..', 'data', 'settings.json')
-  ];
-  for (const jsonPath of candidatePaths) {
-    try {
-      let parsed = {};
-      if (fs.existsSync(jsonPath)) {
-        try { parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch (_) {}
-      }
-      parsed[key] = String(value);
-      fs.writeFileSync(jsonPath, JSON.stringify(parsed, null, 2), 'utf8');
-    } catch (_) {}
+  if (!isUnitTest) {
+    const candidatePaths = [
+      path.join(DATA_DIR, 'settings.json'),
+      path.join(__dirname, '..', 'data', 'settings.json')
+    ];
+    for (const jsonPath of candidatePaths) {
+      try {
+        let parsed = {};
+        if (fs.existsSync(jsonPath)) {
+          try { parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch (_) {}
+        }
+        parsed[key] = String(value);
+        fs.writeFileSync(jsonPath, JSON.stringify(parsed, null, 2), 'utf8');
+      } catch (_) {}
+    }
   }
 }
 
