@@ -654,11 +654,22 @@
             </div>
           </div>
 
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+            <strong style="color:var(--color-accent); font-size:13px;">🔑 การเชื่อมต่อ LINE OA &amp; LIFF</strong>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <a href="https://developers.line.biz/console/" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(6,199,85,0.45); color:#06C755; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">↗ เปิด LINE Developers Console</a>
+              <a href="https://manager.line.biz/" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(255,255,255,0.2); text-decoration:none; display:inline-flex; align-items:center; gap:4px;">↗ เปิด LINE OA Manager</a>
+            </div>
+          </div>
+
           <div class="holder-grid">
             <div>
               <label class="field-label" for="settingLineTokenInput">LINE Channel Access Token (Long-lived)</label>
               <input type="password" id="settingLineTokenInput" class="input-field holder-input" placeholder="วาง Channel Access Token จาก LINE Developers Console...">
-              <p class="text-muted" style="font-size:11px;margin-top:4px;">Webhook URL: <code>/api/line/webhook</code></p>
+              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-top:4px;">
+                <p class="text-muted" style="font-size:11px; margin:0;">Webhook URL: <code id="lineWebhookFullUrlDisplay">https://stage-hubs.com/api/line/webhook</code></p>
+                <button type="button" id="btnCopyLineWebhookUrl" class="btn-outline" style="font-size:10.5px; padding:2px 8px;">📋 คัดลอก Webhook URL</button>
+              </div>
             </div>
             <div>
               <label class="field-label" for="settingLineSecretInput">LINE Channel Secret (ตรวจ HMAC-SHA256 Signature)</label>
@@ -668,9 +679,15 @@
           </div>
 
           <div style="margin-top:10px;">
-            <label class="field-label" for="settingLineLiffIdInput">LINE LIFF ID (กรอกรหัส LINE ลูกค้าอัตโนมัติ)</label>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:4px;">
+              <label class="field-label" for="settingLineLiffIdInput" style="margin-bottom:0;">LINE LIFF ID (กรอกรหัส LINE ลูกค้าอัตโนมัติ)</label>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" id="btnVerifyCopyLiffUrl" class="btn-outline" style="font-size:11px; padding:3px 8px;">🔍 ตรวจสอบ &amp; คัดลอกลิงก์ LIFF</button>
+                <a href="https://developers.line.biz/console/" id="linkOpenLiffUrl" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:3px 8px; text-decoration:none;">↗ เปิดลิงก์ LIFF</a>
+              </div>
+            </div>
             <input type="text" id="settingLineLiffIdInput" class="input-field holder-input" placeholder="เช่น 2006543210-AbCdEfGh (ถ้ามี)">
-            <p class="text-muted" style="font-size:11px;margin-top:4px;">ดึง LINE User ID + ชื่อโปรไฟล์เข้าหน้าจองอัตโนมัติ 100%</p>
+            <p class="text-muted" id="liffIdVerifyStatus" style="font-size:11px;margin-top:4px;">ดึง LINE User ID + ชื่อโปรไฟล์เข้าหน้าจองอัตโนมัติ 100%</p>
           </div>
 
           <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">
@@ -761,19 +778,59 @@
 
           <!-- ทางเลือกที่ 1 (ง่ายที่สุด): Google Apps Script Webhook URL -->
           <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:12px; margin-bottom:12px;">
-            <label class="field-label" for="settingDriveWebhookUrlInput" style="color:#10B981; font-weight:700;">⚡ วิธีที่ 1: Google Apps Script Webhook URL (ทางเลือกที่ง่ายที่สุด · แนะนำ)</label>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+              <label class="field-label" for="settingDriveWebhookUrlInput" style="color:#10B981; font-weight:700; margin-bottom:0;">⚡ วิธีที่ 1: Google Apps Script Webhook URL (ทางเลือกที่ง่ายที่สุด · แนะนำ)</label>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <a href="https://script.google.com/home/start" target="_blank" rel="noopener noreferrer" id="linkOpenAppsScript" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(16,185,129,0.5); color:#10B981; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">↗ เปิด Google Apps Script ตั้งค่า</a>
+                <button type="button" id="btnCopyAppsScriptCode" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(255,255,255,0.2); display:inline-flex; align-items:center; gap:4px;">📋 คัดลอกโค้ดสำหรับวาง</button>
+                <a href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(255,255,255,0.15); text-decoration:none; display:inline-flex; align-items:center; gap:4px;">📁 เปิด Google Drive</a>
+              </div>
+            </div>
             <input type="url" id="settingDriveWebhookUrlInput" class="input-field holder-input" placeholder="https://script.google.com/macros/s/.../exec">
             <p class="text-muted" style="font-size:11px; margin-top:4px;">แค่วาง Webhook URL ช่องเดียว ไม่ต้องใช้ Service Account หรือ Private Key ใดๆ</p>
+            <details style="margin-top:8px;">
+              <summary style="color:#10B981; font-weight:600; font-size:11.5px; cursor:pointer;">📖 ดูวิธีตั้งค่า Google Apps Script (3 ขั้นตอนง่ายๆ + โค้ดพร้อมใช้)</summary>
+              <div style="margin-top:8px; padding:10px; background:rgba(0,0,0,0.28); border:1px solid rgba(16,185,129,0.2); border-radius:6px; font-size:11.5px; line-height:1.6;">
+                <ol style="margin:0 0 8px 18px; padding:0; color:var(--color-text-muted, #cbd5e1);">
+                  <li>กดปุ่ม <strong>↗ เปิด Google Apps Script ตั้งค่า</strong> ด้านบน แล้วกด <strong>New project (โครงการใหม่)</strong></li>
+                  <li>ลบโค้ดเดิมใน <code>Code.gs</code> ออกให้หมด แล้วกดปุ่ม <strong>📋 คัดลอกโค้ดสำหรับวาง</strong> ด้านบนมาวางแทน (กดบันทึก Ctrl+S)</li>
+                  <li>กด <strong>Deploy → New deployment</strong> → เลือกประเภท <strong>Web app</strong> → ตั้งค่า <em>Who has access</em> เป็น <strong>Anyone (ทุกคน)</strong> → กด Deploy แล้วนำ <strong>Web app URL</strong> (<code>https://script.google.com/macros/s/.../exec</code>) มาวางในช่องด้านบน</li>
+                </ol>
+                <pre id="appsScriptSnippetCode" style="margin:0; padding:8px 10px; background:#0b0f17; border:1px solid rgba(255,255,255,0.1); border-radius:6px; font-size:10.5px; line-height:1.45; overflow-x:auto; color:#a7f3d0; white-space:pre;">function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var folder = data.folderId ? DriveApp.getFolderById(data.folderId) : DriveApp.getRootFolder();
+    var bytes = Utilities.base64Decode(data.base64);
+    var blob = Utilities.newBlob(bytes, data.mimeType || "image/png", data.fileName || ("slip_" + Date.now() + ".png"));
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true,
+      fileId: file.getId(),
+      fileUrl: file.getUrl()
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      error: String(err)
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+              </div>
+            </details>
           </div>
 
           <!-- ทางเลือกที่ 2: Service Account (Details) -->
           <details style="margin-top:6px; cursor:pointer;">
             <summary style="color:#229BFF; font-weight:600; font-size:12px;">🔧 หรือวิธีที่ 2: ใช้ Service Account (Google Cloud Console)</summary>
             <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
                 <label for="settingDriveJsonFileInput" class="btn-outline" style="font-size:11px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
                   📂 นำเข้าจากไฟล์ .json
                 </label>
+                <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:3px 8px; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                  ↗ เปิด Google Cloud Console
+                </a>
                 <input type="file" id="settingDriveJsonFileInput" accept=".json,application/json" style="display:none;">
               </div>
               <div>
@@ -820,6 +877,10 @@
             <div>
               <label class="field-label" for="settingSlipApiKeyInput">API Key ผู้ให้บริการ</label>
               <input type="password" id="settingSlipApiKeyInput" class="input-field holder-input" placeholder="วาง API Key จาก SlipOK / EasySlip">
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+                <a href="https://slipok.com/" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:3px 8px; text-decoration:none;">↗ เว็บไซต์ SlipOK</a>
+                <a href="https://easyslip.com/" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:3px 8px; text-decoration:none;">↗ เว็บไซต์ EasySlip</a>
+              </div>
             </div>
           </div>
           <div style="margin-top:8px;">
@@ -840,6 +901,18 @@
                 <input type="password" id="settingGateStaffPinInput" class="input-field holder-input" placeholder="เช่น 888888">
               </div>
             </div>
+          </div>
+
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+              <strong style="color:var(--color-accent); font-size:13px;">💾 สำรอง &amp; ย้ายการตั้งค่าระบบ (VPS / Cloud Config Backup)</strong>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn-outline" id="btnExportSettingsJson" style="font-size:11px; padding:4px 10px;">⬇️ ส่งออกไฟล์ตั้งค่า (.json)</button>
+                <label for="settingImportJsonInput" class="btn-outline" style="font-size:11px; padding:4px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; margin:0;">📂 นำเข้าไฟล์ตั้งค่า (.json)</label>
+                <input type="file" id="settingImportJsonInput" accept=".json,application/json" style="display:none;">
+              </div>
+            </div>
+            <p class="text-muted" style="font-size:11px; margin:0;">ดาวน์โหลดค่าตั้งต้นทั้งหมดเก็บไว้ หรือนำเข้าเมื่อย้ายเครื่องเซิร์ฟเวอร์ VPS ได้ทันทีในคลิกเดียว</p>
           </div>
         </div>
 

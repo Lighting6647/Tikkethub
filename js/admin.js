@@ -2845,6 +2845,7 @@
       }
       if ($('settingLineLiffIdInput')) {
         $('settingLineLiffIdInput').value = lineLiffId;
+        updateLiffPreviewUI(lineLiffId);
       }
       if ($('settingRichMenuTemplateSelect')) {
         $('settingRichMenuTemplateSelect').value = activeRichMenuTemplate;
@@ -2978,6 +2979,156 @@
     }, 800);
   }
 
+  async function copyTextToClipboard(text, successMsg) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('Clipboard API unavailable');
+      }
+    } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    if (successMsg && window.UI && window.UI.toast) {
+      window.UI.toast(successMsg);
+    }
+  }
+
+  function normalizeLiffId(raw) {
+    return String(raw || '')
+      .trim()
+      .replace(/^https?:\/\/liff\.line\.me\//i, '')
+      .split(/[?#]/)[0]
+      .replace(/\/+$/, '');
+  }
+
+  function isValidLiffIdFormat(id) {
+    return /^[0-9]{6,16}-[a-zA-Z0-9_-]{4,}$/.test(String(id || ''));
+  }
+
+  function updateLiffPreviewUI(rawValue) {
+    const cleanId = normalizeLiffId(rawValue);
+    const statusEl = $('liffIdVerifyStatus');
+    const openLink = $('linkOpenLiffUrl');
+
+    if (!cleanId) {
+      if (statusEl) {
+        statusEl.style.color = '';
+        statusEl.textContent = 'ดึง LINE User ID + ชื่อโปรไฟล์เข้าหน้าจองอัตโนมัติ 100%';
+      }
+      if (openLink) {
+        openLink.href = 'https://developers.line.biz/console/';
+      }
+      return { valid: true, cleanId: '' };
+    }
+
+    const valid = isValidLiffIdFormat(cleanId);
+    if (statusEl) {
+      if (valid) {
+        statusEl.style.color = '#68D391';
+        statusEl.textContent = `✔ รูปแบบถูกต้อง · ลิงก์พร้อมใช้งาน: https://liff.line.me/${cleanId}`;
+      } else {
+        statusEl.style.color = '#FF6B6B';
+        statusEl.textContent = '⚠ รูปแบบไม่ถูกต้อง (ตัวอย่าง: 2012609397-AbCdEfGh)';
+      }
+    }
+    if (openLink) {
+      openLink.href = valid ? `https://liff.line.me/${cleanId}` : 'https://developers.line.biz/console/';
+    }
+    return { valid, cleanId };
+  }
+
+  function exportSettingsBackupJson() {
+    const cleanLiff = normalizeLiffId($('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value : '');
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      sourceOrigin: window.location.origin,
+      promptpayId: $('settingPromptpayInput') ? $('settingPromptpayInput').value.trim() : '',
+      merchantName: $('settingMerchantNameInput') ? $('settingMerchantNameInput').value.trim() : '',
+      bankName: $('settingBankNameInput') ? $('settingBankNameInput').value : '',
+      bankAccount: $('settingBankAccountInput') ? $('settingBankAccountInput').value.trim() : '',
+      googleDriveWebhookUrl: $('settingDriveWebhookUrlInput') ? $('settingDriveWebhookUrlInput').value.trim() : '',
+      googleDriveFolderId: $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '',
+      googleServiceAccountEmail: $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '',
+      slipVerifyProvider: $('settingSlipProviderInput') ? $('settingSlipProviderInput').value : 'simulator',
+      slipVerifyBranchId: $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '',
+      slipAutoApproveEnabled: $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false,
+      adminLineUserId: $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '',
+      lineLiffId: cleanLiff,
+      activeRichMenuTemplate: $('settingRichMenuTemplateSelect') ? $('settingRichMenuTemplateSelect').value : 'large_6grid'
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `thaitickethub-settings-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (window.UI && window.UI.toast) {
+      window.UI.toast('ส่งออกไฟล์ตั้งค่า (.json) สำเร็จแล้ว');
+    }
+  }
+
+  async function handleImportSettingsJson(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Invalid JSON');
+      }
+      const fieldMap = {
+        promptpayId: 'settingPromptpayInput',
+        merchantName: 'settingMerchantNameInput',
+        bankName: 'settingBankNameInput',
+        bankAccount: 'settingBankAccountInput',
+        googleDriveWebhookUrl: 'settingDriveWebhookUrlInput',
+        googleDriveFolderId: 'settingDriveFolderInput',
+        googleServiceAccountEmail: 'settingDriveEmailInput',
+        slipVerifyProvider: 'settingSlipProviderInput',
+        slipVerifyBranchId: 'settingSlipBranchInput',
+        adminLineUserId: 'settingAdminLineUserInput',
+        lineLiffId: 'settingLineLiffIdInput',
+        activeRichMenuTemplate: 'settingRichMenuTemplateSelect'
+      };
+      for (const [key, elId] of Object.entries(fieldMap)) {
+        if (typeof parsed[key] !== 'undefined' && $(elId)) {
+          $(elId).value = String(parsed[key] || '');
+        }
+      }
+      if (typeof parsed.slipAutoApproveEnabled !== 'undefined' && $('settingSlipAutoApprove')) {
+        $('settingSlipAutoApprove').checked = Boolean(parsed.slipAutoApproveEnabled);
+      }
+      if ($('settingLineLiffIdInput')) {
+        updateLiffPreviewUI($('settingLineLiffIdInput').value);
+      }
+      if ($('settingRichMenuTemplateSelect')) {
+        updateRichMenuPreviewImg($('settingRichMenuTemplateSelect').value);
+      }
+      autoSaveSettingsDraft();
+      if (window.UI && window.UI.toast) {
+        window.UI.toast('นำเข้าไฟล์ตั้งค่าสำเร็จ! กด "บันทึกทั้งหมด" เพื่อยืนยันขึ้นเซิร์ฟเวอร์');
+      }
+    } catch (_) {
+      if (window.UI && window.UI.toast) {
+        window.UI.toast('ไฟล์ JSON ตั้งค่าไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง', 'error');
+      }
+    } finally {
+      e.target.value = '';
+    }
+  }
+
   async function saveSettings() {
     const token = $('settingLineTokenInput').value.trim();
     const promptpayId = $('settingPromptpayInput').value.trim();
@@ -2995,7 +3146,16 @@
     const slipVerifyBranchId = $('settingSlipBranchInput') ? $('settingSlipBranchInput').value.trim() : '';
     const slipAutoApproveEnabled = $('settingSlipAutoApprove') ? $('settingSlipAutoApprove').checked : false;
     const adminLineUserId = $('settingAdminLineUserInput') ? $('settingAdminLineUserInput').value.trim() : '';
-    const lineLiffId = $('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value.trim() : '';
+    const rawLiffId = $('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value : '';
+    const liffCheck = updateLiffPreviewUI(rawLiffId);
+    if (liffCheck.cleanId && !liffCheck.valid) {
+      window.UI.toast('รูปแบบ LINE LIFF ID ไม่ถูกต้อง (ตัวอย่าง: 2012609397-AbCdEfGh)', 'error');
+      return;
+    }
+    const lineLiffId = liffCheck.cleanId;
+    if ($('settingLineLiffIdInput') && rawLiffId.trim() !== lineLiffId) {
+      $('settingLineLiffIdInput').value = lineLiffId;
+    }
     const lineSecret = $('settingLineSecretInput') ? $('settingLineSecretInput').value.trim() : '';
 
     const payload = {
@@ -4624,8 +4784,81 @@
       }
     }
 
+    const APPS_SCRIPT_DRIVE_CODE = [
+      'function doPost(e) {',
+      '  try {',
+      '    var data = JSON.parse(e.postData.contents);',
+      '    var folder = data.folderId ? DriveApp.getFolderById(data.folderId) : DriveApp.getRootFolder();',
+      '    var bytes = Utilities.base64Decode(data.base64);',
+      '    var blob = Utilities.newBlob(bytes, data.mimeType || "image/png", data.fileName || ("slip_" + Date.now() + ".png"));',
+      '    var file = folder.createFile(blob);',
+      '    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);',
+      '    return ContentService.createTextOutput(JSON.stringify({',
+      '      ok: true,',
+      '      fileId: file.getId(),',
+      '      fileUrl: file.getUrl()',
+      '    })).setMimeType(ContentService.MimeType.JSON);',
+      '  } catch (err) {',
+      '    return ContentService.createTextOutput(JSON.stringify({',
+      '      ok: false,',
+      '      error: String(err)',
+      '    })).setMimeType(ContentService.MimeType.JSON);',
+      '  }',
+      '}'
+    ].join('\n');
+
+    async function copyAppsScriptCode() {
+      const code = ($('appsScriptSnippetCode') && $('appsScriptSnippetCode').textContent) || APPS_SCRIPT_DRIVE_CODE;
+      await copyTextToClipboard(code, 'คัดลอกโค้ด Google Apps Script แล้ว! นำไปวางใน script.google.com ได้เลย');
+    }
+
+    const webhookBaseOrigin = (window.location && /^https?:\/\//i.test(window.location.origin))
+      ? window.location.origin
+      : 'https://stage-hubs.com';
+    const fullWebhookUrl = `${webhookBaseOrigin}/api/line/webhook`;
+    if ($('lineWebhookFullUrlDisplay')) {
+      $('lineWebhookFullUrlDisplay').textContent = fullWebhookUrl;
+    }
+    if ($('btnCopyLineWebhookUrl')) {
+      $('btnCopyLineWebhookUrl').addEventListener('click', () => {
+        copyTextToClipboard(fullWebhookUrl, 'คัดลอก Webhook URL แล้ว! นำไปวางใน LINE Developers Console ได้เลย');
+      });
+    }
+    if ($('settingLineLiffIdInput')) {
+      $('settingLineLiffIdInput').addEventListener('input', (e) => {
+        updateLiffPreviewUI(e.target.value);
+      });
+    }
+    if ($('btnVerifyCopyLiffUrl')) {
+      $('btnVerifyCopyLiffUrl').addEventListener('click', () => {
+        const raw = $('settingLineLiffIdInput') ? $('settingLineLiffIdInput').value : '';
+        const check = updateLiffPreviewUI(raw);
+        if (!check.cleanId) {
+          window.UI.toast('กรุณากรอก LINE LIFF ID ก่อนตรวจสอบ', 'error');
+          return;
+        }
+        if (!check.valid) {
+          window.UI.toast('รูปแบบ LINE LIFF ID ไม่ถูกต้อง (ตัวอย่าง: 2012609397-AbCdEfGh)', 'error');
+          return;
+        }
+        if ($('settingLineLiffIdInput') && raw.trim() !== check.cleanId) {
+          $('settingLineLiffIdInput').value = check.cleanId;
+        }
+        copyTextToClipboard(`https://liff.line.me/${check.cleanId}`, 'ตรวจสอบผ่าน & คัดลอกลิงก์ LIFF แล้ว!');
+      });
+    }
+    if ($('btnExportSettingsJson')) {
+      $('btnExportSettingsJson').addEventListener('click', exportSettingsBackupJson);
+    }
+    if ($('settingImportJsonInput')) {
+      $('settingImportJsonInput').addEventListener('change', handleImportSettingsJson);
+    }
+
     if ($('settingDriveJsonFileInput')) {
       $('settingDriveJsonFileInput').addEventListener('change', handleDriveJsonFileUpload);
+    }
+    if ($('btnCopyAppsScriptCode')) {
+      $('btnCopyAppsScriptCode').addEventListener('click', copyAppsScriptCode);
     }
     if ($('btnTestDrive')) {
       $('btnTestDrive').addEventListener('click', testDriveConnection);
