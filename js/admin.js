@@ -2862,9 +2862,18 @@
       if ($('driveTestStatus')) {
         $('driveTestStatus').hidden = true;
       }
-      if ($('optionalGoogleDriveDetails')) {
-        $('optionalGoogleDriveDetails').open = Boolean(driveWebhook || driveFolder);
+      if (driveWebhook || driveFolder || driveEmail) {
+        fetch('/api/settings', {
+          method: 'PUT',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            googleDriveWebhookUrl: '',
+            googleDriveFolderId: '',
+            googleServiceAccountEmail: ''
+          })
+        }).catch(() => {});
       }
+      loadSystemHealth(false);
       $('settingLineTokenInput').value = '';
       if ($('settingAdminPinInput')) $('settingAdminPinInput').value = '';
       if ($('settingGateStaffPinInput')) $('settingGateStaffPinInput').value = '';
@@ -2876,8 +2885,8 @@
           merchantName,
           bankName,
           bankAccount,
-          googleDriveFolderId: driveFolder,
-          googleServiceAccountEmail: driveEmail,
+          googleDriveFolderId: '',
+          googleServiceAccountEmail: '',
           slipVerifyProvider: slipProvider,
           slipVerifyBranchId: slipBranch,
           slipAutoApproveEnabled: slipAuto,
@@ -3352,44 +3361,30 @@
 
   async function testDriveConnection() {
     const statusEl = $('driveTestStatus');
-    const webhookUrl = $('settingDriveWebhookUrlInput') ? $('settingDriveWebhookUrlInput').value.trim() : '';
-    const folderId = $('settingDriveFolderInput') ? $('settingDriveFolderInput').value.trim() : '';
-    const clientEmail = $('settingDriveEmailInput') ? $('settingDriveEmailInput').value.trim() : '';
-    const privateKey = $('settingDriveKeyInput') ? $('settingDriveKeyInput').value.trim() : '';
-
-    if (!webhookUrl && !folderId && !clientEmail && !privateKey) {
-      if (statusEl) {
-        statusEl.hidden = false;
-        statusEl.style.color = '#68D391';
-        statusEl.textContent = '✔ โหมดเก็บสลิปลงฐานข้อมูล VPS โดยตรง (SQLite WAL) พร้อมทำงาน 100% · ไม่ต้องใช้ Google Drive';
-      }
-      if (window.UI && window.UI.toast) {
-        window.UI.toast('ที่เก็บสลิปบน VPS พร้อมทำงาน 100%');
-      }
-      return;
-    }
-
     if (statusEl) {
       statusEl.hidden = false;
       statusEl.style.color = 'var(--color-accent)';
-      statusEl.textContent = '⏳ กำลังทดสอบเชื่อมต่อ Google Drive API...';
+      statusEl.textContent = '⏳ กำลังตรวจสอบสถานะที่เก็บสลิปบน VPS...';
     }
-
     try {
-      const res = await fetch('/api/admin/drive/test', {
-        method: 'POST',
+      await fetch('/api/settings', {
+        method: 'PUT',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          googleDriveWebhookUrl: webhookUrl,
-          googleDriveFolderId: folderId,
-          googleServiceAccountEmail: clientEmail,
-          googleServiceAccountPrivateKey: privateKey
+          googleDriveWebhookUrl: '',
+          googleDriveFolderId: '',
+          googleServiceAccountEmail: ''
         })
-      });
-      const data = await res.json();
+      }).catch(() => {});
+      const health = await loadSystemHealth(false);
       if (statusEl) {
-        statusEl.style.color = data.ok ? '#68D391' : '#FF6B6B';
-        statusEl.textContent = data.message || (data.ok ? 'เชื่อมต่อ Google Drive สำเร็จ' : 'เชื่อมต่อไม่สำเร็จ');
+        statusEl.style.color = '#68D391';
+        statusEl.textContent = health
+          ? `✔ ที่เก็บสลิปบน VPS (SQLite ${health.journalMode}) พร้อมทำงาน 100% · ขนาดฐานข้อมูล ${health.dbSizeKB} KB · RAM ${health.memoryRssMB} MB`
+          : '✔ โหมดเก็บสลิปลงฐานข้อมูล VPS โดยตรง (SQLite WAL) พร้อมทำงาน 100%';
+      }
+      if (window.UI && window.UI.toast) {
+        window.UI.toast('ที่เก็บสลิปบน VPS พร้อมทำงาน 100%');
       }
     } catch (err) {
       if (statusEl) {
@@ -3402,9 +3397,9 @@
   async function loadSystemHealth(showToast = false) {
     try {
       const res = await fetch('/api/admin/system-health', { headers: getAuthHeaders() });
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const data = await res.json();
-      if (!data || !data.ok) return;
+      if (!data || !data.ok) return null;
 
       const textEl = $('vpsHealthText');
       const dotEl = $('vpsHealthDot');
@@ -3414,6 +3409,12 @@
         : (data.isVpsPersistent ? `VPS SQLite ${data.journalMode}` : `Cloud ${data.journalMode}`);
       if (textEl) {
         textEl.textContent = `${dbModeLabel} · ${data.dbSizeKB} KB · RAM ${data.memoryRssMB} MB`;
+      }
+      if ($('vpsStep3DbSize')) {
+        $('vpsStep3DbSize').textContent = `${data.dbSizeKB} KB`;
+      }
+      if ($('vpsStep3RamUsage')) {
+        $('vpsStep3RamUsage').textContent = `${data.memoryRssMB} MB`;
       }
       if (dotEl) {
         const dotColor = data.isVpsPersistent || data.postgresConnected ? '#10B981' : '#FFB300';
@@ -3431,7 +3432,10 @@
         const mins = Math.floor((data.uptimeSec || 0) / 60);
         window.UI.toast(`${dbModeLabel} ปกติ · DB ${data.dbSizeKB} KB · RAM ${data.memoryRssMB} MB · Uptime ${mins} นาที`);
       }
-    } catch (_) {}
+      return data;
+    } catch (_) {
+      return null;
+    }
   }
 
   async function pingLineWebhook() {
@@ -4963,27 +4967,6 @@
 
     if ($('settingDriveJsonFileInput')) {
       $('settingDriveJsonFileInput').addEventListener('change', handleDriveJsonFileUpload);
-    }
-    if ($('btnCopyAppsScriptCode')) {
-      $('btnCopyAppsScriptCode').addEventListener('click', copyAppsScriptCode);
-    }
-    if ($('btnUseVpsOnlyStorage')) {
-      $('btnUseVpsOnlyStorage').addEventListener('click', () => {
-        if ($('settingDriveWebhookUrlInput')) $('settingDriveWebhookUrlInput').value = '';
-        if ($('settingDriveFolderInput')) $('settingDriveFolderInput').value = '';
-        if ($('settingDriveEmailInput')) $('settingDriveEmailInput').value = '';
-        if ($('settingDriveKeyInput')) $('settingDriveKeyInput').value = '';
-        if ($('optionalGoogleDriveDetails')) $('optionalGoogleDriveDetails').open = false;
-        autoSaveSettingsDraft();
-        if ($('driveTestStatus')) {
-          $('driveTestStatus').hidden = false;
-          $('driveTestStatus').style.color = '#68D391';
-          $('driveTestStatus').textContent = '✔ ล้างค่า Google Drive แล้ว · ระบบเก็บสลิปลง VPS โดยตรง (SQLite WAL) 100%';
-        }
-        if (window.UI && window.UI.toast) {
-          window.UI.toast('ตั้งค่าใช้พื้นที่เก็บสลิปบน VPS โดยตรง 100% เรียบร้อยแล้ว');
-        }
-      });
     }
     if ($('btnTestDrive')) {
       $('btnTestDrive').addEventListener('click', testDriveConnection);

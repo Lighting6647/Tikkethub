@@ -1545,11 +1545,21 @@ async function handleApi(req, res, url) {
     if (!isAdminAuthenticated(req)) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
     }
-    const body = await readJsonBody(req);
-    const folderId = (body.googleDriveFolderId || db.getSetting('google_drive_folder_id', '')).trim();
-    const webhookUrl = (body.googleDriveWebhookUrl || db.getSetting('google_drive_webhook_url', '')).trim();
-    const clientEmail = (body.googleServiceAccountEmail || db.getSetting('google_service_account_email', '')).trim();
-    const privateKey = (body.googleServiceAccountPrivateKey || db.getSetting('google_service_account_private_key', '')).trim();
+    const body = (await readJsonBody(req)) || {};
+    const folderId = (typeof body.googleDriveFolderId === 'string' ? body.googleDriveFolderId : db.getSetting('google_drive_folder_id', '')).trim();
+    const webhookUrl = (typeof body.googleDriveWebhookUrl === 'string' ? body.googleDriveWebhookUrl : db.getSetting('google_drive_webhook_url', '')).trim();
+    const clientEmail = (typeof body.googleServiceAccountEmail === 'string' ? body.googleServiceAccountEmail : db.getSetting('google_service_account_email', '')).trim();
+    const privateKey = (typeof body.googleServiceAccountPrivateKey === 'string' ? body.googleServiceAccountPrivateKey : db.getSetting('google_service_account_private_key', '')).trim();
+    if (!webhookUrl && !folderId && !clientEmail) {
+      db.setSetting('google_drive_webhook_url', '');
+      db.setSetting('google_drive_folder_id', '');
+      db.setSetting('google_service_account_email', '');
+      return sendJson(res, 200, {
+        ok: true,
+        mode: 'vps_sqlite_only',
+        message: '✔ ที่เก็บสลิปบน VPS (SQLite WAL) พร้อมทำงาน 100% (เก็บลงฐานข้อมูล VPS โดยตรง)'
+      });
+    }
     const testRes = await drive.testDriveConnection({ folderId, webhookUrl, clientEmail, privateKey });
     return sendJson(res, 200, testRes);
   }

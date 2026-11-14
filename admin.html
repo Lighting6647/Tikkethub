@@ -771,104 +771,25 @@
           </div>
         </div>
 
-        <!-- STEP 3: ที่เก็บสลิปลง VPS โดยตรง + ตัวเลือกเสริม Google Drive -->
+        <!-- STEP 3: ที่เก็บสลิปลง VPS โดยตรง -->
         <div id="settingsStep3" class="settings-wizard-pane" style="display:none;">
-          <!-- โหมดหลัก: เก็บสลิปลง VPS โดยตรง (ทำงานอัตโนมัติ) -->
-          <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:10px; padding:14px; margin-bottom:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:10px; padding:16px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
               <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <strong style="color:#10B981; font-size:13.5px;">🗄️ เก็บสลิปลง VPS โดยตรง (ทำงานอัตโนมัติ)</strong>
+                <strong style="color:#10B981; font-size:14px;">🗄️ เก็บสลิปลง VPS โดยตรง (ทำงานอัตโนมัติ)</strong>
                 <span id="vpsSlipStorageStatusBadge" style="font-size:11px; background:rgba(16,185,129,0.2); color:#68D391; padding:2px 8px; border-radius:999px; font-weight:600;">🟢 เปิดใช้งานอัตโนมัติ 100%</span>
               </div>
-              <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn-outline" id="btnUseVpsOnlyStorage" style="font-size:11px; padding:4px 10px; border-color:rgba(16,185,129,0.45); color:#10B981;">✔ ใช้ VPS อย่างเดียว (ล้างค่า Drive)</button>
-                <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:4px 10px;">🔌 ตรวจสอบที่เก็บสลิป</button>
-              </div>
+              <button type="button" class="btn-outline" id="btnTestDrive" style="font-size:11px; padding:4px 10px; border-color:rgba(16,185,129,0.45); color:#10B981;">🔌 ตรวจสอบสถานะที่เก็บสลิป VPS</button>
             </div>
-            <div style="font-size:12px; color:var(--color-muted); line-height:1.55;">
-              ✅ ระบบจัดเก็บ <strong>รูปสลิปโอนเงิน + รหัสป้องกันสลิปซ้ำ (SHA-256) + ข้อมูลออเดอร์ทั้งหมด</strong> ลงในฐานข้อมูล <code>tickets.db</code> (SQLite WAL) บนดิสก์ของเครื่อง VPS โดยตรง ไม่ต้องตั้งค่าใดๆ เพิ่ม และไม่ต้องพึ่ง Google Drive ครับ
+            <div style="font-size:12px; color:var(--color-muted); line-height:1.6;">
+              ✅ ระบบจัดเก็บ <strong>รูปสลิปโอนเงิน + รหัสป้องกันสลิปซ้ำ (SHA-256) + ข้อมูลออเดอร์ทั้งหมด</strong> ลงในฐานข้อมูล <code>data/tickets.db</code> (โหมด <strong>SQLite WAL</strong>) บนดิสก์ของเครื่อง VPS โดยตรงอย่างสมบูรณ์แบบ ไม่ต้องเชื่อมต่อคลาวด์ภายนอกใดๆ ครับ
+            </div>
+            <div id="vpsStep3StorageStats" style="margin-top:12px; padding:10px 12px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.08); border-radius:8px; font-size:12px; color:#cbd5e1; display:flex; flex-wrap:wrap; gap:14px;">
+              <span>🗄️ โหมดจัดเก็บ: <strong style="color:#10B981;">SQLite WAL (VPS Disk)</strong></span>
+              <span>📦 ขนาดฐานข้อมูล: <strong id="vpsStep3DbSize">กำลังเช็ก...</strong></span>
+              <span>⚡ หน่วยความจำระบบ: <strong id="vpsStep3RamUsage">กำลังเช็ก...</strong></span>
             </div>
           </div>
-
-          <details id="optionalGoogleDriveDetails" style="margin-top:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px 12px;">
-            <summary style="color:#229BFF; font-weight:600; font-size:12px; cursor:pointer;">📁 ตัวเลือกเสริม (ไม่บังคับ): สำรองสลิปเพิ่มลง Google Drive (คลิกเพื่อเปิดตั้งค่า)</summary>
-            <div style="margin-top:10px;">
-              <!-- ทางเลือกที่ 1 (ง่ายที่สุด): Google Apps Script Webhook URL -->
-              <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); border-radius:8px; padding:12px; margin-bottom:12px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                  <label class="field-label" for="settingDriveWebhookUrlInput" style="color:#10B981; font-weight:700; margin-bottom:0;">⚡ วิธีที่ 1: Google Apps Script Webhook URL (ทางเลือกที่ง่ายที่สุด · แนะนำ)</label>
-                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <a href="https://script.google.com/home/start" target="_blank" rel="noopener noreferrer" id="linkOpenAppsScript" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(16,185,129,0.5); color:#10B981; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">↗ เปิด Google Apps Script ตั้งค่า</a>
-                    <button type="button" id="btnCopyAppsScriptCode" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(255,255,255,0.2); display:inline-flex; align-items:center; gap:4px;">📋 คัดลอกโค้ดสำหรับวาง</button>
-                    <a href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:4px 10px; border-color:rgba(255,255,255,0.15); text-decoration:none; display:inline-flex; align-items:center; gap:4px;">📁 เปิด Google Drive</a>
-                  </div>
-                </div>
-                <input type="url" id="settingDriveWebhookUrlInput" class="input-field holder-input" placeholder="https://script.google.com/macros/s/.../exec">
-                <p class="text-muted" style="font-size:11px; margin-top:4px;">แค่วาง Webhook URL ช่องเดียว ไม่ต้องใช้ Service Account หรือ Private Key ใดๆ</p>
-                <details style="margin-top:8px;">
-                  <summary style="color:#10B981; font-weight:600; font-size:11.5px; cursor:pointer;">📖 ดูวิธีตั้งค่า Google Apps Script (3 ขั้นตอนง่ายๆ + โค้ดพร้อมใช้)</summary>
-                  <div style="margin-top:8px; padding:10px; background:rgba(0,0,0,0.28); border:1px solid rgba(16,185,129,0.2); border-radius:6px; font-size:11.5px; line-height:1.6;">
-                    <ol style="margin:0 0 8px 18px; padding:0; color:var(--color-text-muted, #cbd5e1);">
-                      <li>กดปุ่ม <strong>↗ เปิด Google Apps Script ตั้งค่า</strong> ด้านบน แล้วกด <strong>New project (โครงการใหม่)</strong></li>
-                      <li>ลบโค้ดเดิมใน <code>Code.gs</code> ออกให้หมด แล้วกดปุ่ม <strong>📋 คัดลอกโค้ดสำหรับวาง</strong> ด้านบนมาวางแทน (กดบันทึก Ctrl+S)</li>
-                      <li>กด <strong>Deploy → New deployment</strong> → เลือกประเภท <strong>Web app</strong> → ตั้งค่า <em>Who has access</em> เป็น <strong>Anyone (ทุกคน)</strong> → กด Deploy แล้วนำ <strong>Web app URL</strong> (<code>https://script.google.com/macros/s/.../exec</code>) มาวางในช่องด้านบน</li>
-                    </ol>
-                    <pre id="appsScriptSnippetCode" style="margin:0; padding:8px 10px; background:#0b0f17; border:1px solid rgba(255,255,255,0.1); border-radius:6px; font-size:10.5px; line-height:1.45; overflow-x:auto; color:#a7f3d0; white-space:pre;">function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents);
-    var folder = data.folderId ? DriveApp.getFolderById(data.folderId) : DriveApp.getRootFolder();
-    var bytes = Utilities.base64Decode(data.base64);
-    var blob = Utilities.newBlob(bytes, data.mimeType || "image/png", data.fileName || ("slip_" + Date.now() + ".png"));
-    var file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return ContentService.createTextOutput(JSON.stringify({
-      ok: true,
-      fileId: file.getId(),
-      fileUrl: file.getUrl()
-    })).setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      ok: false,
-      error: String(err)
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}</pre>
-                  </div>
-                </details>
-              </div>
-
-              <!-- ทางเลือกที่ 2: Service Account (Details) -->
-              <details style="margin-top:6px; cursor:pointer;">
-                <summary style="color:#229BFF; font-weight:600; font-size:12px;">🔧 หรือวิธีที่ 2: ใช้ Service Account (Google Cloud Console)</summary>
-                <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
-                    <label for="settingDriveJsonFileInput" class="btn-outline" style="font-size:11px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
-                      📂 นำเข้าจากไฟล์ .json
-                    </label>
-                    <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer" class="btn-outline" style="font-size:11px; padding:3px 8px; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
-                      ↗ เปิด Google Cloud Console
-                    </a>
-                    <input type="file" id="settingDriveJsonFileInput" accept=".json,application/json" style="display:none;">
-                  </div>
-                  <div>
-                    <label class="field-label" for="settingDriveFolderInput">Google Drive Folder ID</label>
-                    <input type="text" id="settingDriveFolderInput" class="input-field holder-input" placeholder="เช่น 1slZkrxCv9KJ6M76Pf7l2zSHzm...">
-                  </div>
-                  <div class="holder-grid" style="margin-top:8px;">
-                    <div>
-                      <label class="field-label" for="settingDriveEmailInput">Service Account Client Email</label>
-                      <input type="text" id="settingDriveEmailInput" class="input-field holder-input" placeholder="เช่น your-bot@project.iam.gserviceaccount.com">
-                    </div>
-                    <div>
-                      <label class="field-label" for="settingDriveKeyInput">Service Account Private Key (PEM / JSON)</label>
-                      <input type="password" id="settingDriveKeyInput" class="input-field holder-input" placeholder="-----BEGIN PRIVATE KEY----- ...">
-                    </div>
-                  </div>
-                </div>
-              </details>
-            </div>
-          </details>
-
           <p class="text-muted" id="driveTestStatus" style="font-size:11px; margin-top:8px;" hidden></p>
         </div>
 
@@ -1442,6 +1363,6 @@
 
   <script src="js/ui.js"></script>
   <script src="js/vendor/jsQR.js"></script>
-  <script src="js/admin.js?v=20261031_settings"></script>
+  <script src="js/admin.js?v=20261114_vps_pure"></script>
 </body>
 </html>
