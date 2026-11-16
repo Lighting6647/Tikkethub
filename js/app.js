@@ -55,10 +55,11 @@ async function syncEventsFromServer() {
   try {
     const res = await fetch('/api/events', { cache: 'no-store' });
     const data = await res.json();
-    if (data && data.ok && Array.isArray(data.events) && data.events.length) {
-      eventsData = filterClientEvents(data.events);
+    if (data && data.ok && Array.isArray(data.events)) {
+      eventsData = data.events;
       try {
         localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(eventsData));
+        localStorage.removeItem('thaiticket.deletedEventIds.v1');
       } catch (_) {}
       renderEvents();
     } else {
@@ -1019,7 +1020,7 @@ if (typeof document !== 'undefined') {
     } catch (_) {}
 
     // Live sync from server for all visitors
-    fetch('/api/storefront-settings')
+    fetch('/api/storefront-settings', { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (data && data.ok) {

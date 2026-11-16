@@ -430,6 +430,60 @@ async function hydrateSqliteFromPostgres(sqliteDb) {
       }
     } catch (_) {}
 
+    // 4. Events
+    try {
+      const eventsRes = await p.query('SELECT * FROM events ORDER BY id ASC');
+      if (eventsRes && eventsRes.rows && eventsRes.rows.length) {
+        const evStmt = sqliteDb.prepare(`
+          INSERT INTO events (
+            id, title, category, date, venue, price_range, badge, is_accent, gradient, image,
+            quota_vip, quota_a, quota_b, quota_c,
+            price_vip, price_a, price_b, price_c,
+            stage_layout, seating_type, zone_type_vip, zone_type_a, zone_type_b, zone_type_c, seats_per_table
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            category = excluded.category,
+            date = excluded.date,
+            venue = excluded.venue,
+            price_range = excluded.price_range,
+            badge = excluded.badge,
+            is_accent = excluded.is_accent,
+            gradient = excluded.gradient,
+            image = excluded.image,
+            quota_vip = excluded.quota_vip,
+            quota_a = excluded.quota_a,
+            quota_b = excluded.quota_b,
+            quota_c = excluded.quota_c,
+            price_vip = excluded.price_vip,
+            price_a = excluded.price_a,
+            price_b = excluded.price_b,
+            price_c = excluded.price_c,
+            stage_layout = excluded.stage_layout,
+            seating_type = excluded.seating_type,
+            zone_type_vip = excluded.zone_type_vip,
+            zone_type_a = excluded.zone_type_a,
+            zone_type_b = excluded.zone_type_b,
+            zone_type_c = excluded.zone_type_c,
+            seats_per_table = excluded.seats_per_table
+        `);
+        for (const ev of eventsRes.rows) {
+          try {
+            evStmt.run(
+              Number(ev.id), ev.title, ev.category || 'world', ev.date || '', ev.venue || '',
+              ev.price_range || '1,800 - 6,500 THB', ev.badge || 'เปิดจำหน่าย', Number(ev.is_accent ?? 1),
+              ev.gradient || '', ev.image || '',
+              Number(ev.quota_vip || 50), Number(ev.quota_a || 100), Number(ev.quota_b || 120), Number(ev.quota_c || 150),
+              Number(ev.price_vip ?? 6500), Number(ev.price_a ?? 4500), Number(ev.price_b ?? 3200), Number(ev.price_c ?? 1800),
+              ev.stage_layout || 'standard', ev.seating_type || 'table',
+              ev.zone_type_vip || 'table', ev.zone_type_a || 'table', ev.zone_type_b || 'table', ev.zone_type_c || 'table',
+              Number(ev.seats_per_table || 4)
+            );
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+
     console.log(`[Supabase PostgreSQL] Hydrated ${settingsRes.rows.length} settings and ${ordersRes.rows.length} orders into local cache.`);
     return true;
   } catch (err) {

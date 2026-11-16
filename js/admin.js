@@ -3350,12 +3350,27 @@
     } catch (_) {}
 
     try {
-      await fetch('/api/admin/storefront-settings', {
+      const res = await fetch('/api/admin/storefront-settings', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data)
       });
-    } catch (_) {}
+      if (!res.ok) {
+        throw new Error(res.status === 413 ? 'ขนาดภาพโปรโมทใหญ่เกินกำหนด (เกิน 1 MB)' : `บันทึกไม่สำเร็จ (HTTP ${res.status})`);
+      }
+      const result = await res.json();
+      if (result && result.unauthorized) {
+        window.UI.close('storefrontSettingsModal');
+        showLoginModal();
+        return;
+      }
+      if (result && result.ok === false) {
+        throw new Error(result.error || 'บันทึกการตั้งค่าหน้าขายบัตรไม่สำเร็จ');
+      }
+    } catch (err) {
+      window.UI.toast(err.message || 'ไม่สามารถบันทึกลงเซิร์ฟเวอร์ได้', 'error');
+      return;
+    }
 
     window.UI.close('storefrontSettingsModal');
     window.UI.toast('บันทึกเนื้อหาและภาพโปรโมทหน้าขายบัตรเรียบร้อยแล้ว');
@@ -4253,6 +4268,17 @@
       .join('');
   }
 
+  function reconcileServerEvents(serverEvents) {
+    const list = Array.isArray(serverEvents) ? serverEvents.filter(Boolean) : [];
+    const activeIds = new Set(list.map((ev) => Number(ev.id)).filter(Boolean));
+    try {
+      const remainingDeleted = getDeletedEventIds().filter((id) => !activeIds.has(Number(id)));
+      localStorage.setItem('thaiticket.deletedEventIds.v1', JSON.stringify(remainingDeleted));
+      localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(list));
+    } catch (_) {}
+    return list;
+  }
+
   async function openEventManagerModal() {
     resetEventForm();
     window.UI.open('eventManagerModal');
@@ -4260,7 +4286,7 @@
       const res = await fetch('/api/events', { cache: 'no-store' });
       const data = await res.json();
       if (data && data.ok) {
-        adminEventsCache = filterDeletedEvents(data.events || []);
+        adminEventsCache = reconcileServerEvents(data.events || []);
         renderAdminEvents();
       }
     } catch {
@@ -4309,6 +4335,9 @@
           image
         })
       });
+      if (!res.ok) {
+        throw new Error(res.status === 413 ? 'ภาพโปสเตอร์มีขนาดใหญ่เกิน 1 MB กรุณาลดขนาดภาพแล้วลองใหม่' : `บันทึกไม่สำเร็จ (HTTP ${res.status})`);
+      }
       const data = await res.json();
       if (data.unauthorized) {
         window.UI.close('eventManagerModal');
@@ -4317,9 +4346,8 @@
       }
       if (!data.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
       if (id) unmarkDeletedEventId(id);
-      adminEventsCache = filterDeletedEvents(data.events || []);
+      adminEventsCache = reconcileServerEvents(data.events || []);
       try {
-        localStorage.setItem('thaiticket.customEvents.v1', JSON.stringify(adminEventsCache));
         localStorage.setItem('stagepass_events_updated_at', String(Date.now()));
       } catch {
         /* ignore */
@@ -4330,6 +4358,7 @@
         bc.close();
       } catch (_) {}
       renderAdminEvents();
+      populateExcelEventFilterOptions();
       resetEventForm();
       window.UI.toast('บันทึกข้อมูลคอนเสิร์ต รูปแบบเวที และโควตาเรียบร้อยแล้ว (อัปเดตหน้าขายบัตรทันที)');
     } catch (err) {
@@ -4963,7 +4992,7 @@
         if (!file) return;
         try {
           window.UI.toast('กำลังประมวลผลภาพโปสเตอร์...', 'info');
-          const dataUrl = await compressImageFile(file, 1000, 0.82);
+          const dataUrl = await compressImageFile(file, 900, 0.78);
           if ($('evImageInput')) $('evImageInput').value = dataUrl;
           if ($('evImagePreviewImg')) $('evImagePreviewImg').src = dataUrl;
           if ($('evImagePreviewWrap')) $('evImagePreviewWrap').style.display = 'block';

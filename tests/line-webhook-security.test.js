@@ -523,4 +523,43 @@ test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed 
   assert.ok(filteredExcel.buffer.includes(Buffer.from('GRAND TOTAL', 'utf8')));
   assert.ok(filteredExcel.buffer.includes(Buffer.from(approvedOrd.ref, 'utf8')));
   assert.ok(!filteredExcel.buffer.includes(Buffer.from(pendingOrd.ref, 'utf8')), 'Approved filter must exclude pending order');
+
+  // 6. Test POST /api/admin/events persists new event cleanly in GET /api/events
+  const saveEvRes = await mockBinaryReqRes({
+    method: 'POST',
+    path: '/api/admin/events',
+    headers: { 'content-type': 'application/json', cookie: `tt_admin_session=${adminToken}` },
+    body: JSON.stringify({
+      title: 'PERSISTENCE TEST SHOW 2026',
+      venue: 'Impact Arena',
+      date: '29 ธ.ค. 2026',
+      quotaVip: 20,
+      quotaA: 40,
+      quotaB: 60,
+      quotaC: 80,
+      priceVip: 5000,
+      priceA: 3500,
+      priceB: 2500,
+      priceC: 1500
+    })
+  });
+  assert.equal(saveEvRes.statusCode, 200);
+  assert.equal(saveEvRes.json.ok, true);
+  const createdEv = saveEvRes.json.events.find((e) => e.title === 'PERSISTENCE TEST SHOW 2026');
+  assert.ok(createdEv && createdEv.id, 'Saved event should have assigned ID');
+
+  const getEventsRes = await mockBinaryReqRes({ method: 'GET', path: '/api/events' });
+  assert.equal(getEventsRes.statusCode, 200);
+  assert.equal(getEventsRes.json.ok, true);
+  assert.ok(
+    getEventsRes.json.events.some((e) => e.id === createdEv.id && e.title === 'PERSISTENCE TEST SHOW 2026'),
+    'GET /api/events must return newly created concert after refresh'
+  );
+
+  // Clean up test event
+  await mockBinaryReqRes({
+    method: 'DELETE',
+    path: `/api/admin/events/${createdEv.id}`,
+    headers: { cookie: `tt_admin_session=${adminToken}` }
+  });
 });

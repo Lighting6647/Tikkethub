@@ -50,7 +50,7 @@ try {
       try {
         const rawJson = JSON.parse(fs.readFileSync(sPath, 'utf8'));
         if (rawJson && typeof rawJson === 'object') {
-          const insertSettingStmt = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
+          const insertSettingStmt = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING`);
           for (const [k, v] of Object.entries(rawJson)) {
             if (v !== undefined && v !== null && String(v).trim()) {
               insertSettingStmt.run(k, String(v));
@@ -409,10 +409,10 @@ function ensureSeedData() {
     const updateImg = db.prepare(`UPDATE events SET image = ? WHERE id = ? AND (image IS NULL OR image = '')`);
     const updatePrices = db.prepare(`
       UPDATE events 
-      SET price_vip = COALESCE(NULLIF(price_vip, 0), ?),
-          price_a = COALESCE(NULLIF(price_a, 0), ?),
-          price_b = COALESCE(NULLIF(price_b, 0), ?),
-          price_c = COALESCE(NULLIF(price_c, 0), ?)
+      SET price_vip = COALESCE(price_vip, ?),
+          price_a = COALESCE(price_a, ?),
+          price_b = COALESCE(price_b, ?),
+          price_c = COALESCE(price_c, ?)
       WHERE id = ?
     `);
     for (const ev of DEFAULT_EVENTS) {
@@ -989,10 +989,22 @@ function saveEvent(input) {
   }
 
   const allEvents = listEventsWithQuota();
+  const savedEv =
+    (input.id && allEvents.find((e) => Number(e.id) === Number(input.id))) ||
+    allEvents.find((e) => e.title === title) ||
+    allEvents[allEvents.length - 1];
+  if (savedEv && savedEv.id) {
+    try {
+      const rawDel = getSetting('deleted_event_ids', '[]');
+      const arrDel = JSON.parse(rawDel);
+      if (Array.isArray(arrDel) && arrDel.includes(Number(savedEv.id))) {
+        setSetting('deleted_event_ids', JSON.stringify(arrDel.filter((x) => Number(x) !== Number(savedEv.id))));
+      }
+    } catch (_) {}
+  }
   try {
     setSetting('custom_events', JSON.stringify(allEvents));
   } catch (_) {}
-  const savedEv = allEvents.find((e) => e.title === title) || allEvents[allEvents.length - 1];
   if (savedEv) postgres.syncEvent(savedEv);
   return allEvents;
 }
