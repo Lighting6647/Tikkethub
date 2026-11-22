@@ -499,8 +499,9 @@
     const qrEl = $('payQrCanvas') || $('payQr');
     if (!qrEl) return false;
     const svg = qrEl.querySelector('svg');
+    const qrCanvas = qrEl.querySelector('canvas');
     const img = qrEl.querySelector('img');
-    if (!svg && !img) return false;
+    if (!svg && !qrCanvas && !img) return false;
 
     if (typeof document === 'undefined' || !document.createElement) return false;
 
@@ -545,20 +546,24 @@
     let drawn = false;
     if (svg) {
       try {
+        if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         const xml = new XMLSerializer().serializeToString(svg);
-        const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(svgBlob);
+        const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
         const tempImg = new Image();
         await new Promise((resolve) => {
           tempImg.onload = () => {
             ctx.drawImage(tempImg, qrX, qrY, qrSize, qrSize);
-            URL.revokeObjectURL(url);
             drawn = true;
             resolve();
           };
           tempImg.onerror = resolve;
-          tempImg.src = url;
+          tempImg.src = svgUrl;
         });
+      } catch {}
+    } else if (qrCanvas) {
+      try {
+        ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+        drawn = true;
       } catch {}
     } else if (img) {
       if (img.complete && img.naturalWidth) {
@@ -598,10 +603,26 @@
     ctx.font = 'bold 15px -apple-system, sans-serif';
     ctx.fillText('เปิดแอปธนาคารแล้วเลือก "สแกนจากรูปภาพ" เพื่อชำระเงิน', canvas.width / 2, 665);
 
-    // 6. Download Trigger via Blob or DataURL
-    return new Promise((resolve) => {
-      const filename = `PromptPay-QR-${refCode}.png`;
-      if (canvas.toBlob) {
+    // 6. Download Trigger via synchronous DataURL first (preserves user gesture) with Blob fallback
+    const filename = `PromptPay-QR-${refCode}.png`;
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }, 400);
+      return true;
+    } catch {
+      return new Promise((resolve) => {
+        if (!canvas.toBlob) {
+          resolve(false);
+          return;
+        }
         canvas.toBlob((blob) => {
           if (!blob) {
             resolve(false);
@@ -619,19 +640,8 @@
             resolve(true);
           }, 400);
         }, 'image/png');
-      } else {
-        const dataUrl = canvas.toDataURL('image/png');
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          if (a.parentNode) a.parentNode.removeChild(a);
-          resolve(true);
-        }, 400);
-      }
-    });
+      });
+    }
   }
 
   function setupQrLongPress() {
@@ -796,7 +806,15 @@
         manualBtn.disabled = true;
         const origText = manualBtn.innerHTML;
         manualBtn.innerHTML = '<span>⏳ กำลังบันทึก...</span>';
-        await downloadQrImage();
+        const ok = await downloadQrImage();
+        if (!ok) {
+          if (window.UI && window.UI.toast) {
+            window.UI.toast('ไม่สามารถบันทึกรูปอัตโนมัติได้ กรุณากดค้างที่ QR เพื่อบันทึกภาพ', 'error');
+          }
+          manualBtn.innerHTML = origText;
+          manualBtn.disabled = false;
+          return;
+        }
         if (window.UI && window.UI.toast) {
           window.UI.toast('บันทึกรูป QR Code ลงอุปกรณ์เรียบร้อยแล้ว', 'success');
         }
@@ -865,11 +883,29 @@
         if (f) acceptSlip(f);
       });
       dz.addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'slipRemove') return;
-        if (input) input.click();
+        if (e.target && (e.target.id === 'slipRemove' || e.target.closest?.('#slipRemove'))) return;
+        if (e.target === input) return;
+        if (input) {
+          input.value = '';
+          input.click();
+        }
+      });
+      dz.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (input) {
+            input.value = '';
+            input.click();
+          }
+        }
       });
     }
-    if ($('slipRemove')) $('slipRemove').addEventListener('click', clearSlip);
+    if ($('slipRemove')) {
+      $('slipRemove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearSlip();
+      });
+    }
     if ($('payConfirmBtn')) $('payConfirmBtn').addEventListener('click', confirmPayment);
     if ($('payRenewBtn')) {
       $('payRenewBtn').addEventListener('click', () => {
