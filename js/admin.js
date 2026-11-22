@@ -3739,7 +3739,7 @@
           templateKey,
           lineChannelAccessToken,
           baseUrl: window.location.origin.includes('localhost')
-            ? 'https://tikkethub.vercel.app'
+            ? 'https://stage-hubs.com'
             : window.location.origin
         })
       });

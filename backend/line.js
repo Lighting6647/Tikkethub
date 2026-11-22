@@ -7,10 +7,16 @@
 
 const crypto = require('node:crypto');
 
-function buildTicketFlexMessage(order) {
+const fs = require('node:fs');
+const path = require('node:path');
+
+const DEFAULT_BASE_URL = (process.env.PUBLIC_BASE_URL || 'https://stage-hubs.com').replace(/\/+$/, '');
+
+function buildTicketFlexMessage(order, options = {}) {
+  const baseUrl = String((options && options.baseUrl) || DEFAULT_BASE_URL).replace(/\/+$/, '');
   const qrPayload = order.qrPayload || ('THAITICKET|' + order.ref + '|' + (order.zone || '') + '|' + (order.qty || 1) + (order.qrSignature ? '|SIG:' + order.qrSignature : ''));
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(qrPayload)}`;
-  const ticketPassUrl = `https://tikkethub.vercel.app/ticket.html?ref=${encodeURIComponent(order.ref)}`;
+  const ticketPassUrl = `${baseUrl}/ticket.html?ref=${encodeURIComponent(order.ref)}`;
 
   return {
     type: 'flex',
@@ -198,8 +204,8 @@ function buildTicketFlexMessage(order) {
   };
 }
 
-async function sendLineTicketPush(order, channelAccessToken) {
-  const flex = buildTicketFlexMessage(order);
+async function sendLineTicketPush(order, channelAccessToken, options = {}) {
+  const flex = buildTicketFlexMessage(order, options);
   const to = String(order.lineUserId || '').trim();
   const token = String(channelAccessToken || '').trim();
 
@@ -253,11 +259,6 @@ async function sendLineTicketPush(order, channelAccessToken) {
     };
   }
 }
-
-const fs = require('node:fs');
-const path = require('node:path');
-
-const DEFAULT_BASE_URL = process.env.PUBLIC_BASE_URL || 'https://tikkethub.vercel.app';
 
 const RICH_MENU_TEMPLATES = {
   large_6grid: {

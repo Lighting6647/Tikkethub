@@ -942,7 +942,28 @@ if (typeof document !== 'undefined') {
     loadLocalCustomEvents();
     renderEvents();
     syncEventsFromServer();
-    TicketStore.syncAll().then(refreshCartCount);
+
+    // Handle URL query parameters from LINE Rich Menu / Webhook Deep-Link (?lineUserId=U...&lineName=...&action=my-tickets)
+    let deepLinkLineId = '';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlLineId = params.get('lineUserId') || params.get('line_user_id') || '';
+      const urlLineName = params.get('lineName') || params.get('displayName') || '';
+      const urlAction = params.get('action');
+      if (urlLineId && applyAutoDetectedLineProfile(urlLineId, urlLineName, 'LINE OA Deep-Link')) {
+        deepLinkLineId = urlLineId.trim();
+        if (window.UI && typeof window.UI.toast === 'function') {
+          setTimeout(() => {
+            window.UI.toast(`🟢 เชื่อมต่อบัญชี LINE อัตโนมัติสำเร็จ (${urlLineName || urlLineId.slice(0, 10) + '…'})`);
+          }, 350);
+        }
+      }
+      if (urlAction === 'my-tickets') {
+        setTimeout(() => openMyTicketsModal(), 250);
+      }
+    } catch (_) {}
+
+    TicketStore.syncAll({ lineUserId: deepLinkLineId }).then(refreshCartCount);
 
     // Cross-tab real-time listener for instant event & quota updates from Admin
     try {
@@ -1001,23 +1022,7 @@ if (typeof document !== 'undefined') {
       }
     } catch (_) {}
 
-    // Handle URL query parameters from LINE Rich Menu / Webhook Deep-Link (?lineUserId=U...&lineName=...&action=my-tickets)
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const urlLineId = params.get('lineUserId') || params.get('line_user_id');
-      const urlLineName = params.get('lineName') || params.get('displayName') || '';
-      const urlAction = params.get('action');
-      if (urlLineId && applyAutoDetectedLineProfile(urlLineId, urlLineName, 'LINE OA Deep-Link')) {
-        if (window.UI && typeof window.UI.toast === 'function') {
-          setTimeout(() => {
-            window.UI.toast(`🟢 เชื่อมต่อบัญชี LINE อัตโนมัติสำเร็จ (${urlLineName || urlLineId.slice(0, 10) + '…'})`);
-          }, 350);
-        }
-      }
-      if (urlAction === 'my-tickets') {
-        setTimeout(() => openMyTicketsModal(), 450);
-      }
-    } catch (_) {}
+    // Storefront settings live sync for all visitors
 
     // Live sync from server for all visitors
     fetch('/api/storefront-settings', { cache: 'no-store' })

@@ -170,6 +170,18 @@ function isFullAdmin(req) {
   return getAuthRole(req) === 'admin';
 }
 
+function getRequestBaseUrl(req) {
+  const envBase = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (envBase) return envBase;
+  const host = String((req && req.headers && (req.headers['x-forwarded-host'] || req.headers.host)) || '').trim();
+  if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+    const rawProto = String((req.headers && req.headers['x-forwarded-proto']) || 'https').split(',')[0].trim();
+    const proto = rawProto === 'http' || rawProto === 'https' ? rawProto : 'https';
+    return `${proto}://${host}`;
+  }
+  return 'https://stage-hubs.com';
+}
+
 function sendJson(res, status, data, extraHeaders = {}) {
   const body = JSON.stringify(data);
   res.writeHead(status, {
@@ -579,7 +591,8 @@ async function handleApi(req, res, url) {
         }
         const replyRes = await replyLineWebhook(ev.replyToken, userId, token, {
           displayName,
-          text
+          text,
+          baseUrl: getRequestBaseUrl(req)
         });
         results.push({ userId, displayName, ...replyRes });
       }
@@ -601,7 +614,8 @@ async function handleApi(req, res, url) {
     });
     const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
     const reply = await replyLineWebhook('SIMULATED_REPLY_TOKEN', saved.user_id, token, {
-      displayName: saved.display_name
+      displayName: saved.display_name,
+      baseUrl: getRequestBaseUrl(req)
     });
     return sendJson(res, 200, {
       ok: true,
@@ -699,10 +713,10 @@ async function handleApi(req, res, url) {
               if (approved && approved.lineUserId) {
                 const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
                 if (token) {
-                  const lineRes = await sendLineTicketPush(approved.lineUserId, approved, token);
+                  const lineRes = await sendLineTicketPush(approved, token, { baseUrl: getRequestBaseUrl(req) });
                   db.updateOrderStatus(approved.ref, {
                     status: 'approved',
-                    lineSent: lineRes.ok ? 1 : 0,
+                    lineSent: lineRes.sentMode,
                     lineLog: lineRes
                   });
                 }
@@ -762,12 +776,44 @@ async function handleApi(req, res, url) {
     const status = url.searchParams.get('status') || 'all';
     const refsParam = url.searchParams.get('refs');
     const refs = refsParam ? refsParam.split(',').map((s) => s.trim()).filter(Boolean) : null;
+    const lineUserIdRaw = (url.searchParams.get('lineUserId') || url.searchParams.get('line_user_id') || '').trim();
+    const validLineUserId = /^U[0-9a-fA-F]{32}$/.test(lineUserIdRaw) ? lineUserIdRaw : '';
     const includeSlip = url.searchParams.get('includeSlip') !== 'false';
-    // If listing all orders (Admin view without specific customer refs), require admin auth
-    if (!refs && !isAdminAuthenticated(req)) {
+    const isAdmin = isAdminAuthenticated(req);
+    // If listing all orders (Admin view without specific customer refs or verified LINE User ID), require admin auth
+    if (!refs && !validLineUserId && !isAdmin) {
       return sendJson(res, 200, { ok: false, unauthorized: true, orders: [] });
     }
-    const orders = db.listOrders({ status, refs, includeSlipData: includeSlip });
+    let orders = db.listOrders({
+      status,
+      refs,
+      lineUserId: validLineUserId,
+      includeSlipData: isAdmin ? includeSlip : false
+    });
+    if (!isAdmin) {
+      orders = orders.map((o) => ({
+        ref: o.ref,
+        title: o.title,
+        date: o.date,
+        venue: o.venue,
+        zone: o.zone,
+        qty: o.qty,
+        seats: o.seats,
+        total: o.total,
+        holderName: o.holderName,
+        holderPhone: o.holderPhone,
+        holderIdCard: o.holderIdCard,
+        lineUserId: o.lineUserId,
+        status: o.status,
+        rejectReason: o.rejectReason,
+        lineSent: o.lineSent,
+        checkedInAt: o.checkedInAt,
+        checkedInBy: o.checkedInBy,
+        qrSignature: o.qrSignature,
+        qrPayload: o.qrPayload,
+        issuedAt: o.issuedAt
+      }));
+    }
     return sendJson(res, 200, { ok: true, orders });
   }
 
@@ -944,7 +990,7 @@ async function handleApi(req, res, url) {
         continue;
       }
       if (action === 'approve') {
-        const lineResult = await sendLineTicketPush(existing, token);
+        const lineResult = await sendLineTicketPush(existing, token, { baseUrl: getRequestBaseUrl(req) });
         const updated = db.updateOrderStatus(ref, {
           status: 'approved',
           rejectReason: '',
@@ -1048,7 +1094,7 @@ async function handleApi(req, res, url) {
 
     if (method === 'POST' && action === 'approve') {
       const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
-      const lineResult = await sendLineTicketPush(existing, token);
+      const lineResult = await sendLineTicketPush(existing, token, { baseUrl: getRequestBaseUrl(req) });
       const updated = db.updateOrderStatus(ref, {
         status: 'approved',
         rejectReason: '',
@@ -1087,7 +1133,7 @@ async function handleApi(req, res, url) {
         return sendJson(res, 200, { ok: false, error: 'ต้องอนุมัติสลิปก่อนจึงจะส่งบัตรเข้า LINE ได้' });
       }
       const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
-      const lineResult = await sendLineTicketPush(existing, token);
+      const lineResult = await sendLineTicketPush(existing, token, { baseUrl: getRequestBaseUrl(req) });
       const updated = db.updateOrderStatus(ref, {
         status: 'approved',
         rejectReason: '',
@@ -1519,7 +1565,7 @@ async function handleApi(req, res, url) {
     if (!isAdminAuthenticated(req)) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
     }
-    const baseUrl = process.env.PUBLIC_BASE_URL || 'https://tikkethub.vercel.app';
+    const baseUrl = getRequestBaseUrl(req);
     return sendJson(res, 200, {
       ok: true,
       activeTemplate: db.getSetting('active_rich_menu_template', 'large_6grid'),
@@ -1534,7 +1580,7 @@ async function handleApi(req, res, url) {
     }
     const body = await readJsonBody(req).catch(() => ({}));
     const templateKey = String(body.templateKey || 'large_6grid').trim();
-    const baseUrl = String(body.baseUrl || process.env.PUBLIC_BASE_URL || 'https://tikkethub.vercel.app').trim();
+    const baseUrl = String(body.baseUrl || getRequestBaseUrl(req)).trim();
     const token = (body.lineChannelAccessToken || db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '')).trim();
     if (body.lineChannelAccessToken && body.lineChannelAccessToken.trim()) {
       db.setSetting('line_channel_access_token', body.lineChannelAccessToken.trim());

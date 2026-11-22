@@ -614,7 +614,7 @@ function getOrder(ref) {
   return rowToOrder(row);
 }
 
-function listOrders({ status, refs, includeSlipData = true } = {}) {
+function listOrders({ status, refs, lineUserId, includeSlipData = true } = {}) {
   let sql = `SELECT * FROM orders`;
   const params = [];
   const clauses = [];
@@ -623,9 +623,19 @@ function listOrders({ status, refs, includeSlipData = true } = {}) {
     clauses.push(`status = ?`);
     params.push(status);
   }
-  if (Array.isArray(refs) && refs.length) {
+  const hasRefs = Array.isArray(refs) && refs.length > 0;
+  const cleanLineId = typeof lineUserId === 'string' && /^U[0-9a-fA-F]{32}$/.test(lineUserId.trim())
+    ? lineUserId.trim()
+    : '';
+  if (hasRefs && cleanLineId) {
+    clauses.push(`(ref IN (${refs.map(() => '?').join(',')}) OR line_user_id = ?)`);
+    params.push(...refs, cleanLineId);
+  } else if (hasRefs) {
     clauses.push(`ref IN (${refs.map(() => '?').join(',')})`);
     params.push(...refs);
+  } else if (cleanLineId) {
+    clauses.push(`line_user_id = ?`);
+    params.push(cleanLineId);
   }
   if (clauses.length) sql += ` WHERE ` + clauses.join(' AND ');
   sql += ` ORDER BY issued_at DESC`;

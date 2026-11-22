@@ -39,12 +39,35 @@
     return copy;
   }
 
-  async function syncAll() {
+  function resolveActiveLineUserId(options) {
+    let candidate = options && options.lineUserId ? String(options.lineUserId).trim() : '';
+    if (!candidate && typeof window !== 'undefined' && window.location && window.location.search) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        candidate = (params.get('lineUserId') || params.get('line_user_id') || '').trim();
+      } catch (_) {}
+    }
+    if (!candidate) {
+      try {
+        const holderRaw = localStorage.getItem('thaiticket.holder.v1');
+        if (holderRaw) {
+          const parsed = JSON.parse(holderRaw);
+          if (parsed && parsed.lineUserId) candidate = String(parsed.lineUserId).trim();
+        }
+      } catch (_) {}
+    }
+    return /^U[0-9a-fA-F]{32}$/.test(candidate) ? candidate : '';
+  }
+
+  async function syncAll(options = {}) {
     const local = readAll();
-    if (!local.length) return [];
-    const refs = local.map((t) => t.ref).join(',');
+    const validLineId = resolveActiveLineUserId(options);
+    if (!local.length && !validLineId) return [];
+    const qs = new URLSearchParams({ includeSlip: 'false' });
+    if (local.length) qs.set('refs', local.map((t) => t.ref).join(','));
+    if (validLineId) qs.set('lineUserId', validLineId);
     try {
-      const res = await fetch(`/api/orders?refs=${encodeURIComponent(refs)}&includeSlip=false`);
+      const res = await fetch(`/api/orders?${qs.toString()}`, { cache: 'no-store' });
       if (!res.ok) return local;
       const data = await res.json();
       const srvOrders = Array.isArray(data.orders) ? data.orders : [];
@@ -72,7 +95,7 @@
     } catch {
       /* offline fallback to local data */
     }
-    return readAll().sort((a, b) => b.issuedAt - a.issuedAt);
+    return readAll().sort((a, b) => Number(b.issuedAt || 0) - Number(a.issuedAt || 0));
   }
 
   async function fetchOne(ref) {

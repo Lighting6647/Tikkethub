@@ -9,7 +9,7 @@ const { deployRichMenuToLine, listRichMenuTemplates } = require('../backend/line
 
 async function main() {
   const templateKey = process.argv[2] || 'large_6grid';
-  const baseUrl = process.env.PUBLIC_BASE_URL || 'https://tikkethub.vercel.app';
+  const baseUrl = process.env.PUBLIC_BASE_URL || 'https://stage-hubs.com';
   const token =
     process.env.LINE_CHANNEL_ACCESS_TOKEN ||
     db.getSetting('line_channel_access_token', '');

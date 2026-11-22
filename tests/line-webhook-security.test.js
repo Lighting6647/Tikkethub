@@ -562,4 +562,47 @@ test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed 
     path: `/api/admin/events/${createdEv.id}`,
     headers: { cookie: `tt_admin_session=${adminToken}` }
   });
+
+  // 7. Test LINE OA links default to stage-hubs.com and GET /api/orders?lineUserId=... returns customer tickets
+  const { buildTicketFlexMessage, buildWebhookReplyMessages, listRichMenuTemplates } = require('../backend/line');
+  const flexMsg = buildTicketFlexMessage({ ref: 'TT-LINE-001', title: 'SHOW', date: '1 ธ.ค.', venue: 'BKK', zone: 'VIP', qty: 1, total: 5000 });
+  assert.ok(flexMsg.contents.footer.contents[0].action.uri.startsWith('https://stage-hubs.com/ticket.html?ref='));
+  const replyMsgs = buildWebhookReplyMessages('U11112222333344445555666677778888');
+  assert.ok(replyMsgs[1].contents.footer.contents[0].action.uri.startsWith('https://stage-hubs.com/?lineUserId='));
+  assert.ok(replyMsgs[1].contents.footer.contents[1].action.uri.startsWith('https://stage-hubs.com/?lineUserId='));
+  const defaultMenus = listRichMenuTemplates();
+  assert.ok(defaultMenus[0].areas[0].action.uri.startsWith('https://stage-hubs.com'));
+
+  const lineUid = 'Ua1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4';
+  const lineOrd = db.createOrder({
+    title: 'LINE TICKET LOOKUP SHOW',
+    date: '22 พ.ย. 2026',
+    venue: 'Impact Arena',
+    zone: 'VIP Standing',
+    qty: 1,
+    unitPrice: 3500,
+    total: 3500,
+    holderName: 'ลูกค้าเปิดดูบัตรผ่านไลน์',
+    holderPhone: '081-111-2222',
+    lineUserId: lineUid,
+    slipName: 'line-slip.png',
+    slipMime: 'image/png',
+    slipData: makeLargePngSlip('L')
+  });
+
+  const lineLookupRes = await mockBinaryReqRes({
+    method: 'GET',
+    path: `/api/orders?lineUserId=${lineUid}&includeSlip=false`
+  });
+  assert.equal(lineLookupRes.statusCode, 200);
+  assert.equal(lineLookupRes.json.ok, true);
+  const foundLineOrd = lineLookupRes.json.orders.find((o) => o.ref === lineOrd.ref);
+  assert.ok(foundLineOrd, 'Public /api/orders?lineUserId=... must return matching LINE customer tickets');
+  assert.equal(foundLineOrd.slipData, undefined, 'Public LINE ticket lookup must omit sensitive slipData');
+
+  const badLineLookupRes = await mockBinaryReqRes({
+    method: 'GET',
+    path: '/api/orders?lineUserId=invalid-id'
+  });
+  assert.equal(badLineLookupRes.json.unauthorized, true);
 });
