@@ -226,7 +226,11 @@
     if (slipUrl) URL.revokeObjectURL(slipUrl);
     slipUrl = null;
     const input = $('slipFileInput') || $('slipInput');
-    if (input) input.value = '';
+    if (input) {
+      input.value = '';
+      input.style.pointerEvents = 'auto';
+      input.style.zIndex = '2';
+    }
     const prev = $('slipPreviewWrap') || $('slipPreview');
     if (prev) prev.hidden = true;
     const prompt = $('slipDropPrompt');
@@ -271,6 +275,11 @@
     if (prev) prev.hidden = false;
     const prompt = $('slipDropPrompt');
     if (prompt) prompt.hidden = true;
+    const input = $('slipFileInput') || $('slipInput');
+    if (input) {
+      input.style.pointerEvents = 'none';
+      input.style.zIndex = '-1';
+    }
 
     updateConfirmState();
     if (window.UI && window.UI.toast) window.UI.toast('แนบสลิปเรียบร้อยแล้ว');
@@ -514,15 +523,15 @@
     }
   }
 
-  async function buildQrCardDataUrl() {
-    const qrEl = $('payQrCanvas') || $('payQr');
-    if (!qrEl) return '';
-    const svg = qrEl.querySelector('svg');
-    const qrCanvas = qrEl.querySelector('canvas');
-    const img = qrEl.querySelector('img');
-    if (!svg && !qrCanvas && !img) return '';
-
+  function buildQrCardDataUrl() {
     if (typeof document === 'undefined' || !document.createElement) return '';
+
+    const qrEl = $('payQrCanvas') || $('payQr');
+    const qrCanvas = qrEl ? qrEl.querySelector('canvas') : null;
+    const img = qrEl ? qrEl.querySelector('img') : null;
+    const totalAmount = order ? (order.total || order.unitPrice || 0) : 0;
+    const payload = window.PromptPay ? window.PromptPay.buildPayload(activePromptPayId, totalAmount) : '';
+    if (typeof qrcode === 'undefined' && !qrCanvas && !img) return '';
 
     // High-resolution canvas for crystal clear bank scanner compatibility
     const canvas = document.createElement('canvas');
@@ -545,7 +554,6 @@
     ctx.fillText('PROMPTPAY QR PAYMENT', canvas.width / 2, 50);
 
     // 3. Amount & Target details
-    const totalAmount = order ? (order.total || order.unitPrice || 0) : 0;
     const ppTarget = formatPromptPayId(activePromptPayId);
     const refCode = $('payRefDisplay') ? $('payRefDisplay').textContent : 'TT-0000';
 
@@ -557,54 +565,50 @@
     ctx.font = '500 17px -apple-system, sans-serif';
     ctx.fillText(`โอนเข้าบัญชี: ${ppTarget}`, canvas.width / 2, 170);
 
-    // 4. Center QR Code drawing (380 x 380)
+    // 4. Center QR Code drawing (380 x 380) synchronously so user activation stays intact on iOS/LINE
     const qrSize = 380;
     const qrX = (canvas.width - qrSize) / 2;
     const qrY = 195;
 
     let drawn = false;
-    if (svg) {
+    if (typeof qrcode !== 'undefined' && payload) {
       try {
-        if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        const xml = new XMLSerializer().serializeToString(svg);
-        const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
-        const tempImg = new Image();
-        await new Promise((resolve) => {
-          tempImg.onload = () => {
-            ctx.drawImage(tempImg, qrX, qrY, qrSize, qrSize);
-            drawn = true;
-            resolve();
-          };
-          tempImg.onerror = resolve;
-          tempImg.src = svgUrl;
-        });
+        const qr = qrcode(0, 'M');
+        qr.addData(payload);
+        qr.make();
+        const count = qr.getModuleCount();
+        if (count > 0) {
+          const cell = qrSize / count;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(qrX, qrY, qrSize, qrSize);
+          ctx.fillStyle = '#000000';
+          for (let r = 0; r < count; r++) {
+            for (let c = 0; c < count; c++) {
+              if (qr.isDark(r, c)) {
+                ctx.fillRect(
+                  Math.floor(qrX + c * cell),
+                  Math.floor(qrY + r * cell),
+                  Math.ceil(cell),
+                  Math.ceil(cell)
+                );
+              }
+            }
+          }
+          drawn = true;
+        }
       } catch {}
-    } else if (qrCanvas) {
+    }
+
+    if (!drawn && qrCanvas) {
       try {
         ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
         drawn = true;
       } catch {}
-    } else if (img) {
-      if (img.complete && img.naturalWidth) {
-        try {
-          ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
-          drawn = true;
-        } catch {}
-      } else {
-        await new Promise((resolve) => {
-          const tempImg = new Image();
-          tempImg.crossOrigin = 'anonymous';
-          tempImg.onload = () => {
-            try {
-              ctx.drawImage(tempImg, qrX, qrY, qrSize, qrSize);
-              drawn = true;
-            } catch {}
-            resolve();
-          };
-          tempImg.onerror = resolve;
-          tempImg.src = img.src;
-        });
-      }
+    } else if (!drawn && img && img.complete && img.naturalWidth) {
+      try {
+        ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+        drawn = true;
+      } catch {}
     }
 
     if (!drawn) {
@@ -629,8 +633,8 @@
     }
   }
 
-  async function prepareQrCardCache() {
-    const dataUrl = await buildQrCardDataUrl();
+  function prepareQrCardCache() {
+    const dataUrl = buildQrCardDataUrl();
     if (dataUrl) {
       cachedQrCardDataUrl = dataUrl;
       cachedQrCardBlob = dataUrlToBlob(dataUrl);
@@ -653,7 +657,7 @@
   }
 
   async function downloadQrImage() {
-    const dataUrl = cachedQrCardDataUrl || (await buildQrCardDataUrl());
+    const dataUrl = cachedQrCardDataUrl || buildQrCardDataUrl();
     if (!dataUrl) return false;
     const blob = cachedQrCardBlob || dataUrlToBlob(dataUrl);
     const refCode = $('payRefDisplay') ? $('payRefDisplay').textContent : 'TT-0000';
@@ -940,6 +944,11 @@
         e.preventDefault();
         const f = e.dataTransfer.files && e.dataTransfer.files[0];
         if (f) acceptSlip(f);
+      });
+      dz.addEventListener('click', (e) => {
+        if (e.target === input) return;
+        if (e.target && (e.target.id === 'slipRemove' || (e.target.closest && e.target.closest('#slipRemove')))) return;
+        if (input) input.click();
       });
     }
     if ($('qrSavePreviewCloseBtn')) {
