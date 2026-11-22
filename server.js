@@ -778,16 +778,19 @@ async function handleApi(req, res, url) {
     const refs = refsParam ? refsParam.split(',').map((s) => s.trim()).filter(Boolean) : null;
     const lineUserIdRaw = (url.searchParams.get('lineUserId') || url.searchParams.get('line_user_id') || '').trim();
     const validLineUserId = /^U[0-9a-fA-F]{32}$/.test(lineUserIdRaw) ? lineUserIdRaw : '';
+    const phoneRaw = (url.searchParams.get('phone') || '').replace(/\D/g, '');
+    const validPhoneDigits = phoneRaw.length >= 9 && phoneRaw.length <= 10 ? phoneRaw : '';
     const includeSlip = url.searchParams.get('includeSlip') !== 'false';
     const isAdmin = isAdminAuthenticated(req);
-    // If listing all orders (Admin view without specific customer refs or verified LINE User ID), require admin auth
-    if (!refs && !validLineUserId && !isAdmin) {
+    // If listing all orders (Admin view without specific customer refs, verified LINE User ID, or phone), require admin auth
+    if (!refs && !validLineUserId && !validPhoneDigits && !isAdmin) {
       return sendJson(res, 200, { ok: false, unauthorized: true, orders: [] });
     }
     let orders = db.listOrders({
       status,
       refs,
       lineUserId: validLineUserId,
+      phoneDigits: validPhoneDigits,
       includeSlipData: isAdmin ? includeSlip : false
     });
     if (!isAdmin) {
@@ -1566,11 +1569,12 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
     }
     const baseUrl = getRequestBaseUrl(req);
+    const liffId = db.getSetting('line_liff_id', process.env.LINE_LIFF_ID || '');
     return sendJson(res, 200, {
       ok: true,
       activeTemplate: db.getSetting('active_rich_menu_template', 'large_6grid'),
       activeRichMenuId: db.getSetting('active_rich_menu_id', ''),
-      templates: listRichMenuTemplates(baseUrl)
+      templates: listRichMenuTemplates(baseUrl, liffId)
     });
   }
 
@@ -1581,6 +1585,7 @@ async function handleApi(req, res, url) {
     const body = await readJsonBody(req).catch(() => ({}));
     const templateKey = String(body.templateKey || 'large_6grid').trim();
     const baseUrl = String(body.baseUrl || getRequestBaseUrl(req)).trim();
+    const liffId = String(body.liffId || db.getSetting('line_liff_id', process.env.LINE_LIFF_ID || '')).trim();
     const token = (body.lineChannelAccessToken || db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '')).trim();
     if (body.lineChannelAccessToken && body.lineChannelAccessToken.trim()) {
       db.setSetting('line_channel_access_token', body.lineChannelAccessToken.trim());
@@ -1588,7 +1593,8 @@ async function handleApi(req, res, url) {
     const deployRes = await deployRichMenuToLine({
       templateKey,
       channelAccessToken: token,
-      baseUrl
+      baseUrl,
+      liffId
     });
     if (deployRes.ok) {
       db.setSetting('active_rich_menu_template', deployRes.templateKey);

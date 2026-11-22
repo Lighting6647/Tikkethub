@@ -3,7 +3,7 @@
  * Keeps customer's booking references locally and syncs live approval status with the backend.
  */
 (function () {
-  const KEY = window.APP_CONFIG.STORAGE_KEY;
+  const KEY = (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.STORAGE_KEY) || 'thaiticket.orders.v1';
   let memory = [];
 
   function readAll() {
@@ -111,13 +111,34 @@
     return readAll().find((t) => t.ref === ref) || null;
   }
 
+  async function lookupTickets(query) {
+    const clean = String(query || '').trim();
+    if (!clean) return [];
+    const digits = clean.replace(/\D/g, '');
+    if (digits.length >= 9 && digits.length <= 10 && !/^TT/i.test(clean)) {
+      try {
+        const res = await fetch(`/api/orders?phone=${encodeURIComponent(digits)}&includeSlip=false`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data.orders) ? data.orders : [];
+          list.forEach((srv) => upsert(srv));
+          return list;
+        }
+      } catch (_) {}
+      return [];
+    }
+    const found = await fetchOne(clean.toUpperCase());
+    return found ? [found] : [];
+  }
+
   window.TicketStore = {
-    all: () => readAll().sort((a, b) => b.issuedAt - a.issuedAt),
+    all: () => readAll().sort((a, b) => Number(b.issuedAt || 0) - Number(a.issuedAt || 0)),
     get: (ref) => readAll().find((t) => t.ref === ref),
     add: upsert,
     upsert,
     syncAll,
     fetchOne,
+    lookupTickets,
     count: () =>
       readAll()
         .filter((t) => t.status !== 'rejected')

@@ -270,14 +270,18 @@ const RICH_MENU_TEMPLATES = {
     previewImage: '/rich-menu/rich-menu-large-1200x810.jpg',
     fileJpg: 'rich-menu-large-2500x1686.jpg',
     filePng: 'rich-menu-large-1200x810.png',
-    buildAreas(baseUrl) {
+    buildAreas(baseUrl, liffId = '') {
       const base = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+      const cleanLiff = String(liffId || '').trim();
+      const homeUri = cleanLiff ? `https://liff.line.me/${cleanLiff}` : `${base}/`;
+      const myTicketsUri = cleanLiff ? `https://liff.line.me/${cleanLiff}?action=my-tickets` : `${base}/?action=my-tickets`;
+      const eventsUri = cleanLiff ? `https://liff.line.me/${cleanLiff}#eventsSection` : `${base}/#eventsSection`;
       const colW = 833;
       const rowH = 843;
       return [
         {
           bounds: { x: 0, y: 0, width: colW, height: rowH },
-          action: { type: 'uri', label: 'จองบัตร / เลือกโต๊ะ', uri: `${base}/` }
+          action: { type: 'uri', label: 'จองบัตร / เลือกโต๊ะ', uri: homeUri }
         },
         {
           bounds: { x: colW, y: 0, width: colW, height: rowH },
@@ -285,11 +289,11 @@ const RICH_MENU_TEMPLATES = {
         },
         {
           bounds: { x: colW * 2, y: 0, width: 2500 - colW * 2, height: rowH },
-          action: { type: 'uri', label: 'บัตร E-Ticket ของฉัน', uri: `${base}/?action=my-tickets` }
+          action: { type: 'uri', label: 'บัตร E-Ticket ของฉัน', uri: myTicketsUri }
         },
         {
           bounds: { x: 0, y: rowH, width: colW, height: rowH },
-          action: { type: 'uri', label: 'ผังที่นั่ง & โซนราคา', uri: `${base}/#eventsSection` }
+          action: { type: 'uri', label: 'ผังที่นั่ง & โซนราคา', uri: eventsUri }
         },
         {
           bounds: { x: colW, y: rowH, width: colW, height: rowH },
@@ -311,13 +315,16 @@ const RICH_MENU_TEMPLATES = {
     previewImage: '/rich-menu/rich-menu-small-1200x405.jpg',
     fileJpg: 'rich-menu-small-2500x843.jpg',
     filePng: 'rich-menu-small-1200x405.png',
-    buildAreas(baseUrl) {
+    buildAreas(baseUrl, liffId = '') {
       const base = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+      const cleanLiff = String(liffId || '').trim();
+      const homeUri = cleanLiff ? `https://liff.line.me/${cleanLiff}` : `${base}/`;
+      const myTicketsUri = cleanLiff ? `https://liff.line.me/${cleanLiff}?action=my-tickets` : `${base}/?action=my-tickets`;
       const colW = 833;
       return [
         {
           bounds: { x: 0, y: 0, width: colW, height: 843 },
-          action: { type: 'uri', label: 'จองบัตรคอนเสิร์ต', uri: `${base}/` }
+          action: { type: 'uri', label: 'จองบัตรคอนเสิร์ต', uri: homeUri }
         },
         {
           bounds: { x: colW, y: 0, width: colW, height: 843 },
@@ -325,7 +332,7 @@ const RICH_MENU_TEMPLATES = {
         },
         {
           bounds: { x: colW * 2, y: 0, width: 2500 - colW * 2, height: 843 },
-          action: { type: 'uri', label: 'ดูบัตร / ติดต่อเรา', uri: `${base}/?action=my-tickets` }
+          action: { type: 'uri', label: 'ดูบัตร / ติดต่อเรา', uri: myTicketsUri }
         }
       ];
     }
@@ -378,7 +385,7 @@ const RICH_MENU_TEMPLATES = {
   }
 };
 
-function listRichMenuTemplates(baseUrl = DEFAULT_BASE_URL) {
+function listRichMenuTemplates(baseUrl = DEFAULT_BASE_URL, liffId = '') {
   return Object.values(RICH_MENU_TEMPLATES).map((tpl) => ({
     key: tpl.key,
     title: tpl.title,
@@ -386,25 +393,25 @@ function listRichMenuTemplates(baseUrl = DEFAULT_BASE_URL) {
     size: tpl.size,
     chatBarText: tpl.chatBarText,
     previewImage: tpl.previewImage,
-    areasCount: tpl.buildAreas(baseUrl).length,
-    areas: tpl.buildAreas(baseUrl)
+    areasCount: tpl.buildAreas(baseUrl, liffId).length,
+    areas: tpl.buildAreas(baseUrl, liffId)
   }));
 }
 
-function buildRichMenuPayload(templateKey = 'large_6grid', baseUrl = DEFAULT_BASE_URL) {
+function buildRichMenuPayload(templateKey = 'large_6grid', baseUrl = DEFAULT_BASE_URL, liffId = '') {
   const tpl = RICH_MENU_TEMPLATES[templateKey] || RICH_MENU_TEMPLATES.large_6grid;
   return {
     size: tpl.size,
     selected: true,
     name: `STAGE PASS - ${tpl.key}`,
     chatBarText: tpl.chatBarText,
-    areas: tpl.buildAreas(baseUrl)
+    areas: tpl.buildAreas(baseUrl, liffId)
   };
 }
 
-async function deployRichMenuToLine({ templateKey = 'large_6grid', channelAccessToken = '', baseUrl = DEFAULT_BASE_URL } = {}) {
+async function deployRichMenuToLine({ templateKey = 'large_6grid', channelAccessToken = '', baseUrl = DEFAULT_BASE_URL, liffId = '' } = {}) {
   const tpl = RICH_MENU_TEMPLATES[templateKey] || RICH_MENU_TEMPLATES.large_6grid;
-  const payload = buildRichMenuPayload(tpl.key, baseUrl);
+  const payload = buildRichMenuPayload(tpl.key, baseUrl, liffId);
   const token = String(channelAccessToken || '').trim();
 
   const richMenuDir = path.join(__dirname, '..', 'rich-menu');

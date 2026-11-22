@@ -310,6 +310,15 @@ function initLineLiffAutoFill(liffId) {
         const profile = await window.liff.getProfile();
         if (profile && profile.userId) {
           applyAutoDetectedLineProfile(profile.userId, profile.displayName || '', 'LINE LIFF');
+          if (window.TicketStore && typeof window.TicketStore.syncAll === 'function') {
+            window.TicketStore.syncAll({ lineUserId: profile.userId }).then(() => {
+              refreshCartCount();
+              const myModal = document.getElementById('myTicketsModal');
+              if (myModal && myModal.classList.contains('active') && window.TicketViewer) {
+                window.TicketViewer.openList();
+              }
+            });
+          }
         }
       } else if (window.liff.isInClient && window.liff.isInClient()) {
         window.liff.login();

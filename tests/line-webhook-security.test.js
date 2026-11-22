@@ -605,4 +605,19 @@ test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed 
     path: '/api/orders?lineUserId=invalid-id'
   });
   assert.equal(badLineLookupRes.json.unauthorized, true);
+
+  // Phone lookup & LIFF Rich Menu URI verification
+  const phoneLookupRes = await mockBinaryReqRes({
+    method: 'GET',
+    path: '/api/orders?phone=0811112222&includeSlip=false'
+  });
+  assert.equal(phoneLookupRes.statusCode, 200);
+  assert.equal(phoneLookupRes.json.ok, true);
+  const foundByPhone = phoneLookupRes.json.orders.find((o) => o.ref === lineOrd.ref);
+  assert.ok(foundByPhone, 'Public /api/orders?phone=... must return matching customer orders');
+  assert.equal(foundByPhone.slipData, undefined);
+
+  const liffMenus = listRichMenuTemplates('https://stage-hubs.com', '2012609397-g7KbRSp0');
+  assert.equal(liffMenus[0].areas[0].action.uri, 'https://liff.line.me/2012609397-g7KbRSp0');
+  assert.equal(liffMenus[0].areas[2].action.uri, 'https://liff.line.me/2012609397-g7KbRSp0?action=my-tickets');
 });

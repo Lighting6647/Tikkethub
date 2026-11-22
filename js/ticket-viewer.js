@@ -304,8 +304,12 @@
     document.dispatchEvent(new CustomEvent('tickets:changed'));
 
     const bannerHtml = `
-      <div style="background:rgba(34,155,255,0.08);border:1px solid rgba(34,155,255,0.25);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.5;">
+      <div style="background:rgba(34,155,255,0.08);border:1px solid rgba(34,155,255,0.25);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.5;">
         🛡️ <strong>นโยบายจัดส่งบัตรเข้า LINE OA เท่านั้น:</strong> บัตรคอนเสิร์ต E-Ticket และ QR Code เข้างาน จะถูกจัดส่งตรงเข้า <strong>LINE Official Account (STAGE PASS)</strong> ของผู้ซื้อเท่านั้น เพื่อความปลอดภัยสูงสุดและป้องกันการสวมสิทธิ์
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <input type="text" id="ticketLookupInput" class="input-field" placeholder="ค้นหาด้วยเบอร์โทร (08x...) หรือรหัสจอง (TT...)" style="flex:1;min-width:180px;font-size:12px;padding:8px 10px;">
+        <button type="button" id="ticketLookupBtn" class="btn-outline btn-sm" style="white-space:nowrap;">🔍 ค้นหาบัตร</button>
       </div>
     `;
 
@@ -314,7 +318,7 @@
         ${bannerHtml}
         <div class="empty-state">
           <p class="empty-title">ยังไม่มีรายการบัตรในระบบ</p>
-          <p class="text-muted">เลือกคอนเสิร์ตและแนบสลิปชำระเงิน บัตรจะถูกส่งเข้า LINE OA ของท่านทันทีหลังอนุมัติ</p>
+          <p class="text-muted">หากจองจากเครื่องอื่นหรือเบราว์เซอร์อื่น กรอกเบอร์โทรหรือรหัสจองด้านบนเพื่อดึงบัตรได้ทันทีครับ</p>
         </div>`;
       return;
     }
@@ -371,13 +375,40 @@
     if ($('linePreviewCloseBtn')) {
       $('linePreviewCloseBtn').addEventListener('click', () => window.UI.close('linePreviewModal'));
     }
-    $('myTicketsList').addEventListener('click', (e) => {
+    $('myTicketsList').addEventListener('click', async (e) => {
+      if (e.target && e.target.id === 'ticketLookupBtn') {
+        const inp = $('ticketLookupInput');
+        const q = inp ? inp.value.trim() : '';
+        if (!q) {
+          window.UI.toast('กรุณากรอกเบอร์โทร หรือ รหัสการจอง (TT...)', 'error');
+          return;
+        }
+        e.target.disabled = true;
+        try {
+          const found = await window.TicketStore.lookupTickets(q);
+          if (found && found.length) {
+            await renderList();
+            window.UI.toast(`พบบัตรของคุณ ${found.length} รายการ!`);
+          } else {
+            window.UI.toast('ไม่พบบัตรจากเบอร์โทรหรือรหัสจองนี้', 'error');
+          }
+        } finally {
+          if ($('ticketLookupBtn')) $('ticketLookupBtn').disabled = false;
+        }
+        return;
+      }
       const btn = e.target.closest('button[data-ref]');
       if (!btn) return;
       const t = window.TicketStore.get(btn.dataset.ref);
       if (t) {
         window.UI.close('myTicketsModal');
         show(t);
+      }
+    });
+    $('myTicketsList').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target && e.target.id === 'ticketLookupInput') {
+        e.preventDefault();
+        if ($('ticketLookupBtn')) $('ticketLookupBtn').click();
       }
     });
   });
