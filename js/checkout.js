@@ -14,6 +14,8 @@
   let activeMerchantName = cfg.MERCHANT_NAME || 'STAGE PASS';
   let activeBankAccount = '';
   let activeBankName = '';
+  let cachedQrCardDataUrl = '';
+  let cachedQrCardBlob = null;
 
   function setStep(step) {
     document.querySelectorAll('#paymentModal [data-step]').forEach((el) => {
@@ -137,6 +139,9 @@
     } catch (err) {
       qrEl.innerHTML = `<p class="qr-error" style="color:var(--fire); font-size:12px; padding:10px;">สร้าง QR ไม่สำเร็จ: ${window.UI ? window.UI.escapeHtml(err.message) : err.message}</p>`;
     }
+    cachedQrCardDataUrl = '';
+    cachedQrCardBlob = null;
+    void prepareQrCardCache();
   }
 
   function tick() {
@@ -495,22 +500,36 @@
     if (window.UI) window.UI.open('paymentModal');
   }
 
-  async function downloadQrImage() {
+  function dataUrlToBlob(dataUrl) {
+    try {
+      const parts = dataUrl.split(',');
+      const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+      const bin = atob(parts[1] || '');
+      const len = bin.length;
+      const u8 = new Uint8Array(len);
+      for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
+      return new Blob([u8], { type: mime });
+    } catch {
+      return null;
+    }
+  }
+
+  async function buildQrCardDataUrl() {
     const qrEl = $('payQrCanvas') || $('payQr');
-    if (!qrEl) return false;
+    if (!qrEl) return '';
     const svg = qrEl.querySelector('svg');
     const qrCanvas = qrEl.querySelector('canvas');
     const img = qrEl.querySelector('img');
-    if (!svg && !qrCanvas && !img) return false;
+    if (!svg && !qrCanvas && !img) return '';
 
-    if (typeof document === 'undefined' || !document.createElement) return false;
+    if (typeof document === 'undefined' || !document.createElement) return '';
 
     // High-resolution canvas for crystal clear bank scanner compatibility
     const canvas = document.createElement('canvas');
     canvas.width = 600;
     canvas.height = 720;
     const ctx = canvas.getContext ? canvas.getContext('2d') : null;
-    if (!ctx) return false;
+    if (!ctx) return '';
 
     // 1. White background card
     ctx.fillStyle = '#FFFFFF';
@@ -603,10 +622,72 @@
     ctx.font = 'bold 15px -apple-system, sans-serif';
     ctx.fillText('เปิดแอปธนาคารแล้วเลือก "สแกนจากรูปภาพ" เพื่อชำระเงิน', canvas.width / 2, 665);
 
-    // 6. Download Trigger via synchronous DataURL first (preserves user gesture) with Blob fallback
-    const filename = `PromptPay-QR-${refCode}.png`;
     try {
-      const dataUrl = canvas.toDataURL('image/png');
+      return canvas.toDataURL('image/png');
+    } catch {
+      return '';
+    }
+  }
+
+  async function prepareQrCardCache() {
+    const dataUrl = await buildQrCardDataUrl();
+    if (dataUrl) {
+      cachedQrCardDataUrl = dataUrl;
+      cachedQrCardBlob = dataUrlToBlob(dataUrl);
+    }
+  }
+
+  function openQrPreviewModal(dataUrl) {
+    const imgEl = $('qrSavePreviewImg');
+    if (imgEl) imgEl.src = dataUrl;
+    if (window.UI && window.UI.open) {
+      window.UI.open('qrSavePreviewModal');
+      return true;
+    }
+    const modal = $('qrSavePreviewModal');
+    if (modal) {
+      modal.classList.add('active');
+      return true;
+    }
+    return false;
+  }
+
+  async function downloadQrImage() {
+    const dataUrl = cachedQrCardDataUrl || (await buildQrCardDataUrl());
+    if (!dataUrl) return false;
+    const blob = cachedQrCardBlob || dataUrlToBlob(dataUrl);
+    const refCode = $('payRefDisplay') ? $('payRefDisplay').textContent : 'TT-0000';
+    const filename = `PromptPay-QR-${refCode}.png`;
+
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua) || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0 && window.innerWidth <= 1024);
+    const isInAppBrowser = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+    // 1. Mobile Web Share API (works natively on iOS Safari & Android Chrome)
+    if (isMobile && blob && typeof File !== 'undefined' && navigator.canShare && navigator.share) {
+      try {
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'PromptPay QR Payment',
+            text: `PromptPay QR (${refCode})`
+          });
+          return true;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return true;
+      }
+    }
+
+    // 2. iOS / LINE In-App Browser fallback: show high-res <img> modal for 1-sec long-press "Save Image"
+    if (isInAppBrowser || isIOS) {
+      if (openQrPreviewModal(dataUrl)) return true;
+    }
+
+    // 3. Standard Desktop / Android download trigger
+    try {
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = filename;
@@ -618,29 +699,7 @@
       }, 400);
       return true;
     } catch {
-      return new Promise((resolve) => {
-        if (!canvas.toBlob) {
-          resolve(false);
-          return;
-        }
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            resolve(false);
-            return;
-          }
-          const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => {
-            if (a.parentNode) a.parentNode.removeChild(a);
-            URL.revokeObjectURL(blobUrl);
-            resolve(true);
-          }, 400);
-        }, 'image/png');
-      });
+      return openQrPreviewModal(dataUrl);
     }
   }
 
@@ -882,22 +941,11 @@
         const f = e.dataTransfer.files && e.dataTransfer.files[0];
         if (f) acceptSlip(f);
       });
-      dz.addEventListener('click', (e) => {
-        if (e.target && (e.target.id === 'slipRemove' || e.target.closest?.('#slipRemove'))) return;
-        if (e.target === input) return;
-        if (input) {
-          input.value = '';
-          input.click();
-        }
-      });
-      dz.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          if (input) {
-            input.value = '';
-            input.click();
-          }
-        }
+    }
+    if ($('qrSavePreviewCloseBtn')) {
+      $('qrSavePreviewCloseBtn').addEventListener('click', () => {
+        if (window.UI && window.UI.close) window.UI.close('qrSavePreviewModal');
+        else if ($('qrSavePreviewModal')) $('qrSavePreviewModal').classList.remove('active');
       });
     }
     if ($('slipRemove')) {
