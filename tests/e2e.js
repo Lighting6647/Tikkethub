@@ -5,9 +5,16 @@ const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const db = require('../backend/db');
+require('./helpers-block-network');
+const { createSandbox, freePort } = require('./helpers-sandbox');
 
-const BASE_URL = process.env.APP_URL || 'http://localhost:8080';
+// Always a private copy + private server: never an already running server or the project's data/ folder.
+const sandbox = createSandbox();
+for (const key of ['DATABASE_URL', 'VERCEL']) delete process.env[key];
+process.env.DATA_DIR = sandbox.dataDir;
+const db = require(path.join(sandbox.dir, 'backend', 'db'));
+let BASE_URL = '';
+let serverProcess = null;
 const SHOTS = process.env.SHOT_DIR || path.join(__dirname, 'screenshots');
 
 async function isServerUp() {
@@ -22,16 +29,19 @@ async function isServerUp() {
 async function run() {
   db.clearAllForTest();
 
-  let serverProcess = null;
-  if (!(await isServerUp())) {
-    serverProcess = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
-      stdio: 'ignore'
-    });
-    for (let i = 0; i < 40; i++) {
-      if (await isServerUp()) break;
-      await new Promise((r) => setTimeout(r, 200));
-    }
+  const port = await freePort();
+  BASE_URL = `http://localhost:${port}`;
+  serverProcess = spawn(
+    process.execPath,
+    ['--require', path.join(sandbox.dir, 'tests', 'helpers-block-network.js'), path.join(sandbox.dir, 'server.js')],
+    { stdio: 'ignore', cwd: sandbox.dir, env: { ...sandbox.env, PORT: String(port) } }
+  );
+  let up = false;
+  for (let i = 0; i < 50 && !up; i++) {
+    up = await isServerUp();
+    if (!up) await new Promise((r) => setTimeout(r, 200));
   }
+  assert.ok(up, 'sandbox server started');
 
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   const errors = [];
@@ -439,13 +449,23 @@ async function run() {
 
   assert.deepEqual(errors, [], 'zero console errors');
   await browser.close();
-  if (serverProcess) {
-    try { serverProcess.kill(); } catch {}
-  }
   console.log('E2E PASSED');
 }
 
-run().catch((e) => {
-  console.error('E2E FAILED:', e);
-  process.exit(1);
-});
+async function stopSandbox() {
+  if (serverProcess && serverProcess.exitCode === null) {
+    const gone = new Promise((r) => serverProcess.once('exit', r));
+    serverProcess.kill();
+    await gone;
+  }
+  sandbox.cleanup();
+}
+
+run()
+  .then(stopSandbox)
+  .then(() => process.exit(0))
+  .catch(async (e) => {
+    console.error('E2E FAILED:', e);
+    await stopSandbox();
+    process.exit(1);
+  });

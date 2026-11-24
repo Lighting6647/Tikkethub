@@ -213,7 +213,7 @@
     const btn = $('payConfirmBtn');
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = 'ยืนยันการโอนเงินและรับบัตร (ขั้นตอนที่ 4) →';
+      btn.innerHTML = 'ยืนยันการโอนเงินและรับบัตร →';
     }
   }
 
@@ -243,9 +243,24 @@
     updateConfirmState();
   }
 
+  // Some pickers (LINE in-app / Android file managers) give an empty MIME type, and iPhone photos may be HEIC.
+  function slipMimeOf(file) {
+    const type = String(file.type || '').toLowerCase();
+    if (type && type !== 'application/octet-stream') return type;
+    const ext = String(file.name || '').split('.').pop().toLowerCase();
+    return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif' })[ext] || 'image/unknown';
+  }
+
+  function needsConversion(file) {
+    const type = String(file.type || '').toLowerCase();
+    return !type || type === 'application/octet-stream' || type === 'image/heic' || type === 'image/heif';
+  }
+
   function validateSlip(file) {
-    const allowed = cfg.SLIP_ALLOWED_TYPES || ['image/png', 'image/jpeg', 'image/webp'];
-    if (!allowed.includes(file.type)) return 'รองรับเฉพาะไฟล์ภาพ JPG, PNG หรือ WEBP';
+    const allowed = (cfg.SLIP_ALLOWED_TYPES || ['image/png', 'image/jpeg', 'image/webp']).concat(['image/heic', 'image/heif']);
+    const mime = slipMimeOf(file);
+    // Unknown-type files are allowed through; compressImage re-encodes them and rejects anything that is not a real image.
+    if (mime !== 'image/unknown' && !allowed.includes(mime)) return 'รองรับเฉพาะไฟล์ภาพ JPG, PNG, WEBP หรือ HEIC';
     const maxBytes = cfg.SLIP_MAX_BYTES || 5 * 1024 * 1024;
     if (file.size > maxBytes) return 'ไฟล์ใหญ่เกิน 5 MB กรุณาเลือกไฟล์ใหม่';
     if (file.size < 1024) return 'ไฟล์เล็กผิดปกติ กรุณาตรวจสอบสลิปอีกครั้ง';
@@ -310,8 +325,11 @@
 
   function compressImage(file, maxDimension = 1280, quality = 0.85) {
     return new Promise((resolve) => {
-      if (file.size < 400 * 1024) {
-        fileToDataUrl(file).then(resolve).catch(() => resolve(''));
+      const mustConvert = needsConversion(file);
+      // Raw passthrough is only safe for browser-readable types; HEIC / unknown types must be re-encoded to JPEG.
+      const fallback = () => (mustConvert ? resolve('') : fileToDataUrl(file).then(resolve).catch(() => resolve('')));
+      if (!mustConvert && file.size < 400 * 1024) {
+        fallback();
         return;
       }
       const img = new Image();
@@ -336,14 +354,10 @@
           const compressed = canvas.toDataURL('image/jpeg', quality);
           resolve(compressed);
         };
-        img.onerror = () => {
-          fileToDataUrl(file).then(resolve).catch(() => resolve(''));
-        };
+        img.onerror = fallback;
         img.src = e.target.result;
       };
-      reader.onerror = () => {
-        fileToDataUrl(file).then(resolve).catch(() => resolve(''));
-      };
+      reader.onerror = fallback;
       reader.readAsDataURL(file);
     });
   }
@@ -354,15 +368,34 @@
     setStep('verifying');
 
     const confirmBtn = $('payConfirmBtn');
+    const confirmLabel = confirmBtn ? confirmBtn.innerHTML : '';
     if (confirmBtn) {
       confirmBtn.disabled = true;
       confirmBtn.innerHTML = '<span>⏳ กำลังประมวลผลการอัปโหลด...</span>';
     }
+    const prevErr = $('slipError');
+    if (prevErr) prevErr.textContent = '';
+
+    // Return to the pay step with the slip still attached so the customer can retry.
+    const failBack = (message) => {
+      setStep('pay');
+      startTimer();
+      resetUploadStage();
+      if (confirmBtn) confirmBtn.innerHTML = confirmLabel;
+      updateConfirmState();
+      const errEl = $('slipError');
+      if (errEl) errEl.textContent = message;
+      if (window.UI) window.UI.toast(message, 'error');
+    };
 
     let saved = null;
     try {
       updateUploadStage(1, 25, 'กำลังประมวลผลและบีบอัดรูปภาพสลิป...');
       const slipData = await compressImage(slipFile);
+      if (!slipData || !slipData.startsWith('data:image/')) {
+        failBack('อ่านไฟล์สลิปไม่ได้ กรุณาแคปหน้าจอสลิปเป็นไฟล์ JPG/PNG แล้วแนบใหม่');
+        return;
+      }
 
       updateUploadStage(2, 60, 'กำลังอัปโหลดสลิปไปยังเซิร์ฟเวอร์...');
       const res = await fetch('/api/orders', {
@@ -384,20 +417,23 @@
           holderIdCard: order.holderIdCard || '',
           lineUserId: order.lineUserId || '',
           slipName: slipFile.name,
-          slipMime: slipFile.type || 'image/png',
+          slipMime: (slipData.match(/^data:([^;,]+)/) || [])[1] || 'image/png',
           slipData
         })
       });
 
       updateUploadStage(3, 85, 'ระบบ AI กำลังตรวจสอบความถูกต้องและยอดเงิน...');
-      const data = await res.json();
-      if (!res.ok || data.ok === false || !data.order) {
-        setStep('pay');
-        startTimer();
-        resetUploadStage();
-        const errEl = $('slipError');
-        if (errEl) errEl.textContent = data.error || 'ส่งสลิปไม่สำเร็จ';
-        if (window.UI) window.UI.toast(data.error || 'ส่งสลิปไม่สำเร็จ', 'error');
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+      if (!res.ok || !data || data.ok === false || !data.order) {
+        const fallbackMsg = res.status === 413
+          ? 'ไฟล์สลิปใหญ่เกินไป กรุณาแคปหน้าจอสลิปแล้วแนบใหม่'
+          : `ส่งสลิปไม่สำเร็จ (รหัส ${res.status}) กรุณาลองใหม่อีกครั้ง`;
+        failBack((data && data.error) || fallbackMsg);
         return;
       }
 
@@ -406,29 +442,12 @@
       // Brief pause to allow user to view completed stage
       await new Promise((r) => setTimeout(r, 600));
     } catch (e) {
-      /* Fallback to client-side store only when backend is unreachable */
+      // Network failure: the slip never reached the server, so do NOT issue a local-only ticket.
+      failBack('ส่งสลิปไม่สำเร็จ เครือข่ายขัดข้อง กรุณาตรวจสอบอินเทอร์เน็ตแล้วกดยืนยันอีกครั้ง');
+      return;
     }
 
-    if (!saved) {
-      if (window.TicketStore) {
-        saved = window.TicketStore.add({
-          ref: window.TicketStore.generateRef(),
-          title: order.title,
-          date: order.date,
-          venue: order.venue,
-          zone: order.zone,
-          qty: order.qty,
-          total: order.total,
-          seats: order.seats || [],
-          holderName: order.holderName || '',
-          holderPhone: order.holderPhone || '',
-          holderIdCard: order.holderIdCard || '',
-          lineUserId: order.lineUserId || '',
-          slipName: slipFile.name,
-          issuedAt: Date.now()
-        });
-      }
-    }
+    if (confirmBtn) confirmBtn.innerHTML = confirmLabel;
 
     resetUploadStage();
     if (window.UI) window.UI.close('paymentModal');
@@ -641,9 +660,48 @@
     }
   }
 
+  function currentRefCode() {
+    return $('payRefDisplay') ? $('payRefDisplay').textContent.trim() : 'TT-0000';
+  }
+
+  function isInAppBrowserUA() {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+    return /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
+  }
+
+  // Absolute URL of a real PNG served by our backend. LINE / in-app browsers can long-press-save
+  // a normal image URL, unlike blob:/data: images, download links or navigator.share.
+  function serverQrPngUrl(extraParams) {
+    const amount = order ? Number(order.total || order.unitPrice || 0) : 0;
+    if (!(amount > 0) || typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return '';
+    const params = new URLSearchParams({ amount: String(amount), ref: currentRefCode() });
+    if (extraParams) Object.keys(extraParams).forEach((k) => params.set(k, extraParams[k]));
+    return `${location.origin}/api/promptpay-qr.png?${params.toString()}`;
+  }
+
   function openQrPreviewModal(dataUrl) {
     const imgEl = $('qrSavePreviewImg');
-    if (imgEl) imgEl.src = dataUrl;
+    const pngUrl = serverQrPngUrl();
+    if (imgEl) {
+      imgEl.onerror = null;
+      if (pngUrl) {
+        // Fall back to the locally drawn card if the server image cannot load (offline etc.).
+        imgEl.onerror = () => {
+          imgEl.onerror = null;
+          if (dataUrl) imgEl.src = dataUrl;
+        };
+        imgEl.src = pngUrl;
+      } else if (dataUrl) {
+        imgEl.src = dataUrl;
+      }
+    }
+    const extBtn = $('qrOpenExternalBtn');
+    if (extBtn) {
+      // openExternalBrowser=1 makes LINE open the link in Safari / Chrome, where saving an image always works.
+      const extUrl = serverQrPngUrl({ openExternalBrowser: '1' });
+      extBtn.hidden = !extUrl;
+      if (extUrl) extBtn.href = extUrl;
+    }
     if (window.UI && window.UI.open) {
       window.UI.open('qrSavePreviewModal');
       return true;
@@ -656,41 +714,46 @@
     return false;
   }
 
+  /**
+   * Save the QR image. Resolves to:
+   *  'downloaded' (file download triggered), 'shared' (share sheet completed),
+   *  'cancelled' (user closed the share sheet), 'manual' (save modal shown: user must long-press), or false.
+   * Only 'downloaded' / 'shared' may be reported to the user as saved.
+   */
   async function downloadQrImage() {
     const dataUrl = cachedQrCardDataUrl || buildQrCardDataUrl();
-    if (!dataUrl) return false;
-    const blob = cachedQrCardBlob || dataUrlToBlob(dataUrl);
-    const refCode = $('payRefDisplay') ? $('payRefDisplay').textContent : 'TT-0000';
-    const filename = `PromptPay-QR-${refCode}.png`;
+    const blob = dataUrl ? cachedQrCardBlob || dataUrlToBlob(dataUrl) : null;
+    const filename = `PromptPay-QR-${currentRefCode()}.png`;
 
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
     const isMobile = /iPhone|iPad|iPod|Android/i.test(ua) || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0 && window.innerWidth <= 1024);
-    const isInAppBrowser = /Line\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(ua);
     const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
-    // 1. Mobile Web Share API (works natively on iOS Safari & Android Chrome)
+    // 1. LINE / Facebook / IG in-app browsers: download links, blob URLs and file sharing are unreliable,
+    //    so go straight to the long-press modal backed by a real PNG URL (+ "open in Safari/Chrome").
+    if (isInAppBrowserUA()) {
+      return openQrPreviewModal(dataUrl) ? 'manual' : false;
+    }
+
+    // 2. Mobile Web Share API (iOS Safari / Android Chrome) -> "Save Image" in the share sheet
     if (isMobile && blob && typeof File !== 'undefined' && navigator.canShare && navigator.share) {
       try {
         const file = new File([blob], filename, { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'PromptPay QR Payment',
-            text: `PromptPay QR (${refCode})`
-          });
-          return true;
+          await navigator.share({ files: [file], title: 'PromptPay QR Payment' });
+          return 'shared';
         }
       } catch (err) {
-        if (err && err.name === 'AbortError') return true;
+        if (err && err.name === 'AbortError') return 'cancelled';
       }
     }
 
-    // 2. iOS / LINE In-App Browser fallback: show high-res <img> modal for 1-sec long-press "Save Image"
-    if (isInAppBrowser || isIOS) {
-      if (openQrPreviewModal(dataUrl)) return true;
+    // 3. iOS without usable share: Safari ignores download on data URLs -> long-press modal
+    if (isIOS || !dataUrl) {
+      return openQrPreviewModal(dataUrl) ? 'manual' : false;
     }
 
-    // 3. Standard Desktop / Android download trigger
+    // 4. Desktop / Android browser download
     try {
       const a = document.createElement('a');
       a.href = dataUrl;
@@ -701,9 +764,20 @@
       setTimeout(() => {
         if (a.parentNode) a.parentNode.removeChild(a);
       }, 400);
-      return true;
+      return 'downloaded';
     } catch {
-      return openQrPreviewModal(dataUrl);
+      return openQrPreviewModal(dataUrl) ? 'manual' : false;
+    }
+  }
+
+  function reportQrSaveResult(result) {
+    if (!window.UI || !window.UI.toast) return;
+    if (result === 'downloaded' || result === 'shared') {
+      window.UI.toast('บันทึกรูป QR Code แล้ว เปิดแอปธนาคารแล้วเลือกสแกนจากรูปภาพ', 'success');
+    } else if (result === 'manual') {
+      window.UI.toast('แตะค้างที่รูป QR แล้วเลือก "บันทึกรูปภาพ"');
+    } else if (result === false) {
+      window.UI.toast('บันทึกรูปอัตโนมัติไม่ได้ กรุณาแคปหน้าจอ QR แทน', 'error');
     }
   }
 
@@ -786,14 +860,12 @@
         icon.textContent = '✓';
         icon.style.transform = 'scale(1.2)';
       }
-      if (label) label.textContent = 'บันทึกรูปภาพสำเร็จ!';
+      if (label) label.textContent = 'กำลังเตรียมรูป QR...';
 
-      // Download QR Code Image
-      await downloadQrImage();
-
-      if (window.UI && window.UI.toast) {
-        window.UI.toast('บันทึกรูป QR Code ลงอุปกรณ์เรียบร้อยแล้ว (เปิดสแกนในแอปธนาคารได้ทันที)', 'success');
-      }
+      // Only claim success when a download / share really happened; otherwise the save modal guides the user.
+      const result = await downloadQrImage();
+      if (label) label.textContent = result === 'downloaded' || result === 'shared' ? 'บันทึกรูปภาพแล้ว' : 'แตะค้างที่รูปเพื่อบันทึก';
+      reportQrSaveResult(result);
 
       // Hide overlay after brief success confirmation
       setTimeout(() => {
@@ -869,25 +941,14 @@
         manualBtn.disabled = true;
         const origText = manualBtn.innerHTML;
         manualBtn.innerHTML = '<span>⏳ กำลังบันทึก...</span>';
-        const ok = await downloadQrImage();
-        if (!ok) {
-          if (window.UI && window.UI.toast) {
-            window.UI.toast('ไม่สามารถบันทึกรูปอัตโนมัติได้ กรุณากดค้างที่ QR เพื่อบันทึกภาพ', 'error');
-          }
+        const result = await downloadQrImage();
+        reportQrSaveResult(result);
+        const saved = result === 'downloaded' || result === 'shared';
+        manualBtn.innerHTML = saved ? '<span>✓ บันทึกแล้ว</span>' : origText;
+        setTimeout(() => {
           manualBtn.innerHTML = origText;
           manualBtn.disabled = false;
-          return;
-        }
-        if (window.UI && window.UI.toast) {
-          window.UI.toast('บันทึกรูป QR Code ลงอุปกรณ์เรียบร้อยแล้ว', 'success');
-        }
-        setTimeout(() => {
-          manualBtn.innerHTML = '<span>✓ บันทึกแล้ว</span>';
-          setTimeout(() => {
-            manualBtn.innerHTML = origText;
-            manualBtn.disabled = false;
-          }, 1500);
-        }, 500);
+        }, saved ? 1500 : 300);
       });
     }
   }

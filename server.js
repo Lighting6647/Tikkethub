@@ -25,6 +25,7 @@ const {
 } = require('./backend/line');
 const drive = require('./backend/drive');
 const slipVerifier = require('./backend/slip-verifier');
+const qrPng = require('./backend/qr-png');
 
 const PORT = Number(process.env.PORT || 8080);
 const ROOT = __dirname;
@@ -389,6 +390,32 @@ async function handleApi(req, res, url) {
 
   if (method === 'GET' && pathname === '/api/health') {
     return sendJson(res, 200, { ok: true });
+  }
+
+  // Real PNG of the PromptPay QR so LINE / in-app browsers can long-press-save it or open it in Safari/Chrome.
+  // The PromptPay target always comes from server settings (never from the query) so the URL cannot redirect payments.
+  if (method === 'GET' && pathname === '/api/promptpay-qr.png') {
+    const rl = checkRateLimit(`qrpng:${ip}`, 60, 60000);
+    if (!rl.allowed) return sendJson(res, 429, { ok: false, error: 'คำขอถี่เกินกำหนด กรุณารอสักครู่' });
+    const amount = Math.round(Number(url.searchParams.get('amount')) * 100) / 100;
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 10000000) {
+      return sendJson(res, 400, { ok: false, error: 'ยอดชำระไม่ถูกต้อง' });
+    }
+    const ref = String(url.searchParams.get('ref') || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 24) || 'QR';
+    try {
+      const promptpayId = db.getSetting('promptpay_id', '0804711301');
+      const png = qrPng.buildPromptPayQrPng(promptpayId, amount);
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Content-Length': png.length,
+        'Content-Disposition': `inline; filename="PromptPay-QR-${ref}.png"`,
+        'Cache-Control': 'private, max-age=600',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      return res.end(png);
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: 'สร้างรูป QR ไม่สำเร็จ' });
+    }
   }
 
   // Public payment config for customer checkout QR & bank transfer
