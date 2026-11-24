@@ -213,7 +213,7 @@
     const btn = $('payConfirmBtn');
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = 'ยืนยันการโอนเงินและรับบัตร (ขั้นตอนที่ 4) →';
+      btn.innerHTML = 'ยืนยันการโอนเงินและรับบัตร →';
     }
   }
 
