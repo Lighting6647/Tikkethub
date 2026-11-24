@@ -770,8 +770,12 @@
       <div class="modal-content" style="text-align:center;">
         <img id="qrSavePreviewImg" alt="PromptPay QR สำหรับบันทึกภาพ" style="width:100%; max-width:320px; border-radius:12px; margin:0 auto; display:block; -webkit-touch-callout:default; user-select:auto;">
         <p style="font-size:13px; color:var(--color-muted); margin-top:12px; line-height:1.5;">
-          💡 <strong>สำหรับ iPhone / LINE:</strong> แตะค้างที่รูปภาพด้านบน 1 วินาที แล้วเลือก <strong>"บันทึกรูปภาพ" (Save Image)</strong>
+          💡 แตะค้างที่รูป QR ด้านบน แล้วเลือก <strong>"บันทึกรูปภาพ"</strong> หรือ <strong>"ดาวน์โหลดรูปภาพ"</strong>
         </p>
+        <p style="font-size:12px; color:var(--color-muted); margin-top:10px; line-height:1.5;">
+          ถ้าแตะค้างแล้วไม่มีเมนูบันทึก ให้กดปุ่มด้านล่างเพื่อเปิดรูปใน Safari / Chrome แล้วแตะค้างบันทึกอีกครั้ง
+        </p>
+        <a class="btn-outline" id="qrOpenExternalBtn" href="#" target="_blank" rel="noopener" hidden style="display:inline-block; margin-top:8px; padding:8px 16px; border-radius:9999px; font-size:13px; text-decoration:none;">🌐 เปิดรูป QR ใน Safari / Chrome</a>
       </div>
     </div>
   </div>
@@ -1046,7 +1050,7 @@
   <script src="js/ticket-store.js?v=20261122_ticketfind"></script>
   <script src="js/ticket-renderer.js?v=20261108_mobileperf"></script>
   <script src="js/ticket-viewer.js?v=20261122_ticketfind"></script>
-  <script src="js/checkout.js?v=20261122_v3"></script>
+  <script src="js/checkout.js?v=20261123_v5"></script>
   <script src="js/vendor/gsap.min.js"></script>
   <script src="js/gsap-themes.js?v=20261108_mobileperf"></script>
   <script src="js/app.js?v=20261122_ticketfind"></script>
