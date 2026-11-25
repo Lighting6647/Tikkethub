@@ -37,11 +37,18 @@ test('SeatMap: max 4 seats restriction', () => {
   assert.equal(SeatMap.getSelectedSeats().length, 4);
 });
 
-test('SeatMap: occupied seats cannot be selected', () => {
+test('SeatMap: occupied seats cannot be selected', async () => {
   const SeatMap = window.SeatMap;
   SeatMap.clear();
 
-  // VIP-03 is occupied
+  // VIP-03 was sold according to the server (there are no built-in demo seats any more)
+  const realFetch = global.fetch;
+  global.fetch = async () => ({ json: async () => ({ ok: true, seats: { 'VIP-03': { status: 'occupied' } } }) });
+  try {
+    await SeatMap.syncStatuses();
+  } finally {
+    global.fetch = realFetch;
+  }
   const result = SeatMap.toggleSeat('VIP-03');
   assert.equal(result, false, 'occupied seat rejected');
   assert.equal(SeatMap.getSelectedSeats().length, 0);

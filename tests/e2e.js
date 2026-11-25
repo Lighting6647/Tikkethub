@@ -69,21 +69,20 @@ async function run() {
   await page.fill('#holderName', 'ธนภัทร วงศ์สวัสดิ์');
   await page.fill('#holderPhone', '0891234567');
   await page.fill('#holderIdCard', '1-1004-12345-67-8');
-  await page.fill('#holderLineId', 'U1234567890abcdef1234567890abcdef');
+  await page.evaluate(() => { document.getElementById('holderLineId').value = 'U1234567890abcdef1234567890abcdef'; });
   await page.click('button[onclick="confirmBooking()"]');
   assert.match(await page.textContent('#holderError'), /สูตรคำนวณ Checksum ของกรมการปกครอง/);
 
-  // Fill valid holder info (Valid Checksum ID: 1-1004-12345-67-3) + use 1-click LINE OA Webhook auto-fill button
+  // Fill valid holder info (Valid Checksum ID: 1-1004-12345-67-3) + LINE profile from LIFF login
   await page.fill('#holderIdCard', '1-1004-12345-67-3');
   const formattedPhone = await page.inputValue('#holderPhone');
   assert.equal(formattedPhone, '089-123-4567', 'Phone auto-formatted with hyphens');
-  await page.click('#fetchLineIdBtn');
-  await page.waitForFunction(() => {
-    const el = document.getElementById('holderLineId');
-    return el && el.value.startsWith('U');
-  });
+  // LINE account comes from LIFF login in production; simulate a logged-in LINE profile here.
+  await page.evaluate(() => window.applyAutoDetectedLineProfile('U0123456789abcdef0123456789abcdef', 'ธนภัทร', 'LINE LIFF'));
   const autoLineId = await page.inputValue('#holderLineId');
-  assert.match(autoLineId, /^U[0-9a-f]{32}$/, 'LINE User ID auto-filled from Webhook');
+  assert.match(autoLineId, /^U[0-9a-f]{32}$/, 'LINE User ID filled from LINE profile');
+  assert.equal(await page.isVisible('#lineConnectedChip'), true, 'LINE connected chip shown');
+  await page.check('#rememberHolderCheckbox');
 
   await page.click('button[onclick="confirmBooking()"]');
 
@@ -108,20 +107,23 @@ async function run() {
   await page.click('button[data-event-id="2"]');
   await page.waitForSelector('#bookingModal.active');
   await page.click('#stepPill2');
+  assert.equal(await page.inputValue('#holderIdCard').then((v) => v === '' || v === '1-1004-12345-67-3'), true);
+  await page.fill('#holderIdCard', '1-1004-12345-67-3'); // ID numbers are not remembered
   await page.click('button[onclick="confirmBooking()"]');
   await page.waitForSelector('#paymentModal.active');
   await page.setInputFiles('#slipFileInput', { name: 'slip-duplicate.png', mimeType: 'image/png', buffer: slipPng1 });
-  await page.waitForFunction(() => !document.getElementById('payConfirmBtn').disabled);
-  await page.click('#payConfirmBtn');
+  // Duplicates are refused while attaching, before anything can be submitted.
   await page.waitForFunction(() => {
     const el = document.getElementById('slipError');
     return el && el.textContent.includes('สลิปนี้เคยถูกใช้ไปแล้ว');
   });
   assert.match(await page.textContent('#slipError'), /สลิปนี้เคยถูกใช้ไปแล้ว/, 'Duplicate slip blocked');
+  assert.ok(await page.isDisabled('#payConfirmBtn'), 'Duplicate slip cannot be submitted');
   await page.click('#payCloseBtn');
 
   // Re-open the pending ticket in customer page so we can watch it auto-unlock when Admin approves
-  await page.click('#cartButton');
+  await page.locator('[data-drawer-open]:visible').first().click();
+  await page.click('#drawer.is-open [onclick*="openMyTicketsModal"]');
   await page.waitForSelector('#myTicketsModal.active');
   await page.click('.my-ticket button[data-ref]');
   await page.waitForSelector('#ticketModal.active');
@@ -151,15 +153,12 @@ async function run() {
   await adminPage.waitForFunction(() => document.getElementById('kpiPending').textContent === '1');
   await adminPage.screenshot({ path: path.join(SHOTS, 'admin-pending.png') });
 
-  // Configure LINE OA + 1-Click Rich Menu Deployer + PromptPay (0954654698) & Merchant Name settings in Admin
+  // Configure LINE OA + PromptPay (0954654698) & Merchant Name settings in Admin
   await adminPage.click('#openLineSettingsBtn');
   await adminPage.waitForSelector('#lineSettingsModal.active');
   await adminPage.fill('#settingLineSecretInput', 'sec_test_e2e_signature_123');
-  await adminPage.click('#btnDeployRichMenu');
-  await adminPage.waitForFunction(() => {
-    const el = document.getElementById('richMenuDeployStatus');
-    return el && (el.textContent.includes('สำเร็จ') || el.textContent.includes('✔'));
-  });
+  // The Rich Menu deployer is hidden in the live admin page (covered by rich-menu-liff.test.js).
+  assert.equal(await adminPage.isVisible('#btnDeployRichMenu'), false);
   await adminPage.click('#settingsStepPill2');
   await adminPage.fill('#settingPromptpayInput', '0954654698');
   await adminPage.fill('#settingMerchantNameInput', 'Thai Ticket Concert Co., Ltd.');
@@ -209,7 +208,16 @@ async function run() {
   assert.match(await adminPage.textContent('#scanResultBox'), /HMAC-SHA256/);
   await adminPage.screenshot({ path: path.join(SHOTS, 'gate-checkin-pass.png') });
 
+  // The code box is emptied after every result, so the previous ticket cannot be sent again by accident
+  await adminPage.waitForFunction(() => document.getElementById('scanCodeInput').value === '');
+  const ticketQr = await page.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem(window.APP_CONFIG.STORAGE_KEY) || '[]');
+    return (list.find((t) => t.qrPayload) || {}).qrPayload || '';
+  });
+  assert.match(ticketQr, /^THAITICKET\|.+\|SIG:[0-9A-F]{12}$/, 'customer ticket carries a signed QR');
+
   // Scan the exact same ticket a second time -> must block duplicate entry!
+  await adminPage.fill('#scanCodeInput', ticketQr);
   await adminPage.click('#submitScanBtn');
   await adminPage.waitForFunction(() => {
     const box = document.getElementById('scanResultBox');
@@ -219,13 +227,17 @@ async function run() {
   await adminPage.screenshot({ path: path.join(SHOTS, 'gate-checkin-duplicate.png') });
 
   // Test HMAC-SHA256 anti-counterfeit QR verification: tampered QR must be blocked with INVALID_SIGNATURE
-  await adminPage.click('#testTamperedQrBtn');
+  await adminPage.fill('#scanCodeInput', ticketQr.replace(/SIG:.*$/, 'SIG:FAKE00000000'));
+  await adminPage.click('#submitScanBtn');
   await adminPage.waitForFunction(() => {
     const box = document.getElementById('scanResultBox');
     return box && box.textContent.includes('INVALID_SIGNATURE');
   });
   assert.match(await adminPage.textContent('#scanResultBox'), /ลายเซ็นดิจิทัล \(HMAC-SHA256\)/);
   await adminPage.screenshot({ path: path.join(SHOTS, 'gate-checkin-tampered-qr.png') });
+  // Built-in self test: the genuine QR is accepted and every forgery is rejected (verify only)
+  await adminPage.click('#testTamperedQrBtn');
+  await adminPage.waitForFunction(() => document.body.textContent.includes('ทดสอบกันบัตรปลอมผ่านทุกข้อ'));
   await adminPage.click('#closeScannerBtn');
 
   // Verify Live Gate Throughput & Queue Monitor (#openGateMonitorBtn -> #gateMonitorModal)
@@ -316,6 +328,7 @@ async function run() {
     return btn && !btn.classList.contains('seat-held-other');
   }, { timeout: 10000 });
 
+  await page.click('#promoDetails > summary');
   await page.fill('#promoCodeInput', 'EARLY10');
   await page.click('#applyPromoBtn');
   await page.waitForFunction(() => {
@@ -339,14 +352,14 @@ async function run() {
   // 8.5 Test Event & Zone Quota Manager (Edit + Add + Delete button) + 1-Click Database Backup in Admin
   await adminPage.click('#openEventManagerBtn');
   await adminPage.waitForSelector('#eventManagerModal.active');
-  await adminPage.click('#eventStepPill4');
+  await adminPage.click('#eventStepPill3');
   await adminPage.waitForFunction(() => {
     const el = document.getElementById('adminEventsList');
     return el && el.textContent.includes('ECHOES OF ASIA');
   });
   await adminPage.click('[data-edit-event-btn="1"]');
   assert.equal(await adminPage.locator('#deleteEventBtn').isHidden(), false, 'Delete event button visible when editing');
-  await adminPage.click('#eventStepPill3');
+  await adminPage.click('#eventStepPill2');
   await adminPage.fill('#evQuotaVip', '75');
   await adminPage.click('#saveEventBtn');
   await adminPage.waitForFunction(() => {
@@ -363,7 +376,7 @@ async function run() {
     const el = document.getElementById('adminEventsList');
     return el && el.textContent.includes('TEMP DELETE TEST CONCERT');
   });
-  await adminPage.click('#eventStepPill4');
+  await adminPage.click('#eventStepPill3');
   const tempDelBtn = adminPage.locator('#adminEventsList [data-delete-event-id]').last();
   await tempDelBtn.click();
   await adminPage.waitForFunction(() => {

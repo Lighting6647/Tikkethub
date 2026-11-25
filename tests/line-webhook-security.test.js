@@ -147,7 +147,8 @@ test('HTTP POST /api/line/webhook enforces signature verification & rate limitin
   assert.ok(Array.isArray(resGood.json.results));
 
   // 3. Test Rate Limiter (Spam Protection)
-  // Bombard endpoint until rate limit triggers (120 reqs/min per IP)
+  // The live limit is 1200 reqs/min per IP (LINE sends everyone's events from a few IPs); use 120 here.
+  process.env.LINE_WEBHOOK_IP_LIMIT = '120';
   let rateLimitedRes = null;
   for (let i = 0; i < 130; i++) {
     const r = await mockReqRes({
@@ -167,6 +168,7 @@ test('HTTP POST /api/line/webhook enforces signature verification & rate limitin
   assert.ok(rateLimitedRes, 'Rate limiter should trigger HTTP 429 after 120 calls');
   assert.equal(rateLimitedRes.statusCode, 429);
   assert.equal(rateLimitedRes.json.code, 'RATE_LIMITED');
+  delete process.env.LINE_WEBHOOK_IP_LIMIT;
   assert.equal(rateLimitedRes.headers['retry-after'], '60');
 
   // Reset rate limits and clean up test secret
@@ -584,6 +586,7 @@ test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed 
     total: 3500,
     holderName: 'ลูกค้าเปิดดูบัตรผ่านไลน์',
     holderPhone: '081-111-2222',
+    holderIdCard: '1100412345673',
     lineUserId: lineUid,
     slipName: 'line-slip.png',
     slipMime: 'image/png',
@@ -606,10 +609,25 @@ test('VPS Daily SQLite Backup (7-day retention), raw .db download, and reviewed 
   });
   assert.equal(badLineLookupRes.json.unauthorized, true);
 
+  // Phone lookup needs the last 4 characters of the ID card too (phone alone must not reveal tickets)
+  const phoneOnlyRes = await mockBinaryReqRes({
+    method: 'GET',
+    path: '/api/orders?phone=0811112222&includeSlip=false'
+  });
+  assert.equal(phoneOnlyRes.json.ok, false);
+  assert.equal(phoneOnlyRes.json.code, 'ID_LAST4_REQUIRED');
+  assert.equal(phoneOnlyRes.json.orders.length, 0);
+
+  const phoneWrongIdRes = await mockBinaryReqRes({
+    method: 'GET',
+    path: '/api/orders?phone=0811112222&idLast4=9999&includeSlip=false'
+  });
+  assert.equal(phoneWrongIdRes.json.orders.find((o) => o.ref === lineOrd.ref), undefined);
+
   // Phone lookup & LIFF Rich Menu URI verification
   const phoneLookupRes = await mockBinaryReqRes({
     method: 'GET',
-    path: '/api/orders?phone=0811112222&includeSlip=false'
+    path: '/api/orders?phone=0811112222&idLast4=5673&includeSlip=false'
   });
   assert.equal(phoneLookupRes.statusCode, 200);
   assert.equal(phoneLookupRes.json.ok, true);

@@ -19,7 +19,20 @@ test('Seat Hold Engine: successfully holds available seats for a session', () =>
   assert.equal(statusRes.seats['VIP-01'].status, 'held_by_me');
   assert.equal(statusRes.seats['VIP-02'].status, 'held_by_me');
   assert.equal(statusRes.seats['VIP-05'].status, 'available');
-  assert.equal(statusRes.seats['VIP-03'].status, 'occupied'); // baseline occupied
+
+  // A sold seat is occupied, cannot be held and cannot be sold twice (no built-in demo seats any more)
+  const title = 'SEAT TEST';
+  db.saveEvent({ title, venue: 'V', date: 'D', priceVip: 10, quotaVip: 5, quotaA: 5, quotaB: 5, quotaC: 5 });
+  const buy = () =>
+    db.createOrder({
+      title, date: 'D', venue: 'V', zone: 'VIP', qty: 1, unitPrice: 10, total: 10, seats: ['VIP-03'],
+      holderName: 'Seat Tester', holderPhone: '0891234567',
+      slipData: 'data:image/png;base64,' + require('node:crypto').randomBytes(2000).toString('base64')
+    });
+  buy();
+  assert.equal(db.getSeatStatuses(sess1).seats['VIP-03'].status, 'occupied');
+  assert.equal(db.holdSeats(['VIP-03'], 'sess_other', 60000).ok, false);
+  assert.throws(buy, (err) => err.code === 'SOLD_OUT');
 });
 
 test('Seat Hold Engine: prevents race-condition double hold by other session', () => {
