@@ -1,12 +1,6 @@
 /** Event listing, live zone quota sync, promo code calculation, and ticket holder validation. */
-let eventsData = [
-  { id: 1, title: 'ECHOES OF ASIA WORLD TOUR 2026', category: 'world', date: '14 - 15 พ.ย. 2026', venue: 'อิมแพ็ค อารีน่า เมืองทองธานี', priceRange: '1,800 - 6,500 THB', badge: 'เปิดจำหน่าย', isAccent: true, gradient: 'linear-gradient(135deg, #4d1313, #1f1f1f)', image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=1200&q=80', remainingTotal: 420 },
-  { id: 2, title: 'K-POP FESTIVAL LIVE IN BKK 2026', category: 'kpop', date: '28 พ.ย. 2026', venue: 'ราชมังคลากีฬาสถาน', priceRange: '2,200 - 7,000 THB', badge: 'บัตรเหลือน้อย', isAccent: true, gradient: 'linear-gradient(135deg, #1b3852, #181818)', image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1000&q=80', remainingTotal: 360 },
-  { id: 3, title: 'THAI ROCK REVOLUTION 2026', category: 'thai', date: '5 ธ.ค. 2026', venue: 'ไบเทค บางนา (Hall 100)', priceRange: '1,200 - 3,500 THB', badge: 'จำหน่ายแล้ว 70%', isAccent: false, gradient: 'linear-gradient(135deg, #3d1c1c, #1f1f1f)', image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1000&q=80', remainingTotal: 395 },
-  { id: 4, title: 'BIG MOUNTAIN INDIE CAMP 2026', category: 'fest', date: '12 - 13 ธ.ค. 2026', venue: 'The Ocean เขาใหญ่', priceRange: '1,500 - 2,800 THB', badge: 'EARLY BIRD', isAccent: true, gradient: 'linear-gradient(135deg, #19403a, #1a1a1a)', image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=1000&q=80', remainingTotal: 530 },
-  { id: 5, title: 'PARK HYUNG-SIK ASIAN FAN MEETING', category: 'fanmeeting', date: '19 ธ.ค. 2026', venue: 'พารากอน ฮอลล์, สยามพารากอน', priceRange: '2,500 - 5,900 THB', badge: 'VIP สิทธิพิเศษ', isAccent: false, gradient: 'linear-gradient(135deg, #2b1f3d, #1c1c1c)', image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1000&q=80', remainingTotal: 310 },
-  { id: 6, title: 'SYNTHWAVE & RETRO NIGHT BKK', category: 'world', date: '26 ธ.ค. 2026', venue: 'Union Hall, ยูเนี่ยน มอลล์', priceRange: '1,600 - 3,200 THB', badge: 'เปิดจำหน่าย', isAccent: true, gradient: 'linear-gradient(135deg, #44143a, #1a1a1a)', image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1000&q=80', remainingTotal: 340 }
-];
+// Events always come from /api/events; nothing is hard-coded here.
+let eventsData = [];
 
 const MAX_QTY = 4;
 const HOLDER_KEY = 'thaiticket.holder.v1';
@@ -83,8 +77,10 @@ function renderEvents() {
       (ev.title.toLowerCase().includes(q) || ev.venue.toLowerCase().includes(q))
   );
 
+  updateHeroCardForCategory(currentCategory);
+
   if (!filtered.length) {
-    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>ไม่พบรายการคอนเสิร์ตที่ตรงกับคำค้นหาของคุณ</p></div>';
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${searchQuery ? 'ไม่พบรายการคอนเสิร์ตที่ตรงกับคำค้นหาของคุณ' : 'ยังไม่มีงานในหมวดนี้'}</p></div>`;
     return;
   }
 
@@ -121,78 +117,44 @@ function renderEvents() {
   }
 }
 
-const HERO_CATEGORY_MAP = {
-  all: {
-    title: 'ECHOES OF ASIA WORLD TOUR 2026',
-    sub: 'INTERNATIONAL',
-    genre: 'Echoes of Asia World Tour · Live in BKK',
-    price: '$440 / 1,800 THB',
-    date: '14 - 15 พ.ย. 2026',
-    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=800&q=80',
-    venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
-    unitPrice: 2500
-  },
-  kpop: {
-    title: 'K-POP FESTIVAL LIVE IN BKK',
-    sub: 'K-POP SENSATION',
-    genre: 'Live at Rajamangala Stadium',
-    price: '$550 / 2,200 THB',
-    date: '28 พ.ย. 2026',
-    image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80',
-    venue: 'ราชมังคลากีฬาสถาน',
-    unitPrice: 2200
-  },
-  thai: {
-    title: 'THAI ROCK REVOLUTION 2026',
-    sub: 'THAI ROCK LEGENDS',
-    genre: 'Live at BITEC Bangna (Hall 100)',
-    price: '$300 / 1,200 THB',
-    date: '5 ธ.ค. 2026',
-    image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
-    venue: 'ไบเทค บางนา (Hall 100)',
-    unitPrice: 1200
-  },
-  world: {
-    title: 'ECHOES OF ASIA WORLD TOUR 2026',
-    sub: 'WORLD TOUR',
-    genre: 'Echoes of Asia World Tour · Live in BKK',
-    price: '$440 / 1,800 THB',
-    date: '14 - 15 พ.ย. 2026',
-    image: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=800&q=80',
-    venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
-    unitPrice: 2500
-  },
-  fest: {
-    title: 'BIG MOUNTAIN INDIE CAMP 2026',
-    sub: 'MUSIC FESTIVAL',
-    genre: 'The Ocean เขาใหญ่',
-    price: '$380 / 1,500 THB',
-    date: '12 - 13 ธ.ค. 2026',
-    image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80',
-    venue: 'The Ocean เขาใหญ่',
-    unitPrice: 1500
-  }
-};
+const CATEGORY_LABELS = { kpop: 'K-POP', thai: 'THAI ROCK', world: 'WORLD TOUR', fest: 'FESTIVAL', fanmeeting: 'FAN MEETING' };
 
+// The hero card shows the first real event of the chosen category, or an empty state. It never shows demo data.
 function updateHeroCardForCategory(cat) {
   if (typeof document === 'undefined') return;
-  const data = HERO_CATEGORY_MAP[cat] || HERO_CATEGORY_MAP.all;
   const card = document.getElementById('heroArtistCard');
-  const tagEl = document.getElementById('heroArtistTag');
-  const titleEl = document.getElementById('heroArtistTitle');
-  const genreEl = document.getElementById('heroArtistGenre');
-  const priceEl = document.getElementById('heroArtistPrice');
+  if (!card) return;
+  const list = filterClientEvents(eventsData).filter((ev) => cat === 'all' || ev.category === cat);
+  const ev = list[0] || null;
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
   const dateEl = document.getElementById('heroArtistDate');
-
-  if (card && data.image) {
-    card.style.backgroundImage = `linear-gradient(180deg, rgba(14, 16, 24, 0.5) 0%, rgba(10, 11, 16, 0.94) 100%), url('${data.image}')`;
-    card.onclick = () => openBookingModal(data.title, data.date, data.venue, data.unitPrice);
+  const priceBox = document.getElementById('heroArtistPriceBox');
+  card.classList.toggle('is-empty', !ev);
+  if (dateEl) dateEl.hidden = !ev;
+  if (priceBox) priceBox.hidden = !ev;
+  if (!ev) {
+    card.style.removeProperty('background');
+    card.onclick = null;
+    card.setAttribute('aria-disabled', 'true');
+    set('heroArtistTag', CATEGORY_LABELS[cat] || 'STAGE PASS');
+    set('heroArtistTitle', 'ยังไม่มีงานในหมวดนี้');
+    set('heroArtistGenre', 'งานใหม่จะแสดงที่นี่ทันทีที่เปิดจำหน่าย');
+    return;
   }
-  if (tagEl) tagEl.textContent = data.sub;
-  if (titleEl) titleEl.textContent = data.title;
-  if (genreEl) genreEl.textContent = data.genre;
-  if (priceEl) priceEl.textContent = data.price;
-  if (dateEl) dateEl.textContent = data.date;
+  card.removeAttribute('aria-disabled');
+  const img = String(ev.image || '').replace(/["\\\n\r]/g, '');
+  // The theme sets the glass background with !important, so the poster needs it too.
+  if (img) {
+    card.style.setProperty('background', `linear-gradient(180deg, rgba(14, 16, 24, 0.35) 0%, rgba(10, 11, 16, 0.94) 100%), url("${img}") center / cover no-repeat`, 'important');
+  } else {
+    card.style.removeProperty('background');
+  }
+  card.onclick = () => openBookingModal(ev.title, ev.date, ev.venue);
+  set('heroArtistTag', CATEGORY_LABELS[ev.category] || 'LIVE');
+  set('heroArtistTitle', ev.title);
+  set('heroArtistGenre', ev.venue || '');
+  set('heroArtistPrice', ev.priceRange || '');
+  set('heroArtistDate', ev.date || '');
 }
 
 function filterCategory(cat, btn) {
@@ -200,7 +162,6 @@ function filterCategory(cat, btn) {
   if (typeof document !== 'undefined') {
     document.querySelectorAll('.category-pills .pill-btn, .subnav-item').forEach((b) => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    updateHeroCardForCategory(cat);
   }
   renderEvents();
 }
@@ -290,53 +251,171 @@ function applyAutoDetectedLineProfile(userId, displayName = '', sourceLabel = 'L
     if (nameEl && !nameEl.value && cleanName) {
       nameEl.value = cleanName;
     }
-    if (hintEl) {
-      const safeName = cleanName ? `${cleanName} · ` : '';
-      hintEl.innerHTML = `<span style="color:#48BB78; font-weight:600;">✔ เชื่อมต่อรหัส LINE อัตโนมัติสำเร็จ (${safeName}${cleanId.slice(0, 12)}… · ${sourceLabel})</span>`;
-    }
+    updateLineConnectUi(cleanId, cleanName);
   }
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// LINE account connection (LIFF)
+// Inside the LINE app the buyer is detected automatically. In other browsers
+// one tap on "เข้าสู่ระบบด้วย LINE" logs in and comes back to the same booking.
+// ---------------------------------------------------------------------------
+const PENDING_BOOKING_KEY = 'stagepass.pendingBooking.v1';
+let activeLiffId = '';
+let liffReadyPromise = null;
+
+function getConfiguredLiffId() {
+  return activeLiffId || (window.APP_CONFIG && window.APP_CONFIG.LINE_LIFF_ID) || '';
+}
+
+function updateLineConnectUi(userId, displayName) {
+  if (typeof document === 'undefined') return;
+  const chip = document.getElementById('lineConnectedChip');
+  const nameOut = document.getElementById('lineConnectedName');
+  const loginBtn = document.getElementById('lineLoginBtn');
+  const hintEl = document.getElementById('lineWebhookHint');
+  const connected = Boolean(userId);
+  if (chip) chip.hidden = !connected;
+  if (nameOut) nameOut.textContent = displayName || (userId ? userId.slice(0, 10) + '…' : '-');
+  if (loginBtn) loginBtn.hidden = connected;
+  if (hintEl) {
+    hintEl.textContent = connected
+      ? 'บัตรจะถูกส่งเข้าแชท LINE OA ของบัญชีนี้ (ต้องแอดเพื่อน LINE OA ไว้ก่อน)'
+      : 'กดปุ่มด้านบน ระบบจะดึงบัญชี LINE ของคุณให้อัตโนมัติ ไม่ต้องคัดลอกรหัสเอง';
+  }
+}
+
+function updateLineFriendUi(isFriend) {
+  const addBtn = typeof document !== 'undefined' ? document.getElementById('bookingAddLineOaBtn') : null;
+  if (addBtn) addBtn.hidden = isFriend === true;
+}
+
+function loadLiffSdk() {
+  if (window.liff) return Promise.resolve(window.liff);
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+    script.async = true;
+    script.onload = () => (window.liff ? resolve(window.liff) : reject(new Error('LIFF SDK missing')));
+    script.onerror = () => reject(new Error('LIFF SDK failed to load'));
+    document.head.appendChild(script);
+  });
+}
+
+function ensureLiffReady() {
+  const liffId = getConfiguredLiffId();
+  if (!liffId) return Promise.reject(new Error('LIFF ID not configured'));
+  if (!liffReadyPromise) {
+    liffReadyPromise = loadLiffSdk()
+      .then((liff) => liff.init({ liffId }).then(() => liff))
+      .catch((err) => {
+        liffReadyPromise = null;
+        throw err;
+      });
+  }
+  return liffReadyPromise;
+}
+
+async function syncLiffProfile(liff) {
+  if (!liff.isLoggedIn()) return false;
+  const profile = await liff.getProfile();
+  if (!profile || !profile.userId) return false;
+  applyAutoDetectedLineProfile(profile.userId, profile.displayName || '', 'LINE LIFF');
+  if (typeof liff.getFriendship === 'function') {
+    liff.getFriendship().then((f) => updateLineFriendUi(Boolean(f && f.friendFlag))).catch(() => {});
+  }
+  if (window.TicketStore && typeof window.TicketStore.syncAll === 'function') {
+    window.TicketStore.syncAll({ lineUserId: profile.userId }).then(() => {
+      refreshCartCount();
+      const myModal = document.getElementById('myTicketsModal');
+      if (myModal && myModal.classList.contains('active') && window.TicketViewer) {
+        window.TicketViewer.openList();
+      }
+    });
+  }
+  return true;
+}
+
+function resumePendingBooking() {
+  try {
+    const raw = sessionStorage.getItem(PENDING_BOOKING_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(PENDING_BOOKING_KEY);
+    const pending = JSON.parse(raw);
+    if (pending && pending.title && Date.now() - (pending.at || 0) < 30 * 60 * 1000) {
+      openBookingModal(pending.title, pending.date, pending.venue);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function initLineLiffAutoFill(liffId) {
   const cleanLiffId = String(liffId || '').trim();
-  if (!cleanLiffId || typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (cleanLiffId) activeLiffId = cleanLiffId;
+  if (!getConfiguredLiffId() || typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  const runLiff = async () => {
-    try {
-      if (!window.liff) return;
-      await window.liff.init({ liffId: cleanLiffId });
-      if (window.liff.isLoggedIn()) {
-        const profile = await window.liff.getProfile();
-        if (profile && profile.userId) {
-          applyAutoDetectedLineProfile(profile.userId, profile.displayName || '', 'LINE LIFF');
-          if (window.TicketStore && typeof window.TicketStore.syncAll === 'function') {
-            window.TicketStore.syncAll({ lineUserId: profile.userId }).then(() => {
-              refreshCartCount();
-              const myModal = document.getElementById('myTicketsModal');
-              if (myModal && myModal.classList.contains('active') && window.TicketViewer) {
-                window.TicketViewer.openList();
-              }
-            });
-          }
-        }
-      } else if (window.liff.isInClient && window.liff.isInClient()) {
-        window.liff.login();
+  // Only download the LIFF SDK up front when it is needed right away:
+  // inside the LINE app, or when coming back from a LINE login redirect.
+  const ua = navigator.userAgent || '';
+  const inLineApp = / Line\//i.test(ua);
+  const backFromLogin = /[?&](code|liffClientId|liff\.state|liffRedirectUri)=/.test(window.location.search);
+  if (!inLineApp && !backFromLogin) return;
+
+  ensureLiffReady()
+    .then(async (liff) => {
+      const ok = await syncLiffProfile(liff);
+      if (!ok && liff.isInClient && liff.isInClient()) {
+        liff.login();
+        return;
       }
-    } catch {
-      /* ignore LIFF init error when outside LINE domain */
-    }
-  };
+      if (ok) resumePendingBooking();
+    })
+    .catch(() => {
+      /* ignore LIFF init error outside the LIFF endpoint domain */
+    });
+}
 
-  if (window.liff) {
-    runLiff();
-    return;
+async function connectLineAccount(forceSwitch = false) {
+  const btn = document.getElementById('lineLoginBtn');
+  const errEl = document.getElementById('holderError');
+  const liffId = getConfiguredLiffId();
+  if (btn) btn.disabled = true;
+  try {
+    if (!liffId) throw new Error('no liff id');
+    const liff = await ensureLiffReady();
+    if (forceSwitch && liff.isLoggedIn() && !(liff.isInClient && liff.isInClient())) {
+      liff.logout();
+    }
+    if (!forceSwitch && (await syncLiffProfile(liff))) {
+      if (errEl) errEl.textContent = '';
+      UI.toast('เชื่อมต่อบัญชี LINE เรียบร้อย');
+      return;
+    }
+    if (selectedEvent) {
+      try {
+        sessionStorage.setItem(PENDING_BOOKING_KEY, JSON.stringify({ ...selectedEvent, at: Date.now() }));
+      } catch {
+        /* ignore */
+      }
+    }
+    liff.login({ redirectUri: window.location.href.split('#')[0] });
+  } catch {
+    // Fallback: open this site inside the LINE app, where the account is detected automatically.
+    if (liffId) {
+      window.location.href = `https://liff.line.me/${liffId}`;
+    } else {
+      UI.toast('ยังเชื่อมต่อ LINE ไม่ได้ กรุณาเปิดเว็บนี้จากเมนูใน LINE OA', 'error');
+    }
+  } finally {
+    if (btn) btn.disabled = false;
   }
-  const script = document.createElement('script');
-  script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
-  script.async = true;
-  script.onload = runLiff;
-  document.head.appendChild(script);
+}
+
+// Kept for older markup / cached pages that still call the old button.
+function fetchLineIdFromWebhook() {
+  return connectLineAccount();
 }
 
 function loadSavedHolder() {
@@ -351,6 +430,8 @@ function loadSavedHolder() {
       return;
     }
     const saved = raw ? JSON.parse(raw) : {};
+    const rememberCb = document.getElementById('rememberHolderCheckbox');
+    if (rememberCb && raw) rememberCb.checked = true;
     const lineProf = lineProfileRaw ? JSON.parse(lineProfileRaw) : null;
     let loadedAny = false;
     const nameEl = document.getElementById('holderName');
@@ -360,7 +441,9 @@ function loadSavedHolder() {
     const hintEl = document.getElementById('lineWebhookHint');
 
     const effectiveName = saved.holderName || (lineProf && lineProf.displayName) || '';
-    const effectiveLineId = saved.lineUserId || (lineProf && lineProf.userId) || '';
+    // Only trust a LINE ID that LINE itself gave us (LIFF login or a link sent by our bot).
+    // Older saves could hold someone else's ID from the removed "fetch LINE ID" button.
+    const effectiveLineId = (lineProf && lineProf.userId) || '';
 
     if (effectiveName && nameEl && !nameEl.value) {
       nameEl.value = effectiveName;
@@ -370,18 +453,16 @@ function loadSavedHolder() {
       phoneEl.value = formatPhoneInput(saved.holderPhone);
       loadedAny = true;
     }
-    if (saved.holderIdCard && idEl && !idEl.value) {
-      idEl.value = formatIdCardInput(saved.holderIdCard);
-      loadedAny = true;
+    if (saved.holderIdCard) {
+      // Drop ID numbers saved by older versions of the site.
+      delete saved.holderIdCard;
+      localStorage.setItem(HOLDER_KEY, JSON.stringify(saved));
     }
-    if (effectiveLineId && lineEl && !lineEl.value) {
+    if (effectiveLineId && lineEl) {
       lineEl.value = effectiveLineId;
       loadedAny = true;
-      if (hintEl && lineProf && lineProf.userId === effectiveLineId) {
-        const safeName = lineProf.displayName ? `${lineProf.displayName} · ` : '';
-        hintEl.innerHTML = `<span style="color:#48BB78; font-weight:600;">✔ เชื่อมต่อรหัส LINE อัตโนมัติสำเร็จ (${safeName}${effectiveLineId.slice(0, 12)}… · ${lineProf.sourceLabel || 'LINE OA'})</span>`;
-      }
     }
+    updateLineConnectUi(lineEl ? lineEl.value : '', lineProf ? lineProf.displayName : '');
     if (clearBtn) clearBtn.hidden = !loadedAny;
     if (badgeEl) badgeEl.hidden = !loadedAny;
   } catch {
@@ -404,6 +485,7 @@ function clearSavedHolderInfo() {
   if (phoneEl) phoneEl.value = '';
   if (idEl) idEl.value = '';
   if (lineEl) lineEl.value = '';
+  updateLineConnectUi('', '');
   const clearBtn = document.getElementById('clearSavedHolderBtn');
   if (clearBtn) clearBtn.hidden = true;
   const badgeEl = document.getElementById('savedHolderBadge');
@@ -469,6 +551,13 @@ function openBookingModal(title, date, venue) {
   if (pBEl) pBEl.textContent = `${currentTablePrices.b.toLocaleString('th-TH')} THB`;
   const pCEl = document.getElementById('zonePriceC');
   if (pCEl) pCEl.textContent = `${currentTablePrices.c.toLocaleString('th-TH')} THB`;
+  const rangeEl = document.getElementById('wizardEventPriceRange');
+  if (rangeEl) {
+    const prices = Object.values(currentTablePrices).filter((n) => n > 0);
+    if (prices.length) {
+      rangeEl.textContent = `ราคา ${Math.min(...prices).toLocaleString('th-TH')} - ${Math.max(...prices).toLocaleString('th-TH')} THB`;
+    }
+  }
 
   if (window.SeatMap && typeof window.SeatMap.updateTablePrices === 'function') {
     window.SeatMap.updateTablePrices(currentTablePrices);
@@ -542,7 +631,7 @@ function openBookingModal(title, date, venue) {
     promoMsg.textContent = '';
   }
   loadSavedHolder();
-  setBookingMode('map');
+  setBookingMode(getDefaultBookingMode());
   if (window.SeatMap && typeof window.SeatMap.syncStatuses === 'function') {
     window.SeatMap.syncStatuses();
   }
@@ -550,37 +639,34 @@ function openBookingModal(title, date, venue) {
   if (first) first.click();
   updatePriceDisplay();
   
-  goToStep(1);
+  goToStep(2);
   UI.open('bookingModal');
+}
+
+// Slow phones (lite mode) start on the quick table list instead of drawing the full table map.
+function getDefaultBookingMode() {
+  const lite = typeof document !== 'undefined' && document.documentElement.classList.contains('lite-mode');
+  return lite ? 'zone' : 'map';
 }
 
 function goToStep(stepNum) {
   if (typeof document === 'undefined') return;
+  // Event info (old step 1) now sits as a header above seat + buyer details,
+  // so every step number before payment shows the same combined screen.
   const step1 = document.getElementById('stepView1');
   const step2 = document.getElementById('stepView2');
-  const pill1 = document.getElementById('stepPill1');
   const pill2 = document.getElementById('stepPill2');
   const pill3 = document.getElementById('stepPill3');
   const modalTitle = document.getElementById('modalEventTitle');
-
-  if (stepNum === 1) {
-    if (step1) step1.hidden = false;
-    if (step2) step2.hidden = true;
-    if (pill1) pill1.className = 'wizard-step-item active';
-    if (pill2) pill2.className = 'wizard-step-item';
-    if (pill3) pill3.className = 'wizard-step-item';
-    if (modalTitle) modalTitle.textContent = 'ขั้นตอนที่ 1: ตรวจสอบและเลือกอีเวนต์';
-  } else if (stepNum === 2) {
-    if (step1) step1.hidden = true;
-    if (step2) step2.hidden = false;
-    if (pill1) pill1.className = 'wizard-step-item completed';
-    if (pill2) pill2.className = 'wizard-step-item active';
-    if (pill3) pill3.className = 'wizard-step-item';
-    if (modalTitle) modalTitle.textContent = 'ขั้นตอนที่ 2: เลือกโต๊ะ/บัตร และระบุข้อมูลผู้ซื้อ';
-    setBookingMode('map');
-    if (typeof window !== 'undefined' && window.SeatMap && typeof window.SeatMap.syncStatuses === 'function') {
-      window.SeatMap.syncStatuses();
-    }
+  if (step1) step1.hidden = false;
+  if (step2) step2.hidden = false;
+  if (pill2) pill2.className = 'wizard-step-item active';
+  if (pill3) pill3.className = 'wizard-step-item';
+  if (modalTitle) modalTitle.textContent = 'ขั้นตอนที่ 1: เลือกโต๊ะ/บัตร และกรอกข้อมูล';
+  if (stepNum === 1) return;
+  const mapView = document.getElementById('seatMapView');
+  if (mapView && !mapView.hidden && window.SeatMap && typeof window.SeatMap.syncStatuses === 'function') {
+    window.SeatMap.syncStatuses();
   }
 }
 
@@ -799,19 +885,14 @@ function confirmBooking() {
     }
   }
   if (!lineUserId) {
-    if (errEl) errEl.textContent = 'กรุณากดปุ่ม "1. แอด LINE OA" แล้วกด "2. ดึงรหัส LINE อัตโนมัติ" (บังคับใส่เพื่อรับบัตรทาง LINE)';
-    if (lineEl) {
-      lineEl.classList.add('input-error');
-      lineEl.focus();
-    }
+    if (errEl) errEl.textContent = 'กรุณากดปุ่ม "เข้าสู่ระบบด้วย LINE" เพื่อรับบัตรทาง LINE';
+    const loginBtn = document.getElementById('lineLoginBtn');
+    if (loginBtn) loginBtn.focus();
     return;
   }
   if (!/^U[0-9a-fA-F]{32}$/.test(lineUserId) && !/^U_/.test(lineUserId)) {
-    if (errEl) errEl.textContent = 'รหัส LINE User ID ต้องขึ้นต้นด้วยตัว U ตามด้วยรหัส 32 ตัว (กรุณากดปุ่ม 1 แอด LINE OA แล้วกดปุ่ม 2 ดึงรหัสอัตโนมัติ)';
-    if (lineEl) {
-      lineEl.classList.add('input-error');
-      lineEl.focus();
-    }
+    if (errEl) errEl.textContent = 'บัญชี LINE ไม่ถูกต้อง กรุณากดปุ่ม "เข้าสู่ระบบด้วย LINE" อีกครั้ง';
+    updateLineConnectUi('', '');
     return;
   }
   if (errEl) errEl.textContent = '';
@@ -820,7 +901,8 @@ function confirmBooking() {
   const shouldRemember = !rememberCb || rememberCb.checked;
   try {
     if (shouldRemember) {
-      localStorage.setItem(HOLDER_KEY, JSON.stringify({ holderName, holderPhone, holderIdCard, lineUserId }));
+      // ID card numbers are never stored on the device (phones are often shared).
+      localStorage.setItem(HOLDER_KEY, JSON.stringify({ holderName, holderPhone, lineUserId }));
     } else {
       localStorage.removeItem(HOLDER_KEY);
     }
@@ -846,44 +928,6 @@ function confirmBooking() {
     holderIdCard,
     lineUserId
   });
-}
-
-async function fetchLineIdFromWebhook() {
-  const btn = document.getElementById('fetchLineIdBtn');
-  const nameEl = document.getElementById('holderName');
-  const lineEl = document.getElementById('holderLineId');
-  const hintEl = document.getElementById('lineWebhookHint');
-  const errEl = document.getElementById('holderError');
-  const displayName = (nameEl && nameEl.value.trim()) || 'ลูกค้า STAGE PASS';
-
-  if (btn) btn.disabled = true;
-  try {
-    const res = await fetch('/api/line/simulate-webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ displayName, text: 'บัตร' })
-    });
-    const data = await res.json();
-    const userId = (data.contact && data.contact.userId) || data.userId;
-    const contactName = (data.contact && data.contact.displayName) || data.displayName || displayName;
-    if (data && data.ok && userId && lineEl) {
-      lineEl.value = userId;
-      lineEl.classList.remove('input-error');
-      if (errEl) errEl.textContent = '';
-      if (hintEl) {
-        if (data.isRealWebhook) {
-          hintEl.innerHTML = `<span style="color:#48BB78; font-weight:600;">✔ เชื่อมต่อบัญชี LINE OA จริงสำเร็จ (${UI.escapeHtml(contactName)} · ${UI.escapeHtml(userId.slice(0, 12))}…)</span>`;
-        } else {
-          hintEl.innerHTML = `<span style="color:#ECC94B; font-weight:600;">⚠️ สร้างรหัสรับบัตรแล้ว (${UI.escapeHtml(userId.slice(0, 12))}…) · อย่าลืมกด "1. แอด LINE OA" และทักแชทเพื่อให้ระบบส่งบัตรเข้า LINE ได้จริง</span>`;
-        }
-      }
-      UI.toast('ดึงรหัส LINE User ID จาก LINE OA Webhook เรียบร้อยแล้ว');
-    }
-  } catch {
-    UI.toast('ไม่สามารถดึงรหัส LINE อัตโนมัติได้ กรุณาลองอีกครั้ง', 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
 }
 
 function scrollToEvents() {
@@ -1013,7 +1057,7 @@ if (typeof document !== 'undefined') {
       }
       if (sf.promoImage && !sf.promoImage.includes('example.com')) {
         const heroCard = document.getElementById('heroArtistCard');
-        if (heroCard) {
+        if (heroCard && heroCard.classList.contains('is-empty')) {
           heroCard.style.backgroundImage = `linear-gradient(180deg, rgba(14, 16, 24, 0.45) 0%, rgba(10, 11, 16, 0.94) 100%), url('${sf.promoImage}')`;
         }
       }
@@ -1040,10 +1084,10 @@ if (typeof document !== 'undefined') {
         if (data && data.ok) {
           if (data.settings) applyStorefrontSettings(data.settings);
           const liffId = data.lineLiffId || (data.settings && data.settings.lineLiffId) || '';
-          if (liffId) initLineLiffAutoFill(liffId);
+          initLineLiffAutoFill(liffId);
         }
       })
-      .catch(() => {});
+      .catch(() => initLineLiffAutoFill(''));
   });
 }
 
@@ -1068,6 +1112,8 @@ if (typeof window !== 'undefined') {
   window.clearSavedHolderInfo = clearSavedHolderInfo;
   window.applyAutoDetectedLineProfile = applyAutoDetectedLineProfile;
   window.initLineLiffAutoFill = initLineLiffAutoFill;
+  window.connectLineAccount = connectLineAccount;
+  window.fetchLineIdFromWebhook = fetchLineIdFromWebhook;
   window.filterCategory = filterCategory;
   window.onHeroSearch = onHeroSearch;
   window.updateHeroCardForCategory = updateHeroCardForCategory;

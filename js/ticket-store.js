@@ -116,10 +116,16 @@
     if (!clean) return [];
     const digits = clean.replace(/\D/g, '');
     if (digits.length >= 9 && digits.length <= 10 && !/^TT/i.test(clean)) {
+      // Phone alone is not enough to open someone's ticket: also ask for the last 4 characters of the ID/passport used to book
+      const idInput = window.prompt('เพื่อความปลอดภัย กรุณากรอกเลข 4 ตัวท้ายของบัตรประชาชน/พาสปอร์ตที่ใช้จอง');
+      const idLast4 = String(idInput || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+      if (idLast4.length !== 4) return [];
       try {
-        const res = await fetch(`/api/orders?phone=${encodeURIComponent(digits)}&includeSlip=false`, { cache: 'no-store' });
+        const qs = new URLSearchParams({ phone: digits, idLast4, includeSlip: 'false' });
+        const res = await fetch(`/api/orders?${qs.toString()}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
+          if (data && data.error && window.UI && window.UI.toast) window.UI.toast(data.error, 'error');
           const list = Array.isArray(data.orders) ? data.orders : [];
           list.forEach((srv) => upsert(srv));
           return list;

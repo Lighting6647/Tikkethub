@@ -745,7 +745,7 @@ var qrcode = function() {
     }
   };
 
-  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+  qrcode.stringToBytes = function(s) { return qrcode.stringToBytesFuncs['UTF-8'](s); };
 
   //---------------------------------------------------------------------
   // qrcode.createStringToBytes

@@ -7,3 +7,5 @@ Thumbs.db
 
 .vercel
 .env*
+data/.session-secret
+data/.qr-secret

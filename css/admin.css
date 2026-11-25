@@ -1615,3 +1615,37 @@
   }
 }
 
+
+/* =========================================================
+   EVENT WIZARD 3 ขั้น — โซน & ราคา แบบเรียบง่าย (2026-11-23)
+   ========================================================= */
+.wizard-steps-header.evs-steps-3 { grid-template-columns: repeat(3, 1fr) !important; }
+.evs-block { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.evs-q { font-weight: 700; color: #fff; font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.evs-q b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--fire, #ff3d1f); color: #fff; font-size: 12px; }
+.evs-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.evs-chip { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: #cfd3dc; font: inherit; font-size: 12px; cursor: pointer; text-align: center; line-height: 1.3; }
+.evs-chip i { font-style: normal; font-size: 20px; }
+.evs-chip:hover { border-color: rgba(255,255,255,0.3); }
+.evs-chip.is-on { border-color: var(--fire, #ff3d1f); background: rgba(255,61,31,0.12); color: #fff; font-weight: 700; box-shadow: 0 0 0 1px var(--fire, #ff3d1f) inset; }
+.evs-inline { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: #cfd3dc; }
+.evs-inline input { width: 72px !important; padding: 6px 10px !important; font-size: 13px !important; text-align: center; }
+.evs-zone-table { display: flex; flex-direction: column; gap: 6px; }
+.evs-zone-head, .evs-zone-row { display: grid; grid-template-columns: 1.1fr 1.2fr 1.2fr; gap: 8px; align-items: center; }
+.evs-zone-table.is-hybrid .evs-zone-head, .evs-zone-table.is-hybrid .evs-zone-row { grid-template-columns: 1fr 1fr 1.2fr 1.1fr; }
+.evs-zone-table:not(.is-hybrid) .evs-col-type { display: none !important; }
+.evs-zone-head { font-size: 11px; color: #8a90a0; padding: 0 10px; }
+.evs-zone-row { padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.03); border-left: 3px solid var(--zc); }
+.evs-zone-name { color: var(--zc); font-size: 13px; white-space: nowrap; }
+.evs-zone-row select { padding: 6px !important; font-size: 12px !important; }
+.evs-num { display: flex; align-items: center; gap: 4px; margin: 0; }
+.evs-num input { min-width: 0; width: 100% !important; padding: 7px 8px !important; font-size: 13px !important; font-weight: 700; }
+.evs-num small { color: #8a90a0; font-size: 11px; white-space: nowrap; }
+.evs-summary { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); color: #b7f0d8; font-size: 12.5px; }
+.evs-summary b { color: #fff; }
+@media (max-width: 580px) {
+  .evs-chips { grid-template-columns: repeat(2, 1fr); }
+  .evs-zone-head, .evs-zone-row, .evs-zone-table.is-hybrid .evs-zone-row, .evs-zone-table.is-hybrid .evs-zone-head { grid-template-columns: 1fr 1fr; }
+  .evs-zone-head { display: none; }
+  .evs-zone-name, .evs-zone-row .evs-col-type { grid-column: 1 / -1; }
+}

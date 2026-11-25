@@ -187,6 +187,16 @@ if (!orderColumns.includes('re_entry_attempts')) {
   db.exec(`ALTER TABLE orders ADD COLUMN re_entry_attempts INTEGER DEFAULT 0;`);
 }
 
+// Covering index: lets the sold-count / booked-seat queries skip the slip images stored in each row.
+// Without it every /api/events and /api/seats/status call reads every slip (90 ms at 2,000 orders).
+db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_quota_cover ON orders(status, title, zone, qty, seats);`);
+
+if (!orderColumns.includes('slip_check_status')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN slip_check_status TEXT DEFAULT '';`);
+}
+if (!orderColumns.includes('slip_trans_ref')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN slip_trans_ref TEXT DEFAULT '';`);
+}
 const eventColumns = db.prepare(`PRAGMA table_info(events)`).all().map((c) => c.name);
 if (!eventColumns.includes('image')) {
   db.exec(`ALTER TABLE events ADD COLUMN image TEXT DEFAULT '';`);
@@ -455,14 +465,46 @@ function hashSlipDataUrl(dataUrl) {
   };
 }
 
+// gate-checkin-key2: the old QR key was written in the source code (and the code leaked), so new
+// tickets are signed with a random key stored in data/.qr-secret. Tickets issued before that key
+// was created (issued_at < since) still verify with the old key, so nobody needs a new ticket.
 const QR_HMAC_SECRET = process.env.QR_HMAC_SECRET || 'thaiticket-qr-hmac-secret-2026';
+const QR_KEY2 = resolveQrKey2();
 
-function computeTicketSignature(ref, zone = '', qty = 1) {
+function resolveQrKey2() {
+  const envSecret = String(process.env.QR_HMAC_SECRET_V2 || '').trim();
+  const envSince = Number(process.env.QR_HMAC_V2_SINCE || 0);
+  if (envSecret.length >= 32 && envSince > 0) return { secret: envSecret, since: envSince };
+  if (isUnitTest) return { secret: crypto.randomBytes(32).toString('hex'), since: 0 };
+  // On Vercel the data folder is wiped on every cold start, so a generated key would not survive.
+  if (process.env.VERCEL) return { secret: QR_HMAC_SECRET, since: Number.MAX_SAFE_INTEGER };
+  const file = path.join(DATA_DIR, '.qr-secret');
+  try {
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (saved && String(saved.secret || '').length >= 32 && Number(saved.since) > 0) {
+      return { secret: String(saved.secret), since: Number(saved.since) };
+    }
+  } catch {}
+  const created = { secret: crypto.randomBytes(32).toString('hex'), since: Date.now() };
+  try {
+    fs.writeFileSync(file, JSON.stringify(created), { mode: 0o600 });
+  } catch {
+    // Could not save: keep the old key so signatures stay stable across restarts.
+    return { secret: QR_HMAC_SECRET, since: Number.MAX_SAFE_INTEGER };
+  }
+  return created;
+}
+
+function isLegacyQrKey(issuedAt) {
+  return issuedAt !== undefined && issuedAt !== null && Number(issuedAt || 0) < QR_KEY2.since;
+}
+
+function computeTicketSignature(ref, zone = '', qty = 1, issuedAt) {
   const cleanRef = String(ref || '').trim().toUpperCase();
   const cleanZone = String(zone || '').trim();
   const cleanQty = Number(qty || 1);
   return crypto
-    .createHmac('sha256', QR_HMAC_SECRET)
+    .createHmac('sha256', isLegacyQrKey(issuedAt) ? QR_HMAC_SECRET : QR_KEY2.secret)
     .update(`${cleanRef}|${cleanZone}|${cleanQty}`)
     .digest('hex')
     .slice(0, 12)
@@ -471,7 +513,7 @@ function computeTicketSignature(ref, zone = '', qty = 1) {
 
 function buildSignedQrPayload(order) {
   if (!order || !order.ref) return '';
-  const sig = computeTicketSignature(order.ref, order.zone, order.qty);
+  const sig = computeTicketSignature(order.ref, order.zone, order.qty, order.issuedAt);
   return `THAITICKET|${order.ref}|${order.zone}|${order.qty}|SIG:${sig}`;
 }
 
@@ -489,7 +531,7 @@ function rowToOrder(row) {
   } catch {
     seats = [];
   }
-  const qrSignature = computeTicketSignature(row.ref, row.zone, row.qty);
+  const qrSignature = computeTicketSignature(row.ref, row.zone, row.qty, row.issued_at);
   return {
     ref: row.ref,
     title: row.title,
@@ -514,6 +556,8 @@ function rowToOrder(row) {
     driveViewLink: row.drive_view_link || '',
     verifiedBy: row.verified_by || '',
     verificationDetail: row.verification_detail || '',
+    slipCheckStatus: row.slip_check_status || '',
+    slipTransRef: row.slip_trans_ref || '',
     status: row.status,
     rejectReason: row.reject_reason || '',
     lineSent: row.line_sent,
@@ -530,12 +574,40 @@ function rowToOrder(row) {
 
 function findDuplicateSlip(slipHash) {
   const stmt = db.prepare(
-    `SELECT ref, status, issued_at FROM orders WHERE slip_hash = ? AND status != 'rejected' LIMIT 1`
+    `SELECT ref, status, issued_at FROM orders WHERE slip_hash = ? AND (status != 'rejected' OR reject_reason LIKE 'เกินโควตา%') LIMIT 1`
   );
   return stmt.get(slipHash) || null;
 }
 
-function createOrder(input) {
+// Same bank transaction used by another live order (catches re-saved / cropped copies that SHA-256 misses).
+// Orders made before slip_trans_ref existed only have the reference inside verification_detail.
+function findDuplicateTransRef(transRef) {
+  const clean = String(transRef || '').trim();
+  if (clean.length < 6) return null;
+  return (
+    db.prepare(`
+      SELECT ref, status FROM orders
+      WHERE status != 'rejected' AND (slip_trans_ref = ? OR (slip_trans_ref = '' AND instr(verification_detail, ?) > 0))
+      LIMIT 1
+    `).get(clean, clean) || null
+  );
+}
+
+// Rejected order that already carried this slip (refused by the admin, or sold out and waiting for a refund).
+// The slip may be sent again, but a person must look: the money may already have been returned.
+function findRejectedSlipUse(slipHash, transRef) {
+  const clean = String(transRef || '').trim();
+  return (
+    db.prepare(`
+      SELECT ref FROM orders
+      WHERE status = 'rejected' AND (slip_hash = ? OR (length(?) >= 6 AND (slip_trans_ref = ? OR instr(verification_detail, ?) > 0)))
+      LIMIT 1
+    `).get(String(slipHash || ''), clean, clean, clean) || null
+  );
+}
+
+// `slipCheck` is the server's own verdict; nothing about verification is ever read from `input` (browser data).
+function createOrder(input, slipCheck = null) {
   const { hash, byteLength } = hashSlipDataUrl(input.slipData);
   if (byteLength < 512) {
     const err = new Error('ไฟล์สลิปมีขนาดเล็กผิดปกติ กรุณาตรวจสอบไฟล์');
@@ -548,6 +620,19 @@ function createOrder(input) {
     throw err;
   }
 
+  let ref;
+  let quotaCheck;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+  quotaCheck = checkQuotaAvailable(input.title, input.zone, input.qty);
+  // Seat check inside the same transaction: two buyers paying for the same seat at the same moment
+  // must not both get it. The second one is kept as a refund order, like an over-quota order.
+  const wantedSeats = (Array.isArray(input.seats) ? input.seats : []).map((x) => String(x).trim()).filter(Boolean);
+  if (quotaCheck.ok && wantedSeats.length > 0) {
+    const booked = bookedSeatsForTitle(input.title);
+    const taken = wantedSeats.filter((x) => booked.has(x));
+    if (taken.length > 0) quotaCheck = { ok: false, left: quotaCheck.left, seatsTaken: taken };
+  }
   const dup = findDuplicateSlip(hash);
   if (dup) {
     const err = new Error(`สลิปนี้เคยถูกใช้ไปแล้วในรายการ ${dup.ref} กรุณาใช้สลิปใบใหม่`);
@@ -556,7 +641,15 @@ function createOrder(input) {
     throw err;
   }
 
-  const ref = generateRef();
+  const dupTrans = slipCheck && slipCheck.bankRef ? findDuplicateTransRef(slipCheck.bankRef) : null;
+  if (dupTrans) {
+    const err = new Error(`สลิปนี้เคยถูกใช้ไปแล้วในรายการ ${dupTrans.ref} กรุณาใช้สลิปใบใหม่`);
+    err.status = 409;
+    err.code = 'DUPLICATE_SLIP';
+    throw err;
+  }
+
+  ref = generateRef();
   const now = Date.now();
   const seatsArr = Array.isArray(input.seats) ? input.seats : [];
   const stmt = db.prepare(`
@@ -565,8 +658,8 @@ function createOrder(input) {
       promo_code, discount_amount, seats,
       holder_name, holder_phone, holder_id_card, line_user_id,
       slip_name, slip_mime, slip_data, slip_hash,
-      status, issued_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+      status, reject_reason, issued_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -589,16 +682,46 @@ function createOrder(input) {
     String(input.slipMime || 'image/png').trim(),
     String(input.slipData),
     hash,
+    quotaCheck.ok ? 'pending' : 'rejected',
+    quotaCheck.ok ? '' : (quotaCheck.seatsTaken
+      ? `เกินโควตา (ที่นั่ง ${quotaCheck.seatsTaken.join(', ')} ถูกจองไปก่อน) — รอคืนเงิน`
+      : 'เกินโควตา (ที่นั่งเต็มระหว่างชำระเงิน) — รอคืนเงิน'),
     now
   );
+  if (slipCheck) {
+    db.prepare(`UPDATE orders SET slip_check_status = ?, slip_trans_ref = ?, verified_by = ?, verification_detail = ? WHERE ref = ?`).run(
+      String(slipCheck.status || 'unchecked'),
+      String(slipCheck.bankRef || ''),
+      String(slipCheck.provider || ''),
+      String(slipCheck.detail || slipCheck.reason || ''),
+      ref
+    );
+  }
 
-  // Release any active holds for these seats
-  if (seatsArr.length > 0) {
+  // Release any active holds for these seats (not for an over-quota order: it gets no seats)
+  if (quotaCheck.ok && seatsArr.length > 0) {
     for (const s of seatsArr) {
       try {
         db.prepare(`DELETE FROM seat_holds WHERE seat_id = ?`).run(String(s).trim());
       } catch {}
     }
+  }
+
+  db.exec('COMMIT');
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
+    throw e;
+  }
+
+  if (!quotaCheck.ok) {
+    // Slip is kept (status rejected) so staff can refund; the buyer gets the ref to quote.
+    const err = new Error(quotaCheck.seatsTaken
+      ? `ที่นั่ง ${quotaCheck.seatsTaken.join(', ')} ถูกจองไปก่อนระหว่างที่คุณชำระเงิน ทีมงานจะติดต่อคืนเงิน กรุณาเก็บเลขอ้างอิง ${ref}`
+      : `ที่นั่งโซนนี้เต็มระหว่างที่คุณชำระเงิน ทีมงานจะติดต่อคืนเงิน กรุณาเก็บเลขอ้างอิง ${ref}`);
+    err.status = 409;
+    err.code = 'SOLD_OUT';
+    err.ref = ref;
+    throw err;
   }
 
   const createdOrder = getOrder(ref);
@@ -708,29 +831,77 @@ function updateOrderDriveAndVerification(ref, { driveFileId = '', driveViewLink 
   return updatedDrive;
 }
 
-function checkInOrder(rawInput, staffName = 'Gate Staff #1') {
+// gate-checkin-v2: parse a scanned/typed ticket code.
+// Signed QR format: THAITICKET|<ref>|<zone>|<qty>|SIG:<hmac>
+function parseTicketCode(rawInput) {
   const text = String(rawInput || '').trim();
-  const parts = text.split('|');
-  const ref = (parts[0] === 'THAITICKET' && parts[1] ? parts[1] : parts[0]).trim().toUpperCase();
+  const parts = text.split('|').map((p) => String(p).trim());
+  const isSignedFormat = parts.length >= 2 && parts[0].toUpperCase() === 'THAITICKET';
+  const ref = String((isSignedFormat ? parts[1] : parts[0]) || '').toUpperCase();
+  const sigPart = parts.find((p) => p.toUpperCase().startsWith('SIG:'));
+  return {
+    parts,
+    isSignedFormat,
+    ref,
+    providedSig: sigPart ? sigPart.slice(4).trim().toUpperCase() : ''
+  };
+}
+
+function safeEqualText(a, b) {
+  const bufA = Buffer.from(String(a || ''));
+  const bufB = Buffer.from(String(b || ''));
+  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
+ * Gate check-in.
+ * options.verifyOnly       - run every check but write nothing (used by the forged-QR self test).
+ * options.requireSignature - the code came from the camera, so it must be a signed QR.
+ * options.checkedInAt      - original scan time of an offline check-in being synced.
+ */
+function checkInOrder(rawInput, staffName = 'Gate Staff #1', options = {}) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const verifyOnly = Boolean(opts.verifyOnly);
+  const gate = String(staffName || 'Gate Staff #1').trim().slice(0, 60) || 'Gate Staff #1';
+  const { parts, isSignedFormat, ref, providedSig } = parseTicketCode(rawInput);
+
+  if (!ref) {
+    return { ok: false, code: 'NOT_FOUND', signatureVerified: false, message: 'ไม่พบรหัสบัตรใน QR Code' };
+  }
 
   const existing = getOrder(ref);
   if (!existing) {
     return {
       ok: false,
       code: 'NOT_FOUND',
+      signatureVerified: false,
       message: `ไม่พบรหัสการจอง "${ref}" ในระบบ`
     };
   }
 
-  // Verify cryptographic HMAC-SHA256 signature if SIG: token is present in QR payload
-  const sigPart = parts.find((p) => String(p).toUpperCase().startsWith('SIG:'));
-  if (sigPart) {
-    const providedSig = String(sigPart).slice(4).trim().toUpperCase();
-    const expectedSig = computeTicketSignature(existing.ref, existing.zone, existing.qty);
-    // Also verify zone/qty in payload haven't been altered if 4+ parts
-    const zoneTampered = parts.length >= 4 && parts[2] && parts[2].trim() !== existing.zone;
-    const qtyTampered = parts.length >= 4 && parts[3] && Number(parts[3]) !== Number(existing.qty);
-    if (providedSig !== expectedSig || zoneTampered || qtyTampered) {
+  // A real ticket QR always carries an HMAC signature. If the code looks like a ticket QR
+  // (or came from the camera) the signature must be present and must match.
+  let signatureVerified = false;
+  if (providedSig || isSignedFormat || opts.requireSignature) {
+    if (!providedSig) {
+      return {
+        ok: false,
+        code: 'MISSING_SIGNATURE',
+        signatureVerified: false,
+        message: `QR Code ของบัตร ${existing.ref} ไม่มีลายเซ็นดิจิทัล อาจเป็นบัตรปลอม ให้ตรวจบัตรตัวจริงใน LINE ของลูกค้า`,
+        order: existing
+      };
+    }
+    const expectedSig = computeTicketSignature(existing.ref, existing.zone, existing.qty, existing.issuedAt);
+    const isSig = (p) => String(p || '').toUpperCase().startsWith('SIG:');
+    const zonePart = isSignedFormat && parts[2] !== undefined && !isSig(parts[2]) ? parts[2] : '';
+    const qtyPart = isSignedFormat && parts[3] !== undefined && !isSig(parts[3]) ? parts[3] : '';
+    // Tickets drawn before the QR library was set to UTF-8 carry Thai zone names cut to one byte per character.
+    const realZone = String(existing.zone || '').trim();
+    const oldQrZone = Array.from({ length: realZone.length }, (_, i) => String.fromCharCode(realZone.charCodeAt(i) & 0xff)).join('');
+    const zoneTampered = zonePart !== '' && zonePart !== realZone && zonePart !== oldQrZone.trim();
+    const qtyTampered = qtyPart !== '' && Number(qtyPart) !== Number(existing.qty);
+    if (!safeEqualText(providedSig, expectedSig) || zoneTampered || qtyTampered) {
       return {
         ok: false,
         code: 'INVALID_SIGNATURE',
@@ -739,12 +910,16 @@ function checkInOrder(rawInput, staffName = 'Gate Staff #1') {
         order: existing
       };
     }
+    signatureVerified = true;
   }
+  // Ticket signed with the old (leaked) key: staff should also check name / ID card.
+  const legacyKey = signatureVerified && isLegacyQrKey(existing.issuedAt);
 
   if (existing.status === 'pending') {
     return {
       ok: false,
       code: 'NOT_APPROVED',
+      signatureVerified,
       message: `บัตร ${existing.ref} ยังอยู่ระหว่างรอแอดมินตรวจสอบสลิป ไม่อนุญาตให้เข้างาน`,
       order: existing
     };
@@ -754,42 +929,98 @@ function checkInOrder(rawInput, staffName = 'Gate Staff #1') {
     return {
       ok: false,
       code: 'REJECTED',
+      signatureVerified,
       message: `บัตร ${existing.ref} ถูกปฏิเสธสลิป (${existing.rejectReason || 'สลิปไม่ถูกต้อง'})`,
       order: existing
     };
   }
 
-  if (existing.checkedInAt > 0) {
-    const attempts = Number(existing.reEntryAttempts || 0) + 1;
-    try {
-      db.prepare(`UPDATE orders SET re_entry_attempts = ? WHERE ref = ?`).run(attempts, existing.ref);
-    } catch {}
-    const orderSnapshot = { ...existing, reEntryAttempts: attempts };
+  if (existing.status !== 'approved') {
+    return {
+      ok: false,
+      code: 'NOT_APPROVED',
+      signatureVerified,
+      message: `บัตร ${existing.ref} อยู่ในสถานะ "${existing.status}" ไม่อนุญาตให้เข้างาน`,
+      order: existing
+    };
+  }
+
+  const alreadyCheckedIn = (current) => {
+    let attempts = Number(current.reEntryAttempts || 0);
+    if (!verifyOnly) {
+      try {
+        db.prepare(`UPDATE orders SET re_entry_attempts = COALESCE(re_entry_attempts, 0) + 1 WHERE ref = ?`).run(current.ref);
+        const fresh = getOrder(current.ref);
+        attempts = Number((fresh && fresh.reEntryAttempts) || attempts + 1);
+      } catch {
+        attempts += 1;
+      }
+    }
     return {
       ok: false,
       code: 'ALREADY_CHECKED_IN',
-      message: `เตือนภัย! บัตร ${existing.ref} ถูกสแกนเข้างานไปแล้วเมื่อ ${new Date(existing.checkedInAt).toLocaleString('th-TH')}`,
-      firstCheckedInAt: existing.checkedInAt,
-      firstCheckedInBy: existing.checkedInBy || 'Gate A (Main)',
+      signatureVerified,
+      message: `เตือนภัย! บัตร ${current.ref} ถูกสแกนเข้างานไปแล้วเมื่อ ${new Date(current.checkedInAt).toLocaleString('th-TH')}`,
+      firstCheckedInAt: current.checkedInAt,
+      firstCheckedInBy: current.checkedInBy || 'Gate A (Main)',
       reEntryAttempts: attempts,
-      order: orderSnapshot
+      order: { ...current, reEntryAttempts: attempts }
+    };
+  };
+
+  if (existing.checkedInAt > 0) {
+    return alreadyCheckedIn(existing);
+  }
+
+  if (verifyOnly) {
+    return {
+      ok: true,
+      code: 'VERIFIED',
+      verifyOnly: true,
+      signatureVerified,
+      qrSignature: existing.qrSignature,
+      message: signatureVerified
+        ? `ลายเซ็นของบัตร ${existing.ref} ถูกต้อง พร้อมเข้างาน (ทดสอบเท่านั้น ยังไม่บันทึกเช็คอิน)`
+        : `พบบัตร ${existing.ref} พร้อมเข้างาน (ทดสอบเท่านั้น ยังไม่บันทึกเช็คอิน)`,
+      order: existing
     };
   }
 
   const now = Date.now();
-  db.prepare(`UPDATE orders SET checked_in_at = ?, checked_in_by = ? WHERE ref = ?`).run(
-    now,
-    staffName,
-    existing.ref
-  );
+  const wantedAt = Number(opts.checkedInAt || 0);
+  // Offline scans keep their real scan time, but only within the last 24 hours and never in the future.
+  const checkedAt = wantedAt > now - 24 * 60 * 60 * 1000 && wantedAt <= now ? Math.floor(wantedAt) : now;
+
+  // Atomic: only the first scan can set checked_in_at, even if two gates scan the same ticket at once.
+  const info = db
+    .prepare(
+      `UPDATE orders SET checked_in_at = ?, checked_in_by = ?
+       WHERE ref = ? AND status = 'approved' AND COALESCE(checked_in_at, 0) = 0`
+    )
+    .run(checkedAt, gate, existing.ref);
+
+  if (!info || Number(info.changes) === 0) {
+    const latest = getOrder(existing.ref) || existing;
+    if (latest.checkedInAt > 0) return alreadyCheckedIn(latest);
+    return {
+      ok: false,
+      code: 'NOT_APPROVED',
+      signatureVerified,
+      message: `บัตร ${existing.ref} ไม่อยู่ในสถานะที่เข้างานได้`,
+      order: latest
+    };
+  }
 
   const updated = getOrder(existing.ref);
   return {
     ok: true,
     code: 'CHECKED_IN',
-    signatureVerified: true,
+    signatureVerified,
+    legacyKey,
     qrSignature: updated.qrSignature,
-    message: `ตรวจสอบลายเซ็น HMAC-SHA256 ผ่าน! อนุญาตให้ ${updated.holderName} (${updated.qty} ใบ · ${updated.zone}) เข้างานได้`,
+    message: signatureVerified
+      ? `ตรวจสอบลายเซ็น HMAC-SHA256 ผ่าน! อนุญาตให้ ${updated.holderName} (${updated.qty} ใบ · ${updated.zone}) เข้างานได้`
+      : `เช็คอินด้วยรหัสการจอง (ไม่มีลายเซ็นใน QR) อนุญาตให้ ${updated.holderName} (${updated.qty} ใบ · ${updated.zone}) เข้างานได้`,
     order: updated
   };
 }
@@ -884,6 +1115,107 @@ function syncCustomEventsWithDb() {
 }
 
 // Events & Zone Quota Manager
+// Zone names come from two places in the booking page: "โต๊ะโซน A" (zone buttons) and "Zone A (บัตรนั่ง)" (seat map).
+function knownZoneBucket(zone) {
+  const z = String(zone || '').toLowerCase();
+  if (z.includes('vip')) return 'vip';
+  const m = /(?:zone|โซน|โต๊ะ|table)\s*([abc])(?![a-z0-9])/.exec(z);
+  return m ? m[1] : '';
+}
+
+function zoneBucket(zone) {
+  return knownZoneBucket(zone) || 'c';
+}
+
+const SEAT_ZONE_NAMES = { vip: 'VIP Standing', a: 'Zone A (บัตรนั่ง)', b: 'Zone B (บัตรนั่ง)', c: 'Zone C (ชั้นบน)' };
+
+function seatBucket(seatId) {
+  const m = /^(VIP|A|B|C)-\d{2}$/.exec(String(seatId || '').trim());
+  return m ? m[1].toLowerCase() : '';
+}
+
+// The price of an order, from the event's own prices. Same rules as computeNetTotal() in js/app.js:
+// with seats, the sum of the seat prices; without, zone price x qty; then the promo code.
+// If the zone label does not belong to any chosen seat, the last seat's zone replaces it (the page can send a stale label).
+function computeOrderPrice(input) {
+  const ev = db.prepare(`SELECT * FROM events WHERE title = ? LIMIT 1`).get(String(input.title || '').trim());
+  if (!ev) return { ok: false, error: 'EVENT_NOT_FOUND' };
+  const num = (v, d) => (v != null && Number.isFinite(Number(v)) ? Number(v) : d);
+  const prices = { vip: num(ev.price_vip, 6500), a: num(ev.price_a, 4500), b: num(ev.price_b, 3200), c: num(ev.price_c, 1800) };
+  let bucket = knownZoneBucket(input.zone);
+  if (!bucket) return { ok: false, error: 'ZONE_NOT_FOUND' };
+  const qty = Number(input.qty);
+  const seats = [...new Set((Array.isArray(input.seats) ? input.seats : []).map((s) => String(s).trim()).filter(Boolean))];
+  const buckets = seats.map((s) => seatBucket(s) || bucket);
+  let zone = String(input.zone || '').trim();
+  if (buckets.length && !buckets.includes(bucket)) {
+    bucket = buckets[buckets.length - 1];
+    zone = SEAT_ZONE_NAMES[bucket];
+  }
+  let subtotal = 0;
+  for (const b of buckets) subtotal += prices[b];
+  if (qty > buckets.length) subtotal += (qty - buckets.length) * prices[bucket];
+  let discountAmount = 0;
+  let promoCode = '';
+  if (String(input.promoCode || '').trim()) {
+    const promo = validatePromoCode(input.promoCode, subtotal);
+    if (promo.ok) {
+      discountAmount = promo.discountAmount;
+      promoCode = promo.code;
+    }
+  }
+  return { ok: true, zone, unitPrice: prices[bucket], subtotal, discountAmount, promoCode, total: discountAmount ? Math.max(1, subtotal - discountAmount) : subtotal };
+}
+
+// Checks whether an order still fits the zone quota. Runs inside the createOrder transaction so two
+// buyers (or two pm2 instances) cannot both take the last seats. Returns { ok, left }.
+function checkQuotaAvailable(title, zone, qty) {
+  syncCustomEventsWithDb();
+  const ev = db.prepare(`SELECT * FROM events WHERE title = ? LIMIT 1`).get(String(title || '').trim());
+  if (!ev) return { ok: true, left: null }; // unknown title: keep previous behaviour (admin reviews it)
+  const bucket = zoneBucket(zone);
+  const quota = Number(ev['quota_' + bucket] || 0);
+  const rows = db
+    .prepare(`SELECT zone, SUM(qty) AS sold FROM orders WHERE status != 'rejected' AND title = ? GROUP BY zone`)
+    .all(ev.title);
+  let sold = 0;
+  for (const r of rows) if (zoneBucket(r.zone) === bucket) sold += Number(r.sold || 0);
+  const left = Math.max(0, quota - sold);
+  return { ok: sold + Number(qty || 0) <= quota, left };
+}
+
+// True only for an event that is on sale now. Orders for any other title are refused.
+function eventExists(title) {
+  syncCustomEventsWithDb();
+  return Boolean(db.prepare(`SELECT 1 FROM events WHERE title = ? LIMIT 1`).get(String(title || '').trim()));
+}
+
+// Seats already sold for one event (same title). Scoped per event so the same seat code in another
+// concert does not count; uses idx_orders_quota_cover, so it never reads the slip images.
+function bookedSeatsForTitle(title) {
+  const set = new Set();
+  const rows = db.prepare(`SELECT seats FROM orders WHERE status != 'rejected' AND title = ?`).all(String(title || '').trim());
+  for (const r of rows) {
+    try {
+      const arr = JSON.parse(r.seats || '[]');
+      if (Array.isArray(arr)) arr.forEach((x) => set.add(String(x).trim()));
+    } catch {}
+  }
+  return set;
+}
+
+// Approving a rejected order puts its tickets back into the zone count, so re-check the quota first
+// (e.g. an over-quota refund order must not be approved after the zone is full).
+function checkOrderCanBeApproved(order) {
+  if (!order || order.status !== 'rejected') return { ok: true, left: null };
+  const q = checkQuotaAvailable(order.title, order.zone, order.qty);
+  if (!q.ok) return q;
+  const seats = Array.isArray(order.seats) ? order.seats : [];
+  const booked = bookedSeatsForTitle(order.title);
+  const taken = seats.map((x) => String(x).trim()).filter((x) => x && booked.has(x));
+  return taken.length ? { ok: false, left: q.left, seatsTaken: taken } : q;
+}
+
 function listEventsWithQuota() {
   syncCustomEventsWithDb();
   const rows = db.prepare(`SELECT * FROM events ORDER BY id ASC`).all();
@@ -895,13 +1227,9 @@ function listEventsWithQuota() {
   for (const s of soldRows) {
     const key = `${s.title}`;
     if (!soldMap[key]) soldMap[key] = { vip: 0, a: 0, b: 0, c: 0, totalSold: 0 };
-    const z = String(s.zone || '').toLowerCase();
     const count = Number(s.sold || 0);
     soldMap[key].totalSold += count;
-    if (z.includes('vip')) soldMap[key].vip += count;
-    else if (z.includes('zone a') || z.includes('โต๊ะ a') || z.includes('table a')) soldMap[key].a += count;
-    else if (z.includes('zone b') || z.includes('โต๊ะ b') || z.includes('table b')) soldMap[key].b += count;
-    else soldMap[key].c += count;
+    soldMap[key][zoneBucket(s.zone)] += count;
   }
 
   return rows.map((r) => {
@@ -1350,12 +1678,8 @@ function listAuditLogs(limit = 100) {
     }));
 }
 
-const BASE_OCCUPIED_SEATS = [
-  'VIP-03', 'VIP-04', 'VIP-09',
-  'A-01', 'A-02', 'A-07', 'A-08',
-  'B-04', 'B-05', 'B-11',
-  'C-02', 'C-08', 'C-09', 'C-15', 'C-16'
-];
+// Demo seats removed: a seat is occupied only when a real order holds it.
+const BASE_OCCUPIED_SEATS = [];
 
 function cleanExpiredHolds() {
   const info = db.prepare(`DELETE FROM seat_holds WHERE expires_at <= ?`).run(Date.now());
@@ -1378,12 +1702,20 @@ function getBookedSeatIds() {
   return set;
 }
 
-function getSeatStatuses(sessionId = '') {
+// Shared part of the seat map (booked seats + active holds). broadcastSeatSync computes it once
+// and reuses it for every open page instead of re-reading the database per viewer.
+function getSeatSnapshot() {
   cleanExpiredHolds();
-  const bookedSet = getBookedSeatIds();
-  const activeHolds = db
-    .prepare(`SELECT seat_id, holder_session, expires_at FROM seat_holds WHERE expires_at > ?`)
-    .all(Date.now());
+  return {
+    bookedSet: getBookedSeatIds(),
+    activeHolds: db
+      .prepare(`SELECT seat_id, holder_session, expires_at FROM seat_holds WHERE expires_at > ?`)
+      .all(Date.now())
+  };
+}
+
+function getSeatStatuses(sessionId = '', snapshot = null) {
+  const { bookedSet, activeHolds } = snapshot || getSeatSnapshot();
   const holdMap = new Map();
   for (const h of activeHolds) {
     holdMap.set(h.seat_id, h);
@@ -1945,6 +2277,7 @@ function cleanupReviewedSlips({ olderThanDays = 0 } = {}) {
         FROM orders
         WHERE status IN ('approved', 'rejected')
           AND (slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500)
+          AND NOT (status = 'rejected' AND COALESCE(reject_reason, '') LIKE 'เกินโควตา%')
           AND issued_at <= ?
       `).all(cutoff)
     : db.prepare(`
@@ -1952,6 +2285,7 @@ function cleanupReviewedSlips({ olderThanDays = 0 } = {}) {
         FROM orders
         WHERE status IN ('approved', 'rejected')
           AND (slip_mime != 'image/svg+xml' OR LENGTH(slip_data) > 2500)
+          AND NOT (status = 'rejected' AND COALESCE(reject_reason, '') LIKE 'เกินโควตา%')
       `).all();
 
   let cleanedCount = 0;
@@ -2591,6 +2925,10 @@ function clearAllForTest() {
 }
 
 module.exports = {
+  getSeatSnapshot,
+  checkOrderCanBeApproved,
+  eventExists,
+  computeOrderPrice,
   createOrder,
   recoverOrdersFromClient,
   deleteOrder,
@@ -2615,6 +2953,9 @@ module.exports = {
   addAuditLog,
   listAuditLogs,
   hashSlipDataUrl,
+  findDuplicateSlip,
+  findDuplicateTransRef,
+  findRejectedSlipUse,
   clearAllForTest,
   getSeatStatuses,
   holdSeats,

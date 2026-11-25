@@ -1,0 +1,117 @@
+/* ==========================================================================
+   Easier booking + Lite mode
+   - Booking modal pieces: compact event header, one-tap LINE login, promo toggle
+   - .lite-mode (set in <head> on slow / low-memory phones): turns off the
+     effects that make cheap Android phones stutter. Visual layout stays the same.
+   ========================================================================== */
+
+/* ---- Compact event header (old step 1) ---- */
+.wizard-event-compact { margin-bottom: 12px; }
+.wizard-event-compact .wizard-event-card { padding: 10px 12px; gap: 12px; }
+.wizard-event-compact .wizard-event-poster { width: 56px; height: 56px; box-shadow: none; }
+.wizard-event-compact .badge-accent { display: none !important; }
+.wizard-event-compact .wizard-event-details h4 { font-size: 15px; margin-bottom: 4px; }
+.wizard-event-compact .wizard-event-meta-line { font-size: 12px; margin-bottom: 2px; }
+
+/* ---- LINE connect box ---- */
+.line-connect-box {
+  margin-top: 10px;
+  padding: 12px;
+  background: rgba(6, 199, 85, 0.08);
+  border: 1px solid rgba(6, 199, 85, 0.35);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.line-connect-title { margin: 0; color: #48BB78; font-weight: 700; }
+.line-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: #06C755;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.line-login-btn:disabled { opacity: 0.6; }
+.line-add-oa-btn {
+  display: block;
+  text-align: center;
+  padding: 9px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #48BB78;
+  border: 1px solid #06C755;
+  border-radius: 8px;
+  text-decoration: none;
+  background: rgba(6, 199, 85, 0.12);
+}
+.line-add-oa-btn[hidden], .line-login-btn[hidden], .line-connected-chip[hidden] { display: none; }
+.line-connected-chip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #68D391;
+  background: rgba(6, 199, 85, 0.12);
+  border-radius: 8px;
+}
+.line-change-btn {
+  margin-left: auto;
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-muted);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.line-connect-hint { font-size: 12px; color: var(--color-muted); line-height: 1.45; }
+
+/* ---- Promo code toggle ---- */
+.promo-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.promo-details > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-muted);
+  padding: 4px 0;
+}
+.promo-details[open] > summary { margin-bottom: 8px; }
+
+/* ---- Lite mode ---- */
+.lite-mode, .lite-mode * { scroll-behavior: auto !important; }
+.lite-mode *, .lite-mode *::before, .lite-mode *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+/* Endless decorative loops (glow, pulse, shimmer) play once; spinners and progress bars keep moving */
+.lite-mode *:not([class*="spin"]):not([class*="progress"]):not([class*="loader"]):not([id*="Spinner"]) {
+  animation-iteration-count: 1 !important;
+}
+.lite-mode [class*="liquid-blob"] { display: none !important; }
+.lite-mode .modal-backdrop { background: rgba(5, 5, 8, 0.92) !important; }
+
+/* ---- Small phones: price on its own row, full-width buttons ---- */
+@media (max-width: 560px) {
+  #stepView2 .summary-card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  #stepView2 .summary-card > div:first-child { flex: 1 1 100%; }
+  #stepView2 .summary-card > div:last-child { flex: 1 1 100%; min-width: 0; display: grid !important; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  #stepView2 .summary-card > div:last-child > button { box-sizing: border-box; margin: 0; max-width: 100%; }
+  #stepView2 .summary-card > div:last-child .btn-outline { flex: 0 0 auto; width: 100%; min-width: 0; padding: 12px 14px; white-space: nowrap; }
+  #stepView2 .summary-card > div:last-child .btn-primary { order: -1; flex: 1 1 0; width: 100%; min-width: 0; min-height: 48px; padding: 12px 10px; white-space: nowrap; }
+}

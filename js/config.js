@@ -11,5 +11,7 @@ window.APP_CONFIG = Object.freeze({
   PAYMENT_TIMEOUT_SECONDS: 15 * 60,
   SLIP_MAX_BYTES: 5 * 1024 * 1024,
   SLIP_ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
-  STORAGE_KEY: 'thaiticket.tickets.v1'
+  STORAGE_KEY: 'thaiticket.tickets.v1',
+  // LINE Login (LIFF) app used to detect the buyer's LINE account. The admin setting line_liff_id overrides this.
+  LINE_LIFF_ID: '2012609397-g7KbRSp0'
 });

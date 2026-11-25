@@ -20,6 +20,22 @@
   <link rel="stylesheet" href="css/checkout.css?v=20261122_v3">
   <link rel="stylesheet" href="css/virgin-theme.css?v=20261108_mobileperf">
   <link rel="stylesheet" href="css/gsap-themes.css?v=20261108_mobileperf">
+  <link rel="stylesheet" href="css/lite.css?v=20261123_lite">
+  <script>
+    /* Lite mode: lighter visuals on slow / low-memory phones. Override with ?lite=1 or ?lite=0 */
+    (function () {
+      try {
+        var q = /[?&]lite=([01])/.exec(location.search);
+        var nav = navigator, c = nav.connection || {};
+        var lite = q ? q[1] === '1' :
+          (nav.deviceMemory && nav.deviceMemory <= 4) ||
+          (nav.hardwareConcurrency && nav.hardwareConcurrency <= 4) ||
+          c.saveData === true || /(^|-)2g$/.test(c.effectiveType || '') ||
+          (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+        if (lite) document.documentElement.classList.add('lite-mode');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body data-nav="home">
 
@@ -57,7 +73,7 @@
       <!-- Desktop Navigation Menu -->
       <nav class="nav-links" aria-label="เมนูหลัก">
         <a href="#events" class="nav-link is-active">Concerts</a>
-        <a href="#vip-tables" class="nav-link">VIP Tables</a>
+        <a href="#events" class="nav-link">VIP Tables</a>
         <a href="#events" class="nav-link">Festivals</a>
       </nav>
 
@@ -137,80 +153,24 @@
         </div>
 
         <!-- Side-by-Side Mockup Showcase Cards (1:1 with Image 2) -->
-        <div class="mockup-cards-row">
+        <div class="mockup-cards-row" style="grid-template-columns:1fr; max-width:640px;">
           
-          <!-- Card 1: International Artist -->
-          <div class="mockup-card artist-hero-card" id="heroArtistCard" onclick="openBookingModal('ECHOES OF ASIA WORLD TOUR 2026', '14 - 15 พ.ย. 2026', 'อิมแพ็ค อารีน่า เมืองทองธานี', 2500)" title="คลิกเพื่อจองบัตร">
+          <!-- Featured event: filled from the real events, see js/app.js -->
+          <div class="mockup-card artist-hero-card is-empty" id="heroArtistCard" aria-live="polite" style="background-image:none">
             <div class="card-tags">
-              <span class="tag-pill">Sun Sep</span>
-              <span class="tag-pill" id="heroArtistDate">14 - 15 พ.ย. 2026</span>
+              <span class="tag-pill" id="heroArtistDate" hidden></span>
             </div>
             <div class="artist-hero-body">
-              <div class="artist-hero-sub" id="heroArtistTag">INTERNATIONAL</div>
-              <h3 class="artist-hero-title" id="heroArtistTitle">ECHOES OF ASIA WORLD TOUR 2026</h3>
-              <div class="artist-hero-genre" id="heroArtistGenre">Echoes of Asia World Tour · Live in BKK</div>
+              <div class="artist-hero-sub" id="heroArtistTag">STAGE PASS</div>
+              <h3 class="artist-hero-title" id="heroArtistTitle">กำลังโหลดงานแสดง...</h3>
+              <div class="artist-hero-genre" id="heroArtistGenre"></div>
             </div>
-            <div class="artist-hero-price">
+            <div class="artist-hero-price" id="heroArtistPriceBox" hidden>
               <div>
-                <span style="font-size:11px; color:var(--color-muted); display:block; margin-bottom:2px;">Starting at</span>
-                <b id="heroArtistPrice">$440 / 1,800 THB</b>
+                <span style="font-size:11px; color:var(--color-muted); display:block; margin-bottom:2px;">ราคา</span>
+                <b id="heroArtistPrice"></b>
               </div>
               <span class="hero-book-btn">🎟️ จองทันที →</span>
-            </div>
-          </div>
-
-          <!-- Card 2: VIP Table Reservation Preview -->
-          <div class="mockup-card" id="vip-tables">
-            <div class="vip-tables-header">
-              <div class="vip-artist-info">
-                <div class="vip-avatar">🎤</div>
-                <div>
-                  <h4>Limnted Micros</h4>
-                  <span class="sub">International Music · Live Night</span>
-                </div>
-              </div>
-              <div class="vip-price">
-                <span>Starting at</span>
-                <b>$590 / 2,500 THB</b>
-              </div>
-            </div>
-
-            <div class="vip-table-preview-label">
-              <span>VIP Table reservation preview</span>
-              <div class="table-legend">
-                <span><b class="dot-red"></b> Booked</span>
-                <span><b class="dot-green"></b> Available</span>
-              </div>
-            </div>
-
-            <!-- Interactive Table Map Grid (Image 2) -->
-            <div class="vip-tables-grid">
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE A1', '14 พ.ย. 2026', 'โซนหน้าเวที VIP', 2500)">A1</button>
-              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE K6', '14 พ.ย. 2026', 'โซนกลาง K6', 2500)">K6</button>
-              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H8', '14 พ.ย. 2026', 'โซนข้าง H8', 2500)">H8</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE KK', '14 พ.ย. 2026', 'โซน KK', 2500)">KK</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE M5', '14 พ.ย. 2026', 'โซน M5', 2500)">M5</button>
-
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H8-2', '14 พ.ย. 2026', 'โซน H8', 2500)">H8</button>
-              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H8-3', '14 พ.ย. 2026', 'โซน H8', 2500)">H8</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE K9', '14 พ.ย. 2026', 'โซน K9', 2500)">K9</button>
-              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE N8', '14 พ.ย. 2026', 'โซน N8', 2500)">N8</button>
-              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
-
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE K1', '14 พ.ย. 2026', 'โซน K1', 2500)">K1</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE H2', '14 พ.ย. 2026', 'โซน H2', 2500)">H2</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE N3', '14 พ.ย. 2026', 'โซน N3', 2500)">N3</button>
-              <button type="button" class="tbl-btn tbl-vip" onclick="openBookingModal('ULTRA VIP V18', '14 พ.ย. 2026', 'โซนพิเศษ V18', 4500)" title="Ultra VIP Gold Table">V18</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE W5', '14 พ.ย. 2026', 'โซน W5', 2500)">W5</button>
-              <button type="button" class="tbl-btn tbl-booked" disabled title="โต๊ะนี้ถูกจองแล้ว">VIP</button>
-              <button type="button" class="tbl-btn tbl-avail" onclick="openBookingModal('VIP TABLE W10', '14 พ.ย. 2026', 'โซน W10', 2500)">W10</button>
-            </div>
-            <div class="vip-table-tap-guide" style="margin-top:10px; font-size:11px; color:var(--color-muted); display:flex; align-items:center; justify-content:center; gap:5px;">
-              <span>👆 แตะเลือกโต๊ะที่ต้องการเพื่อเริ่มจองทันที</span>
             </div>
           </div>
 
@@ -383,33 +343,26 @@
 
       <!-- 4-Step Wizard Stepper Bar (Matching Image Example) -->
       <div class="wizard-steps-header">
-        <div class="wizard-step-item active" id="stepPill1" onclick="goToStep(1)">
+        <div class="wizard-step-item active" id="stepPill2" onclick="goToStep(2)">
           <div class="wizard-step-top">
             <span class="wizard-step-num">01</span>
             <span class="wizard-step-icon">🎫</span>
           </div>
-          <span class="wizard-step-label">เลือกอีเวนต์</span>
-        </div>
-        <div class="wizard-step-item" id="stepPill2" onclick="goToStep(2)">
-          <div class="wizard-step-top">
-            <span class="wizard-step-num">02</span>
-            <span class="wizard-step-icon">🗺️</span>
-          </div>
-          <span class="wizard-step-label">เลือกโต๊ะ/บัตร</span>
+          <span class="wizard-step-label">เลือกบัตร & ข้อมูล</span>
         </div>
         <div class="wizard-step-item" id="stepPill3" onclick="confirmBooking()">
           <div class="wizard-step-top">
-            <span class="wizard-step-num">03</span>
+            <span class="wizard-step-num">02</span>
             <span class="wizard-step-icon">⚡</span>
           </div>
           <span class="wizard-step-label">ชำระเงิน</span>
         </div>
         <div class="wizard-step-item" id="stepPill4">
           <div class="wizard-step-top">
-            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-num">03</span>
             <span class="wizard-step-icon">✨</span>
           </div>
-          <span class="wizard-step-label">รอรับการยืนยัน</span>
+          <span class="wizard-step-label">รับบัตรทาง LINE</span>
         </div>
       </div>
 
@@ -417,52 +370,27 @@
         <!-- ============================================== -->
         <!-- STEP 1: เลือกอีเวนต์                           -->
         <!-- ============================================== -->
-        <div id="stepView1">
+        <div id="stepView1" class="wizard-event-compact">
           <div class="wizard-event-card">
             <div class="wizard-event-poster" id="wizardEventPoster" style="background-image: url('https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=400&q=80');"></div>
             <div class="wizard-event-details">
               <span class="badge-accent" style="font-size:11px; margin-bottom:6px; display:inline-block;">อีเวนต์ทางการ</span>
-              <h4 id="wizardEventName">ECHOES OF ASIA WORLD TOUR 2026</h4>
+              <h4 id="wizardEventName">-</h4>
               <div class="wizard-event-meta-line">
                 <span>📍</span> <span id="modalEventVenue">อิมแพ็ค อารีน่า เมืองทองธานี · 14 - 15 พ.ย. 2026</span>
               </div>
               <div class="wizard-event-meta-line">
-                <span>🎟️</span> <span style="color:var(--fire); font-weight:700;">ราคาเริ่มต้น 1,800 - 6,500 THB</span>
+                <span>🎟️</span> <span style="color:var(--fire); font-weight:700;" id="wizardEventPriceRange">ราคาเริ่มต้น 1,800 - 6,500 THB</span>
               </div>
             </div>
           </div>
 
-          <!-- Round / Session Selection -->
-          <div style="margin:16px 0 12px;">
-            <label style="font-weight:600; font-size:13px; display:block; margin-bottom:8px;">เลือกรอบการแสดงที่ต้องการชม</label>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <div class="round-select-pill active" onclick="selectEventRound(this)">
-                <span>🎵 รอบวันเสาร์: 19:00 น. (ประตูเปิด 17:30 น.)</span>
-                <span style="color:#10B981; font-size:11px;">เปิดจำหน่าย</span>
-              </div>
-              <div class="round-select-pill" onclick="selectEventRound(this)">
-                <span>🎵 รอบวันอาทิตย์: 19:00 น. (ประตูเปิด 17:30 น.)</span>
-                <span style="color:#10B981; font-size:11px;">เปิดจำหน่าย</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Guarantee badges -->
-          <div style="background:rgba(255,255,255,0.02); padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); font-size:12px; color:var(--color-muted); line-height:1.7; margin-bottom:14px;">
-            <div>✓ การันตีสิทธิ์เข้าชมงาน 100% ด้วยระบบ Dynamic Pass</div>
-            <div>✓ เลือกผังที่นั่งหรือโต๊ะ VIP แบบเรียลไทม์</div>
-            <div>✓ สแกนชำระผ่าน PromptPay พร้อมระบบ AI ตรวจสลิปอัตโนมัติ</div>
-          </div>
-
-          <button type="button" class="btn-primary btn-block" onclick="goToStep(2)" style="padding:14px; font-size:15px; font-weight:600;">
-            ถัดไป: เลือกโต๊ะ/บัตร (ขั้นตอนที่ 2) →
-          </button>
         </div>
 
         <!-- ============================================== -->
         <!-- STEP 2: เลือกโต๊ะ/บัตร                          -->
         <!-- ============================================== -->
-        <div id="stepView2" hidden>
+        <div id="stepView2">
           <!-- Table Legend according to Virgin Official -->
           <div class="table-picker-legend">
             <span><span class="legend-box available"></span>ว่าง</span>
@@ -543,30 +471,28 @@
               <p class="text-muted" style="font-size:11px; margin-top:2px;">เพื่อความปลอดภัยและการันตีสิทธิ์เข้าชมงานตามนโยบายป้องกันบัตรผี</p>
             </div>
 
-            <div style="margin-top:10px; padding:12px; background:rgba(6,199,85,0.08); border:1px solid rgba(6,199,85,0.35); border-radius:10px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
-                <label class="holder-sub-label" for="holderLineId" style="margin-bottom:0; color:#48BB78; font-weight:700;">
-                  🟢 LINE User ID สำหรับรับบัตร E-Ticket <span class="badge-required" style="color:var(--fire); font-size:11px;">* (บังคับแอด LINE OA)</span>
-                </label>
+            <div class="line-connect-box" id="lineConnectBox">
+              <div class="holder-sub-label line-connect-title">🟢 รับบัตร E-Ticket ทาง LINE <span class="badge-required" style="color:var(--fire); font-size:11px;">*</span></div>
+              <div class="line-connected-chip" id="lineConnectedChip" hidden>
+                ✔ เชื่อมต่อ LINE แล้ว: <strong id="lineConnectedName">-</strong>
+                <button type="button" class="line-change-btn" id="lineChangeBtn" onclick="connectLineAccount(true)">เปลี่ยนบัญชี</button>
               </div>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
-                <a href="https://lin.ee/wTiGycF" target="_blank" rel="noopener" id="bookingAddLineOaBtn" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 10px; font-size:12px; font-weight:700; background:#06C755; color:#fff; border-radius:8px; text-decoration:none; text-align:center; box-shadow:0 2px 8px rgba(6,199,85,0.3);">
-                  ➕ 1. แอด LINE OA
-                </a>
-                <button type="button" class="btn-outline" id="fetchLineIdBtn" onclick="fetchLineIdFromWebhook()" style="padding:9px 10px; font-size:12px; font-weight:700; border-color:#06C755; color:#48BB78; background:rgba(6,199,85,0.12); border-radius:8px; cursor:pointer;">
-                  💬 2. ดึงรหัส LINE อัตโนมัติ
-                </button>
-              </div>
-              <input type="text" id="holderLineId" class="input-field holder-input" placeholder="กดปุ่ม 1 แอด LINE OA แล้วกดปุ่ม 2 (หรือวางรหัส U... จากในแชท)" required>
-              <div id="lineWebhookHint" style="font-size:11px; color:var(--color-muted); margin-top:5px; line-height:1.4;">
-                📌 <strong>ขั้นตอนรับบัตรทาง LINE:</strong> กดปุ่ม <strong>"1. แอด LINE OA"</strong> แล้วทักแชท 1 ครั้ง จากนั้นกลับมาหน้านี้กดปุ่ม <strong>"2. ดึงรหัส LINE อัตโนมัติ"</strong> (หรือคัดลอกรหัส <code>U...</code> ที่บอทส่งให้ในแชทมาวาง)
+              <button type="button" class="line-login-btn" id="lineLoginBtn" onclick="connectLineAccount()">
+                เข้าสู่ระบบด้วย LINE (กดครั้งเดียว)
+              </button>
+              <a href="https://lin.ee/wTiGycF" target="_blank" rel="noopener" class="line-add-oa-btn" id="bookingAddLineOaBtn">
+                ➕ แอดเพื่อน LINE OA (บอทจะส่งบัตรให้ในแชทนี้)
+              </a>
+              <input type="hidden" id="holderLineId">
+              <div id="lineWebhookHint" class="line-connect-hint">
+                กดปุ่มด้านบน ระบบจะดึงบัญชี LINE ของคุณให้อัตโนมัติ ไม่ต้องคัดลอกรหัสเอง
               </div>
             </div>
 
             <div style="margin-top:10px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px; border:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--color-text); margin:0;">
-                <input type="checkbox" id="rememberHolderCheckbox" checked style="width:15px; height:15px; accent-color:var(--fire); cursor:pointer;">
-                <span>จำข้อมูลผู้ถือบัตรนี้ไว้ในเครื่อง</span>
+                <input type="checkbox" id="rememberHolderCheckbox" style="width:15px; height:15px; accent-color:var(--fire); cursor:pointer;">
+                <span>จำชื่อและเบอร์โทรไว้ในเครื่องนี้ (ไม่จำเลขบัตรประชาชน)</span>
               </label>
               <button type="button" id="clearSavedHolderBtn" onclick="clearSavedHolderInfo()" style="font-size:11px; color:#FF6B6B; background:none; border:none; cursor:pointer;" hidden>
                 🗑️ ล้างข้อมูล
@@ -577,14 +503,15 @@
             </div>
 
             <!-- Promo Code -->
-            <div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">
-              <label class="holder-sub-label" for="promoCodeInput">🎟️ โค้ดส่วนลด (เช่น <code>EARLY10</code> หรือ <code>VIP500</code>)</label>
+            <details class="promo-details" id="promoDetails">
+              <summary>🎟️ มีโค้ดส่วนลด? กดเพื่อกรอก</summary>
+              
               <div style="display:flex; gap:8px;">
                 <input type="text" id="promoCodeInput" class="input-field holder-input" placeholder="กรอกโค้ดส่วนลด" style="text-transform:uppercase;">
                 <button type="button" class="btn-outline" id="applyPromoBtn" onclick="applyPromoCode()" style="white-space:nowrap;">ใช้โค้ด</button>
               </div>
               <p id="promoStatusMsg" style="font-size:11px; margin-top:4px;" hidden></p>
-            </div>
+            </details>
             <p class="slip-error" id="holderError" role="alert" style="color:var(--fire); font-size:12px; margin-top:4px;"></p>
           </div>
 
@@ -595,11 +522,11 @@
               <div style="font-size:20px; font-weight:700; color:var(--color-text); font-family:var(--font-tech);" id="totalPriceDisplay">6,500 THB</div>
             </div>
             <div style="display:flex; gap:10px;">
-              <button type="button" class="btn-outline" onclick="goToStep(1)">
+              <button type="button" class="btn-outline" onclick="closeBookingModal()">
                 ← ย้อนกลับ
               </button>
               <button class="btn-primary" onclick="confirmBooking()">
-                ถัดไป: ชำระเงิน (ขั้นตอนที่ 3) →
+                ถัดไป: ชำระเงิน →
               </button>
             </div>
           </div>
@@ -615,7 +542,7 @@
       <div class="modal-header">
         <div>
           <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS BOOKING WIZARD</span>
-          <h3 id="payHeading" style="font-weight:700; margin-top:2px;">ขั้นตอนที่ 3: ชำระเงินผ่าน PromptPay</h3>
+          <h3 id="payHeading" style="font-weight:700; margin-top:2px;">ขั้นตอนที่ 2: ชำระเงินผ่าน PromptPay</h3>
         </div>
         <button class="modal-close" id="payCloseBtn" aria-label="ปิด">&times;</button>
       </div>
@@ -627,35 +554,28 @@
             <span class="wizard-step-num">01</span>
             <span class="wizard-step-icon">🎫</span>
           </div>
-          <span class="wizard-step-label">เลือกอีเวนต์</span>
-        </div>
-        <div class="wizard-step-item completed" onclick="backToStep2FromPayment()">
-          <div class="wizard-step-top">
-            <span class="wizard-step-num">02</span>
-            <span class="wizard-step-icon">🗺️</span>
-          </div>
-          <span class="wizard-step-label">เลือกโต๊ะ/บัตร</span>
+          <span class="wizard-step-label">เลือกบัตร & ข้อมูล</span>
         </div>
         <div class="wizard-step-item active">
           <div class="wizard-step-top">
-            <span class="wizard-step-num">03</span>
+            <span class="wizard-step-num">02</span>
             <span class="wizard-step-icon">⚡</span>
           </div>
           <span class="wizard-step-label">ชำระเงิน</span>
         </div>
         <div class="wizard-step-item">
           <div class="wizard-step-top">
-            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-num">03</span>
             <span class="wizard-step-icon">✨</span>
           </div>
-          <span class="wizard-step-label">รอรับการยืนยัน</span>
+          <span class="wizard-step-label">รับบัตรทาง LINE</span>
         </div>
       </div>
 
       <div class="modal-content">
         <div class="pay-order">
           <div class="pay-row"><span id="payRefLabel">รหัสคำสั่งซื้อ</span><strong id="payRefDisplay">TT-0000</strong></div>
-          <div class="pay-row"><span>รายการ</span><span id="payTitle">ECHOES OF ASIA</span></div>
+          <div class="pay-row"><span>รายการ</span><span id="payTitle">-</span></div>
           <div class="pay-row"><span>โซนที่เลือก</span><span id="payZone">VIP Standing</span></div>
           <div class="pay-row"><span>จำนวน</span><span id="payQty">1 ใบ</span></div>
           <div class="pay-row" id="paySeatsRow" hidden><span>ที่นั่ง</span><span id="paySeats">-</span></div>
@@ -786,41 +706,34 @@
       <div class="modal-header">
         <div>
           <span style="font-size:11px; color:var(--fire); font-family:var(--font-tech); font-weight:700;">STAGE PASS BOOKING WIZARD</span>
-          <h3 id="ticketHeading" style="font-weight:700; margin-top:2px;">ขั้นตอนที่ 4: ยืนยันการจอง & รับบัตร</h3>
+          <h3 id="ticketHeading" style="font-weight:700; margin-top:2px;">ขั้นตอนที่ 3: ยืนยันการจอง & รับบัตร</h3>
           <p class="text-muted" id="ticketRefLabel" style="font-size:12px;"></p>
         </div>
         <button class="modal-close" id="ticketCloseBtn" aria-label="ปิด">&times;</button>
       </div>
 
-      <!-- 4-Step Wizard Stepper Bar (Step 4 Active & Completed) -->
+      <!-- 3-Step Wizard Stepper Bar (Step 3 Active) -->
       <div class="wizard-steps-header">
         <div class="wizard-step-item completed">
           <div class="wizard-step-top">
             <span class="wizard-step-num">01</span>
             <span class="wizard-step-icon">🎫</span>
           </div>
-          <span class="wizard-step-label">เลือกอีเวนต์</span>
+          <span class="wizard-step-label">เลือกบัตร & ข้อมูล</span>
         </div>
         <div class="wizard-step-item completed">
           <div class="wizard-step-top">
             <span class="wizard-step-num">02</span>
-            <span class="wizard-step-icon">🗺️</span>
-          </div>
-          <span class="wizard-step-label">เลือกโต๊ะ/บัตร</span>
-        </div>
-        <div class="wizard-step-item completed">
-          <div class="wizard-step-top">
-            <span class="wizard-step-num">03</span>
             <span class="wizard-step-icon">⚡</span>
           </div>
           <span class="wizard-step-label">ชำระเงิน</span>
         </div>
         <div class="wizard-step-item active">
           <div class="wizard-step-top">
-            <span class="wizard-step-num">04</span>
+            <span class="wizard-step-num">03</span>
             <span class="wizard-step-icon">✨</span>
           </div>
-          <span class="wizard-step-label">รอรับการยืนยัน</span>
+          <span class="wizard-step-label">รับบัตรทาง LINE</span>
         </div>
       </div>
       <div class="modal-content">
@@ -1009,9 +922,6 @@
           <h4 class="footer-title">เกี่ยวกับเรา & ช่วยเหลือ</h4>
           <div class="footer-links">
             <a href="user-manual.html">คู่มือการใช้งาน</a>
-            <a href="#" onclick="openMyTicketsModal()">ตรวจสอบการจอง</a>
-            <a href="manage.html">⚙️ การตั้งค่าระบบแอดมิน (Admin / Manage)</a>
-            <a href="admin.html">ระบบเจ้าหน้าที่ประตู (Gate)</a>
             <a href="https://lin.ee/wTiGycF" target="_blank" rel="noopener">ติดต่อฝ่ายบริการลูกค้า</a>
           </div>
         </div>
@@ -1022,7 +932,7 @@
             ระบบป้องกันบัตรผีด้วยรหัส HMAC-SHA256 Live Pass ตรวจสลิปด้วย AI และเข้ารหัสข้อมูลส่วนบุคคลตามมาตรฐาน
           </p>
           <!-- Preserved cartButton for test suite compatibility -->
-          <button type="button" class="btn-outline" id="cartButton" style="font-size:11px; padding:4px 10px; border-color:rgba(255,255,255,0.12); color:var(--color-muted);">
+          <button type="button" class="btn-outline" id="cartButton" hidden style="display:none; font-size:11px; padding:4px 10px; border-color:rgba(255,255,255,0.12); color:var(--color-muted);">
             🎟️ ประวัติการจองเครื่องนี้ (<span id="cartCount">0</span>)
           </button>
         </div>
@@ -1040,19 +950,31 @@
 
   <!-- Scripts -->
   <script src="js/virgin-effects.js?v=20261031_2"></script>
-  <script src="js/vendor/qrcode.js"></script>
-  <script src="js/config.js?v=20261031_2"></script>
+  <script src="js/vendor/qrcode.js?v=20261125_utf8"></script>
+  <script src="js/config.js?v=20261123_easybook"></script>
   <script src="js/promptpay.js?v=20261031_2"></script>
   <script src="js/sound-effects.js?v=20261031_2"></script>
   <script src="js/table-picker.js?v=20261107"></script>
-  <script src="js/seat-map.js?v=20261031_2"></script>
+  <script src="js/seat-map.js?v=20261124_seatclean"></script>
   <script src="js/ui.js?v=20261031_2"></script>
-  <script src="js/ticket-store.js?v=20261122_ticketfind"></script>
+  <script src="js/ticket-store.js?v=20261123_secfix"></script>
   <script src="js/ticket-renderer.js?v=20261108_mobileperf"></script>
   <script src="js/ticket-viewer.js?v=20261122_ticketfind"></script>
-  <script src="js/checkout.js?v=20261124_v6"></script>
-  <script src="js/vendor/gsap.min.js"></script>
-  <script src="js/gsap-themes.js?v=20261108_mobileperf"></script>
-  <script src="js/app.js?v=20261122_ticketfind"></script>
+  <script src="js/checkout.js?v=20261125_v7"></script>
+  <script>
+    /* Decorative GSAP motion is skipped in lite mode to keep slow phones responsive. */
+    (function () {
+      if (document.documentElement.classList.contains('lite-mode')) return;
+      var a = document.createElement('script');
+      a.src = 'js/vendor/gsap.min.js';
+      a.onload = function () {
+        var b = document.createElement('script');
+        b.src = 'js/gsap-themes.js?v=20261108_mobileperf';
+        document.body.appendChild(b);
+      };
+      document.body.appendChild(a);
+    })();
+  </script>
+  <script src="js/app.js?v=20261124_cats"></script>
 </body>
 </html>

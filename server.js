@@ -1,3 +1,4 @@
+require('node:dns').setDefaultResultOrder('ipv4first');
 /**
  * Thai Ticket Concert Server
  * Serves static frontend + Admin dashboard + Gate Scanner + REST API:
@@ -29,7 +30,26 @@ const qrPng = require('./backend/qr-png');
 
 const PORT = Number(process.env.PORT || 8080);
 const ROOT = __dirname;
-const SESSION_SECRET = process.env.SESSION_SECRET || 'thaiticket-hmac-secret-2026';
+const SESSION_SECRET = resolveSessionSecret();
+
+// Use SESSION_SECRET from env when set; otherwise create a random secret once and keep it
+// in the data folder, so admin tokens cannot be forged from a value written in the source code.
+function resolveSessionSecret() {
+  const fromEnv = String(process.env.SESSION_SECRET || '').trim();
+  if (fromEnv) return fromEnv;
+  const dataDir = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : path.join(__dirname, 'data'));
+  const secretFile = path.join(dataDir, '.session-secret');
+  try {
+    const existing = fs.readFileSync(secretFile, 'utf8').trim();
+    if (existing.length >= 32) return existing;
+  } catch (_) {}
+  const generated = crypto.randomBytes(48).toString('hex');
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(secretFile, generated, { mode: 0o600 });
+  } catch (_) {}
+  return generated;
+}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -65,13 +85,33 @@ function resetRateLimitsForTest() {
 
 // Real-time SSE Seat Hold Stream & Server-Side Expiration Worker
 const sseSeatClients = new Set();
+let publicEventsCache = null;
 
+// Coalesce bursts: during a sale rush many holds/orders arrive per second; push at most one update per 300 ms.
+let seatSyncTimer = null;
+let seatSyncReason = 'update';
 function broadcastSeatSync(reason = 'update') {
   if (sseSeatClients.size === 0) return;
+  seatSyncReason = reason;
+  if (seatSyncTimer) return;
+  seatSyncTimer = setTimeout(() => {
+    seatSyncTimer = null;
+    flushSeatSync(seatSyncReason);
+  }, 300);
+}
+
+function flushSeatSync(reason) {
+  if (sseSeatClients.size === 0) return;
+  let snapshot;
+  try {
+    snapshot = db.getSeatSnapshot();
+  } catch {
+    return;
+  }
   for (const client of sseSeatClients) {
     try {
       const payload = {
-        ...db.getSeatStatuses(client.sessionId),
+        ...db.getSeatStatuses(client.sessionId, snapshot),
         reason,
         timestamp: Date.now()
       };
@@ -131,7 +171,10 @@ function getTokenRole(token) {
     .createHmac('sha256', SESSION_SECRET)
     .update(`${parts[0]}.${parts[1]}`)
     .digest('hex');
-  return parts[2] === expected ? parts[0] : null;
+  const given = Buffer.from(String(parts[2]));
+  const want = Buffer.from(expected);
+  if (given.length !== want.length) return null;
+  return crypto.timingSafeEqual(given, want) ? parts[0] : null;
 }
 
 function verifyAdminToken(token) {
@@ -162,6 +205,36 @@ function getAuthRole(req) {
   }
   return null;
 }
+
+function getClientIp(req) {
+  const remote = String((req.socket && req.socket.remoteAddress) || '').replace(/^::ffff:/, '');
+  const fromLocalProxy = !remote || remote === '127.0.0.1' || remote === '::1';
+  if (fromLocalProxy || process.env.VERCEL) {
+    // nginx ($proxy_add_x_forwarded_for) appends the real client address as the LAST entry;
+    // earlier entries can be typed in by the client, so they are ignored.
+    const fwd = String(req.headers['x-forwarded-for'] || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (fwd.length) return fwd[fwd.length - 1];
+    const realIp = String(req.headers['x-real-ip'] || '').trim();
+    if (realIp) return realIp;
+  }
+  return remote || '127.0.0.1';
+}
+
+// Endpoints the gate staff role may use. Everything else under /api/admin needs the full admin PIN.
+const GATE_STAFF_ADMIN_PATHS = new Set([
+  '/api/admin/session',
+  '/api/admin/login',
+  '/api/admin/logout',
+  '/api/admin/stats',
+  '/api/admin/orders/bulk-action',
+  '/api/admin/guest-list.csv',
+  '/api/admin/export-attendance',
+  '/api/admin/attendance.csv',
+  '/api/admin/system-health'
+]);
 
 function isAdminAuthenticated(req) {
   return Boolean(getAuthRole(req));
@@ -233,6 +306,65 @@ function readJsonBody(req, maxBytes = 8 * 1024 * 1024) {
   });
 }
 
+const SLIP_FAIL_MESSAGES = {
+  NOT_A_SLIP: 'รูปนี้ไม่ใช่สลิปโอนเงิน (ไม่พบ QR ของธนาคาร) กรุณาแนบสลิปจากแอปธนาคาร',
+  DUPLICATE: 'สลิปนี้เคยถูกใช้ไปแล้ว กรุณาใช้สลิปใบใหม่',
+  AMOUNT_MISMATCH: 'ยอดเงินในสลิปไม่ตรงกับยอดที่ต้องชำระ',
+  RECEIVER_MISMATCH: 'บัญชีผู้รับในสลิปไม่ตรงกับบัญชีของผู้จัด',
+  NOT_FOUND: 'ยังไม่พบรายการโอนนี้กับธนาคาร'
+};
+const SLIP_BLOCKING_CODES = new Set(['NOT_A_SLIP', 'DUPLICATE']);
+
+// Verdicts kept on the server for 30 minutes per image + amount, so attach + submit costs one provider call.
+const SLIP_CHECK_TTL = 30 * 60000;
+const slipCheckCache = new Map();
+
+function cachedSlipCheck(hash, amount) {
+  const hit = slipCheckCache.get(`${hash}:${amount}`);
+  return hit && Date.now() - hit.at < SLIP_CHECK_TTL ? hit.pending : null;
+}
+
+function checkSlipOnce(slipData, hash, amount) {
+  const hit = cachedSlipCheck(hash, amount);
+  if (hit) return hit;
+  const key = `${hash}:${amount}`;
+  // isTest => log=false: attaching must not mark the slip as used at the provider; our own transRef check does that.
+  const pending = slipVerifier
+    .verifySlip({ order: { ref: 'SLIP', total: amount, isTest: true }, slipDataUrl: slipData })
+    .catch((err) => ({ verified: false, autoApproved: false, provider: 'SlipVerifier', reason: err.message, status: 'unchecked', code: '' }))
+    .then((result) => {
+      // No answer yet, or a transfer the bank may still report later: ask again next time.
+      if (result.status === 'unchecked' || result.code === 'NOT_FOUND') slipCheckCache.delete(key);
+      return result;
+    });
+  if (slipCheckCache.size >= 500) slipCheckCache.delete(slipCheckCache.keys().next().value);
+  slipCheckCache.set(key, { at: Date.now(), pending });
+  return pending;
+}
+
+// Slip seen in a rejected / refund order: never passes by itself, the admin decides.
+function withRejectedUse(result, hash) {
+  if (result.status !== 'passed' && result.code !== 'DUPLICATE') return result;
+  const used = db.findRejectedSlipUse(hash, result.bankRef);
+  if (!used) return result;
+  const note = `สลิปนี้เคยอยู่ในรายการ ${used.ref} ที่ถูกปฏิเสธหรือรอคืนเงิน ให้แอดมินตรวจ`;
+  return { ...result, status: 'unchecked', code: '', autoApproved: false, detail: `${note} · ${result.detail || result.reason || ''}` };
+}
+
+// The bytes must really be PNG / JPEG / WEBP (or HEIC), whatever the data URL claims.
+function slipImageProblem(slipData) {
+  const text = String(slipData || '');
+  const comma = text.indexOf(',');
+  if (!/^data:image\/[a-z0-9.+-]+;base64$/i.test(text.slice(0, Math.max(comma, 0)))) return 'กรุณาแนบรูปสลิปการโอนเงิน';
+  const head = Buffer.from(text.slice(comma + 1, comma + 33), 'base64');
+  const isImage =
+    head.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])) ||
+    head.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ||
+    (head.subarray(0, 4).toString('latin1') === 'RIFF' && head.subarray(8, 12).toString('latin1') === 'WEBP') ||
+    head.subarray(4, 8).toString('latin1') === 'ftyp';
+  return isImage ? null : 'ไฟล์นี้ไม่ใช่รูปภาพ กรุณาแนบรูปสลิปการโอนเงิน';
+}
+
 function validateOrderPayload(body) {
   if (!body || typeof body !== 'object') return 'ข้อมูลไม่ถูกต้อง';
   if (!body.title || !body.date || !body.venue || !body.zone) return 'ข้อมูลคอนเสิร์ตไม่ครบถ้วน';
@@ -255,6 +387,31 @@ function validateOrderPayload(body) {
     return 'กรุณาแนบรูปสลิปการโอนเงิน';
   }
   return null;
+}
+
+function toPublicOrder(o) {
+  return {
+    ref: o.ref,
+    title: o.title,
+    date: o.date,
+    venue: o.venue,
+    zone: o.zone,
+    qty: o.qty,
+    seats: o.seats,
+    total: o.total,
+    holderName: o.holderName,
+    holderPhone: o.holderPhone,
+    holderIdCard: o.holderIdCard,
+    lineUserId: o.lineUserId,
+    status: o.status,
+    rejectReason: o.rejectReason,
+    lineSent: o.lineSent,
+    checkedInAt: o.checkedInAt,
+    checkedInBy: o.checkedInBy,
+    qrSignature: o.qrSignature,
+    qrPayload: o.qrPayload,
+    issuedAt: o.issuedAt
+  };
 }
 
 function maskToken(token) {
@@ -384,9 +541,21 @@ function buildGuestListCsv(orders) {
 }
 
 async function handleApi(req, res, url) {
-  const pathname = url.searchParams.get('_path') || url.pathname;
+  const pathname = (process.env.VERCEL && url.searchParams.get('_path')) || url.pathname;
   const method = req.method;
-  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || '127.0.0.1';
+  const ip = getClientIp(req);
+
+  if (
+    (pathname.startsWith('/api/admin/') || pathname === '/api/settings') &&
+    !GATE_STAFF_ADMIN_PATHS.has(pathname) &&
+    getAuthRole(req) === 'gate_staff'
+  ) {
+    return sendJson(res, 200, {
+      ok: false,
+      forbidden: true,
+      error: 'สิทธิ์เจ้าหน้าที่จุดตรวจบัตรใช้ได้เฉพาะงานสแกนและเช็กอินหน้างาน'
+    });
+  }
 
   if (method === 'GET' && pathname === '/api/health') {
     return sendJson(res, 200, { ok: true });
@@ -473,7 +642,8 @@ async function handleApi(req, res, url) {
   }
 
   if (pathname === '/api/admin/login' && method === 'POST') {
-    const rl = checkRateLimit(`login:${ip}`, 12, 60000);
+    const rlHour = checkRateLimit(`login_hour:${ip}`, 60, 60 * 60 * 1000);
+    const rl = rlHour.allowed ? checkRateLimit(`login:${ip}`, 12, 60000) : rlHour;
     if (!rl.allowed) {
       return sendJson(res, 200, {
         ok: false,
@@ -537,8 +707,9 @@ async function handleApi(req, res, url) {
   // LINE Official Account Webhook with Automated HMAC-SHA256 Signature Verification & Rate-Limiter
   if (pathname === '/api/line/webhook' && method === 'POST') {
     // 1. Sliding-Window Rate Limiter (Per IP & Global)
-    const ipRl = checkRateLimit(`line_webhook_ip:${ip}`, 120, 60000);
-    const globalRl = checkRateLimit('line_webhook_global', 300, 60000);
+    // LINE delivers every user's events from a few IPs, so the limits must allow a sale-day rush.
+    const ipRl = checkRateLimit(`line_webhook_ip:${ip}`, Number(process.env.LINE_WEBHOOK_IP_LIMIT) || 1200, 60000);
+    const globalRl = checkRateLimit('line_webhook_global', Number(process.env.LINE_WEBHOOK_GLOBAL_LIMIT) || 3000, 60000);
     if (!ipRl.allowed || !globalRl.allowed) {
       return sendJson(
         res,
@@ -627,40 +798,34 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true, results, verified: sigResult.verified });
   }
 
-  if (pathname === '/api/line/simulate-webhook' && method === 'POST') {
-    const body = await readJsonBody(req);
-    const latest = await db.getLatestLineContactAsync();
-    const userId =
-      (latest && latest.user_id) ||
-      'U' + crypto.randomBytes(16).toString('hex');
-    const displayName = (latest && latest.display_name) || String(body.displayName || 'ลูกค้าทักแชท LINE OA').trim();
-    const saved = db.saveLineContact({
-      userId,
-      displayName,
-      lastMessage: (latest && latest.last_message) || 'ลงทะเบียนรับบัตรคอนเสิร์ต'
-    });
-    const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
-    const reply = await replyLineWebhook('SIMULATED_REPLY_TOKEN', saved.user_id, token, {
-      displayName: saved.display_name,
-      baseUrl: getRequestBaseUrl(req)
-    });
-    return sendJson(res, 200, {
-      ok: true,
-      userId: saved.user_id,
-      displayName: saved.display_name,
-      isRealWebhook: Boolean(latest && latest.user_id),
-      webhookReply: reply.messages[0].text
-    });
+  if ((pathname === '/api/line/simulate-webhook' && method === 'POST') ||
+      (pathname === '/api/line/recent-contact' && method === 'GET')) {
+    return sendJson(res, 410, { ok: false, error: 'กรุณากด "เข้าสู่ระบบด้วย LINE" เพื่อเชื่อมต่อบัญชี LINE' });
   }
 
-  if (pathname === '/api/line/recent-contact' && method === 'GET') {
-    const latest = await db.getLatestLineContactAsync();
-    return sendJson(res, 200, {
-      ok: true,
-      contact: latest
-        ? { userId: latest.user_id, displayName: latest.display_name, updatedAt: latest.updated_at }
-        : null
-    });
+  // Slip pre-check while the customer attaches the image. Advisory only: POST /api/orders decides by itself.
+  // Never blocks on provider problems (down / quota / limits): those answer "unchecked" so the order can go on.
+  if (method === 'POST' && pathname === '/api/slips/precheck') {
+    const answer = (status, code, message) => sendJson(res, 200, { ok: true, status, code, message });
+    if (!checkRateLimit(`slipcheck:${ip}`, 5, 60000).allowed || !checkRateLimit(`slipcheck_hour:${ip}`, 20, 3600000).allowed) {
+      return answer('unchecked', '', 'ตรวจสลิปถี่เกินไป ระบบจะตรวจอีกครั้งตอนส่ง');
+    }
+    const body = await readJsonBody(req);
+    const amount = Number(body.amount);
+    const problem = slipImageProblem(body.slipData);
+    if (problem) return answer('failed', 'NOT_A_SLIP', problem);
+    if (!Number.isFinite(amount) || amount <= 0) return sendJson(res, 400, { ok: false, error: 'ยอดชำระไม่ถูกต้อง' });
+    const { hash } = db.hashSlipDataUrl(body.slipData);
+    if (db.findDuplicateSlip(hash)) return answer('failed', 'DUPLICATE', SLIP_FAIL_MESSAGES.DUPLICATE);
+    if (!cachedSlipCheck(hash, amount) && !checkRateLimit('slipcheck_global', 60, 3600000).allowed) {
+      return answer('unchecked', '', 'ระบบจะตรวจสลิปตอนส่ง');
+    }
+    const check = withRejectedUse(await checkSlipOnce(body.slipData, hash, amount), hash);
+    if (check.bankRef && db.findDuplicateTransRef(check.bankRef)) {
+      return answer('failed', 'DUPLICATE', SLIP_FAIL_MESSAGES.DUPLICATE);
+    }
+    const fallback = 'ยังไม่ได้ตรวจสลิป ส่งให้แอดมินตรวจได้';
+    return answer(check.status, check.code, check.status === 'passed' ? 'ตรวจสลิปผ่าน ยอดเงินตรง' : SLIP_FAIL_MESSAGES[check.code] || fallback);
   }
 
   // Create order + Rate Limiting + Duplicate slip check
@@ -684,8 +849,42 @@ async function handleApi(req, res, url) {
     if (validationError) {
       return sendJson(res, 200, { ok: false, error: validationError });
     }
+    if (!db.eventExists(body.title)) {
+      return sendJson(res, 404, { ok: false, code: 'EVENT_NOT_FOUND', error: 'ไม่พบงานนี้ หรือปิดจำหน่ายแล้ว กรุณารีเฟรชหน้าเว็บแล้วเลือกงานใหม่ (หากโอนเงินแล้วกรุณาติดต่อทีมงาน)' });
+    }
+    // The browser's price is only what the buyer was shown; the stored total is always the server's.
+    const price = db.computeOrderPrice(body);
+    if (!price.ok) {
+      return sendJson(res, 400, { ok: false, code: price.error, error: 'ข้อมูลโซนไม่ถูกต้อง กรุณารีเฟรชหน้าเว็บแล้วเลือกโซนใหม่ (หากโอนเงินแล้วกรุณาติดต่อทีมงาน)' });
+    }
+    const shownTotal = Number(body.total);
+    Object.assign(body, { zone: price.zone, unitPrice: price.unitPrice, total: price.total, discountAmount: price.discountAmount, promoCode: price.promoCode });
     try {
-      const created = db.createOrder(body);
+      // Server-side slip check before the order exists; nothing the browser says about the slip is trusted.
+      // Image and SHA-256 duplicate checks run first so a bad upload does not use provider quota.
+      const slipProblem = slipImageProblem(body.slipData);
+      if (slipProblem) return sendJson(res, 200, { ok: false, code: 'SLIP_REJECTED', error: slipProblem });
+      const slipHash = db.hashSlipDataUrl(body.slipData).hash;
+      const dupSlip = db.findDuplicateSlip(slipHash);
+      if (dupSlip) {
+        return sendJson(res, 200, {
+          ok: false,
+          code: 'DUPLICATE_SLIP',
+          error: `สลิปนี้เคยถูกใช้ไปแล้วในรายการ ${dupSlip.ref} กรุณาใช้สลิปใบใหม่`
+        });
+      }
+      const verifyResult = withRejectedUse(await checkSlipOnce(body.slipData, slipHash, Number(body.total)), slipHash);
+      // Not a slip / already used: refuse. Wrong amount, receiver or not found yet: keep the order, red for the admin.
+      if (verifyResult.status === 'failed' && SLIP_BLOCKING_CODES.has(verifyResult.code)) {
+        return sendJson(res, 200, { ok: false, code: 'SLIP_REJECTED', error: SLIP_FAIL_MESSAGES[verifyResult.code] });
+      }
+      const created = db.createOrder(body, verifyResult);
+      if (shownTotal !== price.total) {
+        // Kept, not refused: the buyer may already have paid. The slip will not match, so it waits for staff.
+        try {
+          db.addAuditLog({ action: 'PRICE_MISMATCH', targetRef: created.ref, detail: `ยอดจากหน้าเว็บ ${Number.isFinite(shownTotal) ? shownTotal : '-'} ไม่ตรงกับราคาจริง ${price.total} THB`, actor: 'System' });
+        } catch (_) {}
+      }
       broadcastSeatSync('order_created');
 
       // Async Google Drive upload and Slip Verification in background
@@ -715,16 +914,12 @@ async function handleApi(req, res, url) {
             });
           }
 
-          // 2. Slip Automated Verification
-          const verifyResult = await slipVerifier.verifySlip({
-            order: created,
-            slipDataUrl: created.slipData,
-            slipBuffer: imageBuffer
-          });
+          // 2. Apply the slip verdict (checked before the order was created)
           if (verifyResult) {
             const detail = verifyResult.detail || verifyResult.reason || '';
             const verifiedBy = verifyResult.provider || 'SlipVerifier';
-            if (verifyResult.autoApproved) {
+            // Tickets are only issued automatically when the provider really confirmed the slip.
+            if (verifyResult.autoApproved && verifyResult.status === 'passed') {
               const approved = db.updateOrderDriveAndVerification(created.ref, {
                 status: 'approved',
                 reviewedAt: Date.now(),
@@ -774,8 +969,21 @@ async function handleApi(req, res, url) {
         { 'X-RateLimit-Remaining': String(rl.remaining) }
       );
     } catch (err) {
+      if (err.code === 'SOLD_OUT' && err.ref) {
+        // Paid but the zone filled up meanwhile: log it and alert the admin so the refund is not forgotten.
+        try {
+          db.addAuditLog({ action: 'OVER_QUOTA_REFUND', targetRef: err.ref, detail: 'ที่นั่งเต็มระหว่างชำระเงิน — ต้องคืนเงินลูกค้า', actor: 'System' });
+        } catch (_) {}
+        const refundOrder = db.getOrder(err.ref);
+        const adminLineId = db.getSetting('admin_line_user_id', process.env.ADMIN_LINE_USER_ID || '');
+        const lineToken = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
+        if (refundOrder && adminLineId && lineToken) {
+          sendAdminNewOrderNotification(lineToken, adminLineId, { ...refundOrder, title: `⚠️ ต้องคืนเงิน (ที่นั่งเต็ม) · ${refundOrder.title}` })
+            .catch((e) => console.error('[Over-quota alert]', e));
+        }
+      }
       if (err.code === 'DUPLICATE_SLIP' || err.status === 400 || err.status === 409) {
-        return sendJson(res, 200, { ok: false, code: err.code, error: err.message });
+        return sendJson(res, 200, { ok: false, code: err.code, error: err.message, ref: err.ref || undefined });
       }
       throw err;
     }
@@ -787,6 +995,18 @@ async function handleApi(req, res, url) {
     const tickets = Array.isArray(body.tickets) ? body.tickets : [];
     const status = body.status || 'all';
     const includeSlip = body.includeSlip !== false;
+    if (!isFullAdmin(req)) {
+      // Public callers (customer 'บัตรของฉัน' sync) cannot create orders or list other people's orders.
+      // They only get back the orders whose booking refs they already hold.
+      const refs = tickets
+        .map((t) => String((t && t.ref) || '').trim().toUpperCase())
+        .filter(Boolean)
+        .slice(0, 50);
+      const ownOrders = refs.length
+        ? db.listOrders({ status: 'all', refs, includeSlipData: false }).map(toPublicOrder)
+        : [];
+      return sendJson(res, 200, { ok: true, recoveredCount: 0, orders: ownOrders });
+    }
     const result = db.recoverOrdersFromClient(tickets);
     const fullOrders = db.listOrders({ status, includeSlipData: includeSlip });
     const stats = db.getStats();
@@ -807,11 +1027,21 @@ async function handleApi(req, res, url) {
     const validLineUserId = /^U[0-9a-fA-F]{32}$/.test(lineUserIdRaw) ? lineUserIdRaw : '';
     const phoneRaw = (url.searchParams.get('phone') || '').replace(/\D/g, '');
     const validPhoneDigits = phoneRaw.length >= 9 && phoneRaw.length <= 10 ? phoneRaw : '';
+    const idLast4 = String(url.searchParams.get('idLast4') || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
     const includeSlip = url.searchParams.get('includeSlip') !== 'false';
     const isAdmin = isAdminAuthenticated(req);
     // If listing all orders (Admin view without specific customer refs, verified LINE User ID, or phone), require admin auth
     if (!refs && !validLineUserId && !validPhoneDigits && !isAdmin) {
       return sendJson(res, 200, { ok: false, unauthorized: true, orders: [] });
+    }
+    if (!isAdmin && validPhoneDigits && !refs && !validLineUserId) {
+      const lookupRl = checkRateLimit(`phone_lookup:${ip}`, 10, 10 * 60 * 1000);
+      if (!lookupRl.allowed) {
+        return sendJson(res, 200, { ok: false, code: 'RATE_LIMITED', error: 'ค้นหาบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่', orders: [] });
+      }
+      if (idLast4.length !== 4) {
+        return sendJson(res, 200, { ok: false, code: 'ID_LAST4_REQUIRED', error: 'กรุณากรอกเลข 4 ตัวท้ายของบัตรประชาชน/พาสปอร์ตที่ใช้จอง', orders: [] });
+      }
     }
     let orders = db.listOrders({
       status,
@@ -820,6 +1050,12 @@ async function handleApi(req, res, url) {
       phoneDigits: validPhoneDigits,
       includeSlipData: isAdmin ? includeSlip : false
     });
+    if (!isAdmin && validPhoneDigits && !refs && !validLineUserId) {
+      orders = orders.filter((o) => {
+        const idClean = String(o.holderIdCard || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+        return idClean.length >= 4 && idClean.slice(-4) === idLast4;
+      });
+    }
     if (!isAdmin) {
       orders = orders.map((o) => ({
         ref: o.ref,
@@ -884,11 +1120,16 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true, message: 'กรุณาเข้าสู่ระบบแอดมิน/สตาฟก่อนสแกนบัตร' });
     }
     const body = await readJsonBody(req);
-    if (Array.isArray(body.tickets) && body.tickets.length) {
-      db.recoverOrdersFromClient(body.tickets);
+    // gate-checkin-v2: the gate never recreates orders from browser storage; only the server DB counts.
+    const staffName = String(body.staffName || 'Gate Staff #1').slice(0, 60);
+    const verifyOnly = body.verifyOnly === true;
+    const result = db.checkInOrder(body.code || body.ref || '', staffName, {
+      verifyOnly,
+      requireSignature: body.source === 'camera'
+    });
+    if (verifyOnly) {
+      return sendJson(res, 200, result);
     }
-    const staffName = body.staffName || 'Gate Staff #1';
-    const result = db.checkInOrder(body.code || body.ref || '', staffName);
     db.addAuditLog({
       action: result.ok ? 'GATE_CHECKIN' : `CHECKIN_${result.code || 'BLOCKED'}`,
       targetRef: (result.order && result.order.ref) || String(body.code || ''),
@@ -937,8 +1178,8 @@ async function handleApi(req, res, url) {
 
     for (const item of checkins) {
       const code = item.code || item.ref || '';
-      const staffName = item.staffName || 'Gate Staff (Offline Sync)';
-      const resCheck = db.checkInOrder(code, staffName);
+      const staffName = String(item.staffName || 'Gate Staff (Offline Sync)').slice(0, 60);
+      const resCheck = db.checkInOrder(code, staffName, { checkedInAt: Number(item.timestamp || 0) });
       if (resCheck.ok) syncedCount += 1;
       results.push({
         ref: (resCheck.order && resCheck.order.ref) || code,
@@ -978,7 +1219,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true, error: 'กรุณาเข้าสู่ระบบแอดมินก่อนดำเนินการ' });
     }
     const body = await readJsonBody(req);
-    if (Array.isArray(body.tickets) && body.tickets.length) {
+    if (Array.isArray(body.tickets) && body.tickets.length && isFullAdmin(req)) {
       db.recoverOrdersFromClient(body.tickets);
     }
     const refs = Array.isArray(body.refs)
@@ -1020,6 +1261,11 @@ async function handleApi(req, res, url) {
         continue;
       }
       if (action === 'approve') {
+        const quotaOk = db.checkOrderCanBeApproved(existing);
+        if (!quotaOk.ok) {
+          results.push({ ref, ok: false, error: quotaOk.seatsTaken ? `ที่นั่ง ${quotaOk.seatsTaken.join(', ')} ถูกจองไปแล้ว — อนุมัติไม่ได้ ให้คืนเงินแทน` : `โซนนี้เหลือ ${quotaOk.left} ที่ ไม่พอสำหรับ ${existing.qty} ใบ — อนุมัติไม่ได้ ให้คืนเงินแทน` });
+          continue;
+        }
         const lineResult = await sendLineTicketPush(existing, token, { baseUrl: getRequestBaseUrl(req) });
         const updated = db.updateOrderStatus(ref, {
           status: 'approved',
@@ -1086,7 +1332,7 @@ async function handleApi(req, res, url) {
     const ref = orderMatch[1];
     const action = orderMatch[2] || (method === 'DELETE' ? 'delete' : undefined);
     const body = method === 'POST' ? await readJsonBody(req) : {};
-    if (action !== 'delete' && body && (body.orderSnapshot || Array.isArray(body.tickets))) {
+    if (action !== 'delete' && body && (body.orderSnapshot || Array.isArray(body.tickets)) && isFullAdmin(req)) {
       db.recoverOrdersFromClient(Array.isArray(body.tickets) ? body.tickets : [body.orderSnapshot]);
     }
     const existing = db.getOrder(ref);
@@ -1123,6 +1369,10 @@ async function handleApi(req, res, url) {
     }
 
     if (method === 'POST' && action === 'approve') {
+      const quotaOk = db.checkOrderCanBeApproved(existing);
+      if (!quotaOk.ok) {
+        return sendJson(res, 200, { ok: false, error: quotaOk.seatsTaken ? `ที่นั่ง ${quotaOk.seatsTaken.join(', ')} ถูกจองไปแล้ว — อนุมัติไม่ได้ ให้คืนเงินแทน` : `โซนนี้เหลือ ${quotaOk.left} ที่ ไม่พอสำหรับ ${existing.qty} ใบ — อนุมัติไม่ได้ ให้คืนเงินแทน` });
+      }
       const token = db.getSetting('line_channel_access_token', process.env.LINE_CHANNEL_ACCESS_TOKEN || '');
       const lineResult = await sendLineTicketPush(existing, token, { baseUrl: getRequestBaseUrl(req) });
       const updated = db.updateOrderStatus(ref, {
@@ -1182,7 +1432,13 @@ async function handleApi(req, res, url) {
 
   // Public Events & Zone Quota list
   if (method === 'GET' && pathname === '/api/events') {
-    return sendJson(res, 200, { ok: true, events: db.listEventsWithQuota(), promos: db.listPromoCodes() });
+    // 2-second micro-cache: when 1,000 people open the page in the same second the list is built once.
+    // Remaining counts may lag by up to 2 s; createOrder re-checks the quota, so nothing can oversell.
+    const nowMs = Date.now();
+    if (!publicEventsCache || nowMs - publicEventsCache.at > 2000) {
+      publicEventsCache = { at: nowMs, body: { ok: true, events: db.listEventsWithQuota(), promos: db.listPromoCodes() } };
+    }
+    return sendJson(res, 200, publicEventsCache.body);
   }
 
   // Public Promo Code Validation
@@ -1259,6 +1515,7 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, error: 'กรุณากรอกชื่อคอนเสิร์ต วันที่ และสถานที่จัดงานให้ครบถ้วน' });
     }
     const events = db.saveEvent(body);
+    publicEventsCache = null;
     db.addAuditLog({
       action: body.id ? 'UPDATE_EVENT' : 'CREATE_EVENT',
       targetRef: `EVENT#${body.id || 'NEW'}`,
@@ -1287,6 +1544,7 @@ async function handleApi(req, res, url) {
     const body = method === 'POST' ? await readJsonBody(req) : {};
     const targetId = eventDeleteMatch ? Number(eventDeleteMatch[1]) : Number(body.id);
     const result = db.deleteEvent(targetId);
+    publicEventsCache = null;
     if (!result.ok) {
       return sendJson(res, 200, { ok: false, error: result.error || 'ลบคอนเสิร์ตไม่สำเร็จ' });
     }
@@ -1533,7 +1791,7 @@ async function handleApi(req, res, url) {
         changes.push('อัปเดต Slip Verification API Key');
       }
       if (typeof body.slipVerifyBranchId === 'string') {
-        db.setSetting('slip_verify_branch_id', body.slipVerifyBranchId.trim());
+        db.setSetting('slip_verify_branch_id', body.slipVerifyBranchId.trim().replace(/[^0-9A-Za-z_-]/g, ''));
         changes.push('อัปเดต Slip Verification Branch ID');
       }
       if (typeof body.slipAutoApproveEnabled === 'boolean' || typeof body.slipAutoApproveEnabled === 'string') {
@@ -1666,11 +1924,19 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: false, unauthorized: true });
     }
     const body = await readJsonBody(req);
-    const testOrder = { ref: 'TEST-VERIFY', total: Number(body.amount || 3600) };
+    const hasSlip = typeof body.slipData === 'string' && body.slipData.length > 100;
+    const testOrder = { ref: 'TEST-VERIFY', total: hasSlip ? 0 : Number(body.amount || 3600), isTest: true };
     const verifyRes = await slipVerifier.verifySlip({
       order: testOrder,
-      slipDataUrl: body.slipData
+      slipDataUrl: hasSlip ? body.slipData : 'data:image/png;base64,'
     });
+    if (!hasSlip && verifyRes && !verifyRes.verified && /ไม่ใช่ไฟล์ภาพ|image|รูป/i.test(String(verifyRes.reason || ''))) {
+      verifyRes.reason = 'เชื่อมต่อสำเร็จ ผู้ให้บริการตอบกลับแล้ว (ไม่ได้เลือกรูปสลิป จึงยังไม่ได้ตรวจสลิปจริง)';
+      verifyRes.verified = true;
+    }
+    if (hasSlip && verifyRes && verifyRes.verified && verifyRes.amount != null) {
+      verifyRes.detail = `สลิปถูกต้อง ยอด ${Number(verifyRes.amount).toLocaleString('th-TH')} บาท รหัสอ้างอิง ${verifyRes.transRef || '-'}`;
+    }
     return sendJson(res, 200, { ok: true, result: verifyRes });
   }
 
@@ -1851,8 +2117,32 @@ async function handleApi(req, res, url) {
   return sendJson(res, 404, { error: 'ไม่พบ API ที่เรียกใช้งาน' });
 }
 
+const PUBLIC_STATIC_DIRS = ['css', 'js', 'logo', 'images', 'img', 'assets', 'fonts', 'icons', 'rich-menu', 'posters'];
+const PUBLIC_STATIC_EXT = new Set([
+  '.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.avif',
+  '.woff', '.woff2', '.ttf', '.otf', '.mp3', '.wav', '.mp4', '.webm', '.pdf', '.webmanifest', '.txt'
+]);
+function isPublicStaticPath(p) {
+  const parts = String(p).split('/').filter(Boolean);
+  if (!parts.length) return false;
+  if (parts.some((seg) => seg.startsWith('.') || seg === '..')) return false;
+  const ext = path.extname(p).toLowerCase();
+  if (!PUBLIC_STATIC_EXT.has(ext)) return false;
+  if (parts.length === 1) {
+    // Root files: pages, stylesheets and images only - never server-side .js or config files.
+    return ext !== '.js' && ext !== '.txt' && parts[0] !== 'admin.html';
+  }
+  return PUBLIC_STATIC_DIRS.includes(parts[0]);
+}
+
 function serveStatic(req, res, url) {
-  let reqPath = decodeURIComponent(url.searchParams.get('_path') || url.pathname);
+  let reqPath;
+  try {
+    reqPath = decodeURIComponent((process.env.VERCEL && url.searchParams.get('_path')) || url.pathname);
+  } catch {
+    res.writeHead(400);
+    return res.end('Bad Request');
+  }
   if (reqPath === '/') reqPath = '/index.html';
   if (reqPath === '/manage' || reqPath === '/manage/' || reqPath === '/manage.html') reqPath = '/manage.html';
   if (reqPath === '/ticket' || reqPath === '/ticket/') reqPath = '/ticket.html';
@@ -1863,12 +2153,14 @@ function serveStatic(req, res, url) {
     return res.end('404 Not Found');
   }
 
-  const safePath = path.normalize(reqPath).replace(/^(\.\.[/\\])+/, '');
+  const safePath = path.posix.normalize(reqPath.replace(/\\/g, '/'));
   const filePath = path.join(ROOT, safePath);
 
-  if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403);
-    return res.end('Forbidden');
+  // Serve only public front-end files. Everything else under ROOT (data/ with the database and
+  // secrets, backend/, server.js, backups, dotfiles) must never be downloadable.
+  if (!filePath.startsWith(ROOT + path.sep) || !isPublicStaticPath(safePath)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('404 Not Found');
   }
 
   fs.stat(filePath, (err, stat) => {
@@ -1890,9 +2182,12 @@ function serveStatic(req, res, url) {
 
 async function requestHandler(req, res) {
   try {
-    const rawPath = req.headers['x-matched-path'] || req.url;
-    const url = new URL(rawPath, `http://${req.headers.host || 'localhost'}`);
-    const reqPath = url.searchParams.get('_path') || url.pathname;
+    // x-matched-path / ?_path= are Vercel rewrite helpers. On the VPS they would let anyone pick any file,
+    // so they are honoured only on Vercel. Leading slashes are collapsed so '//x/...' is not read as a host.
+    const onVercel = Boolean(process.env.VERCEL);
+    const rawPath = String((onVercel && req.headers['x-matched-path']) || req.url || '/').replace(/^[/\\]+/, '/');
+    const url = new URL(rawPath, 'http://localhost');
+    const reqPath = (onVercel && url.searchParams.get('_path')) || url.pathname;
     if (reqPath.startsWith('/api/')) {
       await handleApi(req, res, url);
     } else {

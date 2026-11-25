@@ -137,10 +137,25 @@
     }
   }
 
+  // Secret keys (SlipOK API key, LINE secret/token, Google private key) stay on the server only.
+  const ADMIN_SETTINGS_SECRET_KEYS = ['slipVerifyApiKey', 'lineChannelSecret', 'lineChannelAccessToken', 'googleServiceAccountPrivateKey'];
+  function saveAdminSettingsCache(obj) {
+    const clean = { ...(obj || {}) };
+    ADMIN_SETTINGS_SECRET_KEYS.forEach((k) => delete clean[k]);
+    localStorage.setItem('stagepass_admin_settings', JSON.stringify(clean));
+  }
+  try {
+    const rawCache = localStorage.getItem('stagepass_admin_settings');
+    if (rawCache) saveAdminSettingsCache(JSON.parse(rawCache));
+  } catch (_) {}
+
   async function runBulkOrderAction(action) {
     const refs = Array.from(selectedOrderRefs);
     if (!refs.length) {
       window.UI.toast('กรุณาเลือกรายการคำสั่งซื้ออย่างน้อย 1 รายการ', 'error');
+      return;
+    }
+    if (action === 'delete' && !window.confirm(`ยืนยันลบคำสั่งซื้อ ${refs.length} รายการออกจากระบบถาวร?\nลบแล้วกู้คืนไม่ได้`)) {
       return;
     }
     const approveBtn = $('bulkApproveBtn');
@@ -340,6 +355,20 @@
     showLoginModal('ออกจากระบบเรียบร้อยแล้ว');
   }
 
+  // Slip verdict shown to the admin. verifiedBy only says who was asked, never that the slip passed;
+  // orders made before the verdict was stored have no status and show as not checked.
+  function slipCheckInfo(o) {
+    if (o.slipCheckStatus === 'passed') return { icon: '✔', label: 'สลิปผ่าน', color: '#68D391', rgb: '104, 211, 145' };
+    if (o.slipCheckStatus === 'failed') return { icon: '✖', label: 'สลิปไม่ผ่าน', color: '#FF6B6B', rgb: '255, 107, 107' };
+    return { icon: '○', label: 'ยังไม่ได้ตรวจสลิป', color: '#A1A1AA', rgb: '161, 161, 170' };
+  }
+
+  function slipCheckBadge(o) {
+    const i = slipCheckInfo(o);
+    const by = o.verifiedBy ? ` · ${window.UI.escapeHtml(o.verifiedBy)}` : '';
+    return `<span class="badge-verify" data-slip-check="${i.label}" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(${i.rgb}, 0.15); color:${i.color}; border:1px solid rgba(${i.rgb}, 0.3);">${i.icon} ${i.label}${by}</span>`;
+  }
+
   function statusBadge(status) {
     if (status === 'pending') return '<span class="badge-pending">รอตรวจสอบสลิป</span>';
     if (status === 'rejected') return '<span class="badge-rejected">ปฏิเสธสลิป</span>';
@@ -384,10 +413,10 @@
         map.set(key, {
           ...t,
           ref: key,
-          title: t.title || 'ECHOES OF ASIA WORLD TOUR 2026',
-          date: t.date || '14 - 15 พ.ย. 2026',
-          venue: t.venue || 'อิมแพ็ค อารีน่า เมืองทองธานี',
-          zone: t.zone || 'VIP Standing',
+          title: t.title || '(ไม่ระบุงาน)',
+          date: t.date || '-',
+          venue: t.venue || '-',
+          zone: t.zone || '-',
           qty: Number(t.qty || 1),
           total: Number(t.total || 0),
           holderName: t.holderName || 'ลูกค้าผู้จองบัตร',
@@ -508,7 +537,7 @@
       if (!parsed.length) return null;
       const res = await fetch('/api/orders/recover', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           tickets: parsed,
           status: currentFilter,
@@ -606,7 +635,7 @@
               ${checkInBadge(o)}
               ${o.qrSignature ? `<span class="badge-hmac" title="ลายเซ็นดิจิทัล HMAC-SHA256 ป้องกันการปลอมแปลง QR">🔐 SIG:${esc(o.qrSignature)}</span>` : ''}
               ${!isStaff && o.driveViewLink ? `<a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" class="badge-drive" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(34, 155, 255, 0.15); color:var(--color-accent); text-decoration:none; border:1px solid rgba(34,155,255,0.3);">📁 Google Drive ↗</a>` : ''}
-              ${o.verifiedBy ? `<span class="badge-verify" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:4px; background:rgba(104, 211, 145, 0.15); color:#68D391; border:1px solid rgba(104, 211, 145, 0.3);">✔ ${esc(o.verifiedBy)}</span>` : ''}
+              ${slipCheckBadge(o)}
               <span class="text-muted" style="font-size:12px;">สั่งซื้อเมื่อ ${esc(issuedStr)}</span>
             </div>
 
@@ -636,8 +665,8 @@
             </div>
 
             <div class="order-hash">
-              ✔ ตรวจสลิปซ้ำผ่าน (SHA-256: ${esc(shortHash)}…)
-              ${o.verificationDetail ? ` · <span style="color:#68D391;">${esc(o.verificationDetail)}</span>` : ''}
+              ไม่ซ้ำกับสลิปเดิม (SHA-256: ${esc(shortHash)}…)
+              ${o.verificationDetail ? ` · <span style="color:${slipCheckInfo(o).color};">${esc(o.verificationDetail)}</span>` : ''}
               ${!isStaff && o.driveViewLink ? ` · <a href="${esc(o.driveViewLink)}" target="_blank" rel="noopener" style="color:var(--color-accent);">เปิดดูรูปใน Google Drive ↗</a>` : ''}
               ${o.checkedInAt ? ` · <span style="color:var(--color-accent);">เข้างานเมื่อ ${esc(new Date(o.checkedInAt).toLocaleString('th-TH'))} (${esc(o.checkedInBy || 'Gate A')})</span>` : ''}
               ${o.status === 'rejected' && o.rejectReason ? ` · <span style="color:#FF6B6B;">เหตุผลที่ปฏิเสธ: ${esc(o.rejectReason)}</span>` : ''}
@@ -1200,21 +1229,42 @@
     }
   }
 
-  async function downloadOfflineRoster() {
+  async function downloadOfflineRoster(silent) {
+    // gate-checkin-v2: silent=true is the automatic refresh when the scanner opens.
+    const quiet = silent === true;
     const btn = $('btnDownloadOfflineRoster');
     if (btn) btn.disabled = true;
     try {
-      window.UI.toast('กำลังดาวน์โหลดข้อมูลบัตรเพื่อเตรียมสแกนออฟไลน์...');
+      if (!quiet) window.UI.toast('กำลังดาวน์โหลดข้อมูลบัตรเพื่อเตรียมสแกนออฟไลน์...');
       const res = await fetch('/api/checkin/offline-roster', { headers: getAuthHeaders() });
       const data = await res.json();
+      if (data.unauthorized) throw new Error('กรุณาเข้าสู่ระบบก่อน');
       if (!data.ok) throw new Error(data.error || 'ดาวน์โหลดไม่สำเร็จ');
-      offlineRosterCache = data.roster || [];
+      const queuedRefs = new Set(offlineCheckinQueue.map((q) => q.ref));
+      offlineRosterCache = (data.roster || []).map((o) => {
+        // Keep local offline check-ins that are not synced yet.
+        if (queuedRefs.has(o.ref) && !(o.checkedInAt > 0)) {
+          const q = offlineCheckinQueue.find((x) => x.ref === o.ref);
+          return { ...o, checkedInAt: q.timestamp, checkedInBy: q.staffName };
+        }
+        return o;
+      });
       saveOfflineStorage();
-      window.UI.toast(`บันทึกแคชบัตรสำหรับสแกนออฟไลน์แล้ว (${offlineRosterCache.length} รายการ)`);
+      if (!quiet) window.UI.toast(`บันทึกแคชบัตรสำหรับสแกนออฟไลน์แล้ว (${offlineRosterCache.length} รายการ)`);
     } catch (err) {
-      window.UI.toast(`เกิดข้อผิดพลาดในการโหลดแคช: ${err.message}`, 'error');
+      if (!quiet) window.UI.toast(`เกิดข้อผิดพลาดในการโหลดแคช: ${err.message}`, 'error');
     } finally {
       if (btn) btn.disabled = false;
+    }
+  }
+
+  function markOfflineRosterCheckedIn(order) {
+    if (!order || !order.ref) return;
+    const cached = offlineRosterCache.find((o) => o.ref === order.ref);
+    if (cached) {
+      cached.checkedInAt = order.checkedInAt || Date.now();
+      cached.checkedInBy = order.checkedInBy || '';
+      saveOfflineStorage();
     }
   }
 
@@ -1272,11 +1322,22 @@
       };
     }
 
-    // Verify HMAC-SHA256 signature if present
+    // Verify HMAC-SHA256 signature (gate-checkin-v2: a THAITICKET QR must carry one)
     const sigPart = parts.find((p) => String(p).toUpperCase().startsWith('SIG:'));
-    if (sigPart && existing.qrSignature) {
-      const providedSig = String(sigPart).slice(4).trim().toUpperCase();
-      if (providedSig !== existing.qrSignature.toUpperCase()) {
+    const isSignedFormat = parts.length >= 2 && parts[0] === 'THAITICKET';
+    let offlineSigVerified = false;
+    if ((sigPart || isSignedFormat) && existing.qrSignature) {
+      const providedSig = sigPart ? String(sigPart).slice(4).trim().toUpperCase() : '';
+      const zonePart = isSignedFormat && parts[2] !== undefined && !/^SIG:/i.test(parts[2]) ? parts[2].trim() : '';
+      const qtyPart = isSignedFormat && parts[3] !== undefined && !/^SIG:/i.test(parts[3]) ? parts[3].trim() : '';
+      // Older tickets carry Thai zone names cut to one byte per character (see checkInOrder in backend/db.js).
+      const realZone = String(existing.zone || '').trim();
+      const oldQrZone = Array.from({ length: realZone.length }, (_, i) => String.fromCharCode(realZone.charCodeAt(i) & 0xff)).join('').trim();
+      const tampered =
+        (zonePart && zonePart !== realZone && zonePart !== oldQrZone) ||
+        (qtyPart && Number(qtyPart) !== Number(existing.qty));
+      offlineSigVerified = Boolean(providedSig) && providedSig === existing.qrSignature.toUpperCase() && !tampered;
+      if (!offlineSigVerified) {
         playGateSound('invalid');
         speakGateResult('ตรวจพบบัตรปลอมแปลง ลายเซ็นไม่ถูกต้องค่ะ');
         return {
@@ -1319,6 +1380,7 @@
     return {
       ok: true,
       code: 'CHECKED_IN_OFFLINE',
+      signatureVerified: offlineSigVerified,
       message: `เช็กอินสำเร็จ (โหมดออฟไลน์) — บันทึกลงเครื่องและรอซิงก์ (${existing.ref})`,
       order: existing
     };
@@ -1326,6 +1388,36 @@
 
   let offscreenScanCanvas = null;
   let offscreenScanCtx = null;
+  let nativeQrDetector = null;
+  let nativeQrDetectorState = 'unknown'; // unknown | checking | ready | unsupported
+  let nativeQrDetectorErrors = 0;
+
+  function ensureNativeQrDetector() {
+    if (nativeQrDetectorState !== 'unknown') return;
+    if (!('BarcodeDetector' in window)) {
+      nativeQrDetectorState = 'unsupported';
+      return;
+    }
+    nativeQrDetectorState = 'checking';
+    const getFormats =
+      typeof window.BarcodeDetector.getSupportedFormats === 'function'
+        ? window.BarcodeDetector.getSupportedFormats()
+        : Promise.resolve(['qr_code']);
+    Promise.resolve(getFormats)
+      .then((formats) => {
+        const list = Array.isArray(formats) ? formats : [];
+        if (!list.includes('qr_code')) {
+          nativeQrDetectorState = 'unsupported';
+          return;
+        }
+        const wanted = ['qr_code', 'code_128', 'code_39'].filter((f) => list.includes(f));
+        nativeQrDetector = new window.BarcodeDetector({ formats: wanted });
+        nativeQrDetectorState = 'ready';
+      })
+      .catch(() => {
+        nativeQrDetectorState = 'unsupported';
+      });
+  }
 
   function startQrFrameDetection() {
     if (!isCameraScanningActive) return;
@@ -1335,19 +1427,24 @@
       return;
     }
 
-    // 1. Native BarcodeDetector (Chrome / Edge / Android)
-    if ('BarcodeDetector' in window) {
+    // 1. Native BarcodeDetector (Chrome Android / macOS). gate-checkin-v2: Windows Chrome exposes
+    // no working QR detector, so fall back to jsQR unless the native one really supports QR.
+    ensureNativeQrDetector();
+    if (nativeQrDetectorState === 'ready' && nativeQrDetector) {
       try {
-        const detector = new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39'] });
-        detector
+        nativeQrDetector
           .detect(video)
           .then((barcodes) => {
+            nativeQrDetectorErrors = 0;
             if (barcodes && barcodes.length > 0) {
               const raw = barcodes[0].rawValue;
               handleDetectedQrCode(raw);
             }
           })
-          .catch(() => {})
+          .catch(() => {
+            nativeQrDetectorErrors += 1;
+            if (nativeQrDetectorErrors >= 5) nativeQrDetectorState = 'unsupported';
+          })
           .finally(() => {
             if (isCameraScanningActive) {
               qrScannerFrameLoop = requestAnimationFrame(startQrFrameDetection);
@@ -1391,7 +1488,10 @@
     const trimmed = String(code).trim();
     const now = Date.now();
     const debounceDelay = isFastScanMode ? 1200 : 2500;
-    if (trimmed === lastCameraScanCode && now - lastCameraScanTimestamp < debounceDelay) {
+    // gate-checkin-v3: while the same QR stays in view, keep ignoring it; it can be read again
+    // only after it has been out of view for 6 seconds (prevents false re-entry alarms).
+    if (trimmed === lastCameraScanCode && now - lastCameraScanTimestamp < Math.max(debounceDelay, 6000)) {
+      lastCameraScanTimestamp = now;
       return;
     }
     lastCameraScanCode = trimmed;
@@ -1408,7 +1508,7 @@
     if ($('scanCodeInput')) {
       $('scanCodeInput').value = trimmed;
     }
-    submitCheckIn();
+    submitCheckIn('camera');
   }
 
   let hudCountdownTimer = null;
@@ -1420,7 +1520,6 @@
     }
     const hud = $('scannerHudAlert');
     if (hud) hud.hidden = true;
-    lastCameraScanCode = '';
   }
 
   function showScannerHudAlert(data) {
@@ -1455,7 +1554,21 @@
       $('hudMeta').textContent = o.zone ? `โซน ${o.zone} · ${o.qty || 1} ใบ · ประตู ${esc(o.checkedInBy || 'Gate A')}` : (o.title || '');
     }
     if ($('hudSig')) {
-      $('hudSig').textContent = `🔐 ลายเซ็นดิจิทัล: SIG:${esc(o.qrSignature || data.qrSignature || 'VERIFIED')} (ยืนยันบัตรแท้)`;
+      // gate-checkin-v2: only claim a verified signature when the server (or offline cache) verified it.
+      if (data.signatureVerified) {
+        $('hudSig').textContent = data.legacyKey
+          ? `🔐 ลายเซ็นถูกต้อง (บัตรรุ่นก่อนเปลี่ยนกุญแจ) ตรวจชื่อ/บัตรประชาชนประกอบ`
+          : `🔐 ลายเซ็นดิจิทัลถูกต้อง: SIG:${o.qrSignature || data.qrSignature || ''} (ยืนยันบัตรแท้)`;
+        $('hudSig').style.color = data.legacyKey ? '#F6AD55' : '';
+      } else if (isPass) {
+        $('hudSig').textContent = '⚠️ เช็คอินด้วยรหัสการจอง ไม่ได้ตรวจลายเซ็น QR (ตรวจชื่อ/บัตรประชาชนประกอบ)';
+        $('hudSig').style.color = '#F6AD55';
+      } else {
+        $('hudSig').textContent = data.code === 'INVALID_SIGNATURE' || data.code === 'MISSING_SIGNATURE'
+          ? '🚫 ลายเซ็นดิจิทัลไม่ถูกต้อง / ไม่มีลายเซ็น'
+          : '';
+        $('hudSig').style.color = '#FF6B6B';
+      }
     }
 
     const reEntryBox = $('hudReEntryBox');
@@ -1516,7 +1629,10 @@
   function openScannerModal(prefillRef) {
     renderQuickScanChips();
     loadOfflineStorage();
+    // gate-checkin-v2: keep the offline cache fresh without the staff having to press the button.
+    if (navigator.onLine !== false) downloadOfflineRoster(true);
     dismissScannerHudAlert();
+    if ($('scanCodeInput')) $('scanCodeInput').value = '';
     if (prefillRef && $('scanCodeInput')) {
       const targetOrder = ordersCache.find((o) => o.ref === prefillRef);
       $('scanCodeInput').value = (targetOrder && targetOrder.qrPayload) ? targetOrder.qrPayload : `THAITICKET|${prefillRef}`;
@@ -1538,13 +1654,99 @@
     window.UI.close('gateScannerModal');
   }
 
-  function testTamperedQrScan() {
-    const sampleOrder = ordersCache.find((o) => o.status === 'approved') || ordersCache[0];
-    const sampleRef = sampleOrder ? sampleOrder.ref : 'TT1001';
-    if ($('scanCodeInput')) {
-      $('scanCodeInput').value = `THAITICKET|${sampleRef}|VIP Standing|99|SIG:FAKE00000000`;
+  // gate-checkin-v2: real anti-forgery self test. Takes a real approved ticket, sends its genuine QR
+  // and several forged versions to the server in verify-only mode (nothing is checked in or logged),
+  // and reports whether the server accepted the genuine one and rejected every forgery.
+  async function testTamperedQrScan() {
+    const btn = $('testTamperedQrBtn');
+    const resultBox = $('scanResultBox');
+    const esc = window.UI.escapeHtml;
+    const typed = (($('scanCodeInput') && $('scanCodeInput').value) || '').trim();
+    const typedRef = typed.startsWith('THAITICKET|') ? (typed.split('|')[1] || '').trim().toUpperCase() : '';
+    const sample =
+      ordersCache.find((o) => o.ref === typedRef && o.status === 'approved' && o.qrPayload) ||
+      ordersCache.find((o) => o.status === 'approved' && o.qrPayload && !(o.checkedInAt > 0)) ||
+      ordersCache.find((o) => o.status === 'approved' && o.qrPayload);
+    if (!sample) {
+      window.UI.toast('ยังไม่มีบัตรที่อนุมัติแล้วให้ใช้ทดสอบ (อนุมัติอย่างน้อย 1 รายการก่อน)', 'error');
+      return;
     }
-    submitCheckIn();
+
+    const genuine = sample.qrPayload;
+    const p = genuine.split('|');
+    const sig = String(p[4] || '').replace(/^SIG:/i, '');
+    const flipChar = (c) => (c === 'A' ? 'B' : 'A');
+    const cases = [
+      { label: 'QR ตัวจริงจากระบบ', code: genuine, expectReal: true },
+      {
+        label: 'แก้ลายเซ็น 1 ตัวอักษร',
+        code: [p[0], p[1], p[2], p[3], 'SIG:' + sig.slice(0, -1) + flipChar(sig.slice(-1))].join('|')
+      },
+      {
+        label: 'แก้จำนวนบัตรเป็น 9 ใบ (ลายเซ็นเดิม)',
+        code: [p[0], p[1], p[2], String(Number(p[3] || 1) === 9 ? 8 : 9), p[4]].join('|')
+      },
+      { label: 'แก้โซนเป็น VVIP (ลายเซ็นเดิม)', code: [p[0], p[1], 'VVIP-FAKE', p[3], p[4]].join('|') },
+      { label: 'ตัดลายเซ็นทิ้ง', code: [p[0], p[1], p[2], p[3]].join('|') },
+      { label: 'ลายเซ็นมั่ว', code: [p[0], p[1], p[2], p[3], 'SIG:FAKE00000000'].join('|') }
+    ];
+
+    if (btn) btn.disabled = true;
+    try {
+      const rows = [];
+      for (const c of cases) {
+        const res = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ code: c.code, staffName: 'ทดสอบระบบ', source: 'camera', verifyOnly: true })
+        });
+        const data = await res.json();
+        if (data.unauthorized) {
+          window.UI.close('gateScannerModal');
+          showLoginModal();
+          return;
+        }
+        const passed = c.expectReal
+          ? data.signatureVerified === true
+          : data.code === 'INVALID_SIGNATURE' || data.code === 'MISSING_SIGNATURE';
+        rows.push({ ...c, data, passed });
+      }
+
+      const allPassed = rows.every((r) => r.passed);
+      playGateSound(allPassed ? 'pass' : 'invalid');
+      speakGateResult(allPassed ? 'ระบบกันบัตรปลอมทำงานถูกต้องค่ะ' : 'ระบบกันบัตรปลอมมีปัญหาค่ะ');
+
+      if (resultBox) {
+        resultBox.hidden = false;
+        resultBox.className = 'scan-result-box ' + (allPassed ? 'is-pass' : 'is-duplicate');
+        resultBox.innerHTML = `
+          <div style="font-size:16px; font-weight:700; color:${allPassed ? 'var(--color-accent)' : '#FF6B6B'}; margin-bottom:6px;">
+            ${allPassed ? '✅ ระบบกันบัตรปลอมทำงานถูกต้อง' : '⛔ ระบบกันบัตรปลอมมีจุดผิดพลาด'} — ทดสอบกับบัตร ${esc(sample.ref)}
+          </div>
+          <div style="font-size:12px; color:#fff; line-height:1.7;">
+            ${rows
+              .map(
+                (r) => `${r.passed ? '✅' : '❌'} ${esc(r.label)} → ${
+                  r.expectReal
+                    ? r.data.signatureVerified
+                      ? 'เซิร์ฟเวอร์ยืนยันลายเซ็นแท้'
+                      : 'เซิร์ฟเวอร์ไม่ยอมรับ (' + esc(r.data.code || 'ERROR') + ')'
+                    : r.passed
+                      ? 'เซิร์ฟเวอร์ปฏิเสธ (' + esc(r.data.code) + ')'
+                      : 'เซิร์ฟเวอร์ยอมรับ! (' + esc(r.data.code || 'ERROR') + ')'
+                }`
+              )
+              .join('<br>')}
+            <br><span class="text-muted">การทดสอบนี้ไม่บันทึกเช็คอิน และไม่นับเป็นการพยายามเข้าซ้ำ</span>
+          </div>
+        `;
+      }
+      window.UI.toast(allPassed ? 'ทดสอบกันบัตรปลอมผ่านทุกข้อ' : 'ทดสอบกันบัตรปลอมไม่ผ่านบางข้อ', allPassed ? undefined : 'error');
+    } catch (err) {
+      window.UI.toast(`ทดสอบไม่สำเร็จ: ${err.message}`, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   function renderScanResultBox(data) {
@@ -1565,7 +1767,13 @@
         <div style="font-size:13px; color:#fff;">
           <strong>${esc(o.title || '')}</strong> · โซน ${esc(o.zone || '')} (${o.qty || 1} ใบ)<br>
           ผู้ถือบัตร: <strong>${esc(o.holderName || '')} (${esc(o.holderPhone || '')})</strong> · ปชช./Passport: <strong>${esc(o.holderIdCard || '-')}</strong><br>
-          🔐 ลายเซ็นดิจิทัล HMAC-SHA256: <strong style="color:#68D391;">SIG:${esc(data.qrSignature || o.qrSignature || 'VERIFIED')} (ยืนยันบัตรแท้)</strong><br>
+          ${
+            data.signatureVerified
+              ? `🔐 ลายเซ็นดิจิทัล HMAC-SHA256: <strong style="color:#68D391;">SIG:${esc(data.qrSignature || o.qrSignature || '')} ถูกต้อง (ยืนยันบัตรแท้)</strong><br>${
+                  data.legacyKey ? '⚠️ <strong style="color:#F6AD55;">บัตรรุ่นก่อนเปลี่ยนกุญแจ: ตรวจชื่อ/บัตรประชาชนประกอบ</strong><br>' : ''
+                }`
+              : `⚠️ <strong style="color:#F6AD55;">เช็คอินด้วยรหัสการจอง ไม่ได้ตรวจลายเซ็น QR</strong> (ควรตรวจชื่อ/บัตรประชาชนประกอบ)<br>`
+          }
           บันทึกเวลาเข้างาน: ${esc(new Date(o.checkedInAt || Date.now()).toLocaleString('th-TH'))} โดย ${esc(o.checkedInBy || 'Gate')}
         </div>
       `;
@@ -1591,7 +1799,21 @@
     }
   }
 
-  async function submitCheckIn() {
+  // Empty the code box once a ticket has been answered, so the previous ticket cannot be submitted again by
+  // accident. Skipped when the next ticket is already in the box. Keyboard-style scanners need the focus back;
+  // phones and tablets do not (it would pop up the on-screen keyboard).
+  function clearScanCode(handledCode) {
+    const input = $('scanCodeInput');
+    if (!input || input.value.trim() !== handledCode) return;
+    input.value = '';
+    const modal = $('gateScannerModal');
+    const finePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches;
+    if (finePointer && modal && modal.classList.contains('active')) input.focus({ preventScroll: true });
+  }
+
+  async function submitCheckIn(source) {
+    // gate-checkin-v2: source = 'camera' | 'chip' | 'manual' (event listeners pass an Event object).
+    const scanSource = typeof source === 'string' ? source : 'manual';
     const code = ($('scanCodeInput').value || '').trim();
     const staffName = ($('scanStaffInput').value || '').trim() || 'Gate A';
     if (!code) {
@@ -1605,15 +1827,17 @@
     if (navigator.onLine === false) {
       const offlineRes = verifyCheckInOffline(code, staffName);
       renderScanResultBox(offlineRes);
+      clearScanCode(code);
       $('submitScanBtn').disabled = false;
       return;
     }
 
+    let answered = false;
     try {
       const res = await fetch('/api/checkin', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ code, staffName, tickets: getLocalBrowserTickets() })
+        body: JSON.stringify({ code, staffName, source: scanSource })
       });
       const data = await res.json();
       if (data.unauthorized) {
@@ -1626,11 +1850,13 @@
         playGateSound('pass');
         const o = data.order;
         upsertLocalBrowserTicket(o);
+        markOfflineRosterCheckedIn(o);
         speakGateResult(`ผ่านค่ะ โซน ${o.zone} จำนวน ${o.qty} ใบ`);
       } else if (data.code === 'ALREADY_CHECKED_IN') {
         playGateSound('duplicate');
+        if (data.order) markOfflineRosterCheckedIn(data.order);
         speakGateResult('เตือนภัยค่ะ บัตรนี้ถูกสแกนเข้างานไปแล้ว');
-      } else if (data.code === 'INVALID_SIGNATURE') {
+      } else if (data.code === 'INVALID_SIGNATURE' || data.code === 'MISSING_SIGNATURE') {
         playGateSound('invalid');
         speakGateResult('ตรวจพบบัตรปลอมแปลง ลายเซ็นไม่ถูกต้องค่ะ');
       } else {
@@ -1638,14 +1864,20 @@
         speakGateResult('ไม่สามารถเข้างานได้ค่ะ');
       }
 
+      answered = true;
       renderScanResultBox(data);
+      clearScanCode(code);
       if (data.ok) {
         await Promise.all([loadStats(), loadOrders()]);
       }
     } catch (err) {
       if (offlineRosterCache.length > 0) {
-        const offlineRes = verifyCheckInOffline(code, staffName);
-        renderScanResultBox(offlineRes);
+        // Already answered by the server (only the list refresh failed): do not check the ticket a second time.
+        if (!answered) {
+          const offlineRes = verifyCheckInOffline(code, staffName);
+          renderScanResultBox(offlineRes);
+          clearScanCode(code);
+        }
       } else {
         window.UI.toast(`เกิดข้อผิดพลาดในการเชื่อมต่อ: ${err.message}`, 'error');
       }
@@ -1736,6 +1968,9 @@
   }
 
   async function deleteOrder(ref, btn) {
+    const target = ordersCache.find((o) => o.ref === ref);
+    const who = target && target.holderName ? ` ของ ${target.holderName}` : '';
+    if (!window.confirm(`ยืนยันลบคำสั่งซื้อ ${ref}${who} ออกจากระบบถาวร?\nลบแล้วกู้คืนไม่ได้`)) return;
     if (btn) btn.disabled = true;
     try {
       const res = await fetch(`/api/orders/${encodeURIComponent(ref)}/delete`, {
@@ -1795,7 +2030,8 @@
     if (badgeBox) {
       const parts = [];
       if (order.verifiedBy) {
-        parts.push(`<span style="color:#68D391;">✔ ตรวจสอบผ่าน: ${window.UI.escapeHtml(order.verifiedBy)}</span>`);
+        const info = slipCheckInfo(order);
+        parts.push(`<span style="color:${info.color};">${info.icon} ${info.label}: ${window.UI.escapeHtml(order.verifiedBy)}</span>`);
       }
       if (order.verificationDetail) {
         parts.push(`<span style="color:var(--color-muted); font-size:11px;">(${window.UI.escapeHtml(order.verificationDetail)})</span>`);
@@ -1976,16 +2212,16 @@
   function openLinePreview(order) {
     if (!order) {
       order = ordersCache.find((o) => o.status === 'approved') || ordersCache[0] || {
-        ref: 'TT9999-DEMO',
-        title: 'ECHOES OF ASIA WORLD TOUR 2026',
-        date: '14 - 15 พ.ย. 2026',
-        venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
-        zone: 'VIP Standing',
-        qty: 2,
-        total: 13000,
-        holderName: 'คุณสมชาย สายเปย์',
-        holderPhone: '0812345678',
-        seats: ['VIP-01', 'VIP-02']
+        ref: 'TT0000-0000',
+        title: 'ตัวอย่าง (ยังไม่มีออเดอร์)',
+        date: '-',
+        venue: '-',
+        zone: '-',
+        qty: 1,
+        total: 0,
+        holderName: '-',
+        holderPhone: '-',
+        seats: []
       };
     }
 
@@ -2653,7 +2889,7 @@
   window.switchSettingsStep = switchSettingsStep;
 
   let currentEventStep = 1;
-  const totalEventSteps = 4;
+  const totalEventSteps = 3;
 
   function setEventWizardStep(step) {
     if (step < 1) step = 1;
@@ -2678,9 +2914,8 @@
         nextBtn.style.display = 'inline-flex';
         const nextLabels = [
           '',
-          'ถัดไป: ผังเวที & สไตล์ →',
-          'ถัดไป: ราคา & โควตา →',
-          'ถัดไป: แบบจำลอง & รายการ →'
+          'ถัดไป: โซน & ราคา →',
+          'ถัดไป: ตรวจผัง & บันทึก →'
         ];
         nextBtn.textContent = nextLabels[step] || 'ถัดไป →';
       } else {
@@ -2688,7 +2923,7 @@
       }
     }
 
-    if (step === 4 && typeof renderVenueSimulator === 'function') {
+    if (step === totalEventSteps && typeof renderVenueSimulator === 'function') {
       renderVenueSimulator();
     }
   }
@@ -2901,7 +3136,7 @@
         if (localCache && localCache.slipVerifyApiKey) {
           synced.slipVerifyApiKey = localCache.slipVerifyApiKey;
         }
-        localStorage.setItem('stagepass_admin_settings', JSON.stringify(synced));
+        saveAdminSettingsCache(synced);
       } catch (_) {}
     } catch {
       if (localCache) {
@@ -2960,7 +3195,7 @@
         slipVerifyApiKey: slipVerifyApiKey || prev.slipVerifyApiKey || '',
         hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey)
       };
-      localStorage.setItem('stagepass_admin_settings', JSON.stringify(updated));
+      saveAdminSettingsCache(updated);
       const statusEl = $('settingsAutoSaveStatus');
       if (statusEl) {
         statusEl.innerHTML = '<span>✓</span> จำการตั้งค่าชั่วคราวแล้ว';
@@ -3232,7 +3467,7 @@
           hasSlipVerifyApiKey: Boolean(slipVerifyApiKey || prev.slipVerifyApiKey || data.hasSlipVerifyApiKey),
           hasLineToken: Boolean(data.hasLineToken || token || prev.hasLineToken)
         };
-        localStorage.setItem('stagepass_admin_settings', JSON.stringify(cacheObj));
+        saveAdminSettingsCache(cacheObj);
       } catch (_) {}
 
       // Keep modal open and give prominent, reassuring feedback so nothing "disappears"
@@ -3675,19 +3910,44 @@
     }
   }
 
+  function pickSlipImageForTest() {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/jpeg,image/png,image/webp';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      let done = false;
+      const finish = (val) => { if (done) return; done = true; input.remove(); resolve(val); };
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) return finish(null);
+        const reader = new FileReader();
+        reader.onload = () => finish(String(reader.result || ''));
+        reader.onerror = () => finish(null);
+        reader.readAsDataURL(file);
+      });
+      window.addEventListener('focus', () => setTimeout(() => { if (!input.files || !input.files.length) finish(null); }, 800), { once: true });
+      input.click();
+    });
+  }
+
   async function testSlipVerification() {
     const statusEl = $('slipTestStatus');
+    const slipData = await pickSlipImageForTest();
     if (statusEl) {
       statusEl.hidden = false;
       statusEl.style.color = 'var(--color-accent)';
-      statusEl.textContent = '⏳ กำลังทดสอบระบบตรวจสลิป...';
+      statusEl.textContent = slipData
+        ? '⏳ กำลังส่งสลิปไปตรวจ...'
+        : '⏳ ไม่ได้เลือกรูปสลิป จะทดสอบแค่การเชื่อมต่อ...';
     }
 
     try {
       const res = await fetch('/api/admin/slip/test', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ amount: 3600 })
+        body: JSON.stringify(slipData ? { slipData, amount: 0 } : { amount: 3600 })
       });
       const data = await res.json();
       if (statusEl) {
@@ -3920,16 +4180,16 @@
       if (zType === 'seated') {
         unit = 'ที่นั่ง';
       } else if (zType === 'standing') {
-        unit = 'คน/ใบ';
+        unit = 'ใบ';
       }
 
-      if (labelEl) labelEl.textContent = `${labelPrefix} (${typeNames[zType] || unit})`;
-      if (priceLabelEl) priceLabelEl.textContent = `ราคา/${unit} (THB)`;
-      if (quotaLabelEl) quotaLabelEl.textContent = `โควตา (${unit})`;
+      if (labelEl) labelEl.textContent = labelPrefix;
+      if (priceLabelEl) priceLabelEl.textContent = `/${unit}`;
+      if (quotaLabelEl) quotaLabelEl.textContent = unit;
       return `${code}:${typeNames[zType] || unit}`;
     };
 
-    const zVip = formatZoneItem('vip', '👑 โซน VIP', 'Vip');
+    const zVip = formatZoneItem('vip', '👑 VIP', 'Vip');
     const zA = formatZoneItem('a', '🥇 โซน A', 'A');
     const zB = formatZoneItem('b', '🥈 โซน B', 'B');
     const zC = formatZoneItem('c', '🥉 โซน C', 'C');
@@ -3948,7 +4208,55 @@
       }
     }
 
+    syncEventChoiceChips();
+    updateZoneSummary();
     renderVenueSimulator();
+  }
+
+  // ปุ่มเลือกแบบเวที / แบบขายบัตร (แทน dropdown) — ซิงก์กับ select ที่ซ่อนไว้
+  function syncEventChoiceChips() {
+    document.querySelectorAll('#eventManagerModal .evs-chips[data-target]').forEach((group) => {
+      const sel = $(group.dataset.target);
+      const val = sel ? sel.value : '';
+      group.querySelectorAll('.evs-chip').forEach((chip) => {
+        const on = chip.dataset.value === val;
+        chip.classList.toggle('is-on', on);
+        chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    });
+    const seatingType = $('evSeatingType') ? $('evSeatingType').value : 'table';
+    const table = $('evZoneTable');
+    if (table) table.classList.toggle('is-hybrid', seatingType === 'hybrid');
+    const anyTable = ['Vip', 'A', 'B', 'C'].some((c) => ($(`evZoneType${c}`) || {}).value === 'table');
+    if ($('evSeatsPerTableRow')) $('evSeatsPerTableRow').style.display = anyTable ? 'flex' : 'none';
+  }
+
+  function updateZoneSummary() {
+    const box = $('evZoneSummary');
+    if (!box) return;
+    const units = { table: 'โต๊ะ', seated: 'ที่นั่ง', standing: 'ใบ' };
+    const totals = {};
+    const prices = [];
+    ['Vip', 'A', 'B', 'C'].forEach((c) => {
+      const type = ($(`evZoneType${c}`) || {}).value || 'table';
+      const q = Number(($(`evQuota${c}`) || {}).value) || 0;
+      const p = Number(($(`evPrice${c}`) || {}).value) || 0;
+      totals[type] = (totals[type] || 0) + q;
+      if (p > 0) prices.push(p);
+    });
+    const parts = Object.keys(totals).filter((t) => totals[t] > 0)
+      .map((t) => `${totals[t].toLocaleString('th-TH')} ${units[t] || ''}`);
+    let txt = `รวมขายได้ <b>${parts.join(' + ') || '0'}</b>`;
+    if ((totals.table || 0) > 0) {
+      const spt = Number(($('evSeatsPerTable') || {}).value) || 4;
+      txt += ` <span class="text-muted">(≈ ${(totals.table * spt).toLocaleString('th-TH')} คนจากโต๊ะ)</span>`;
+    }
+    if (prices.length) {
+      const lo = Math.min(...prices).toLocaleString('th-TH');
+      const hi = Math.max(...prices).toLocaleString('th-TH');
+      txt += ` · ราคา <b>${lo === hi ? lo : lo + ' – ' + hi}</b> บาท`;
+    }
+    box.innerHTML = txt;
   }
 
   function renderVenueSimulator() {
@@ -4099,16 +4407,16 @@
         <!-- Seating/Tables Layout by Zone (เหมือนหน้าจองจริงแบบแรก) -->
         <div class="seating-grid-container" style="max-height:280px; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:12px;">
           <!-- VIP Zone -->
-          ${renderZoneItems('VIP', zTypeVip, 6, '', [3], pVip, qVip, 'badge-primary', '👑', zTypeVip === 'table' ? `โต๊ะหน้าเวที (${seatsPerTable} ที่นั่ง/โต๊ะ)` : 'หน้าสุดติดเวที')}
+          ${renderZoneItems('VIP', zTypeVip, 6, '', [], pVip, qVip, 'badge-primary', '👑', zTypeVip === 'table' ? `โต๊ะหน้าเวที (${seatsPerTable} ที่นั่ง/โต๊ะ)` : 'หน้าสุดติดเวที')}
 
           <!-- Zone A -->
-          ${renderZoneItems('A', zTypeA, 16, 'A', [1, 2, 7, 8], pA, qA, 'badge-accent', '🥇', zTypeA === 'table' ? 'โต๊ะแถวหน้า' : 'ที่นั่งแถวหน้า')}
+          ${renderZoneItems('A', zTypeA, 16, 'A', [], pA, qA, 'badge-accent', '🥇', zTypeA === 'table' ? 'โต๊ะแถวหน้า' : 'ที่นั่งแถวหน้า')}
 
           <!-- Zone B -->
-          ${renderZoneItems('B', zTypeB, 16, 'B', [4, 5, 11], pB, qB, 'badge-accent', '🥈', zTypeB === 'table' ? 'โต๊ะแถวกลาง' : 'ที่นั่งแถวกลาง')}
+          ${renderZoneItems('B', zTypeB, 16, 'B', [], pB, qB, 'badge-accent', '🥈', zTypeB === 'table' ? 'โต๊ะแถวกลาง' : 'ที่นั่งแถวกลาง')}
 
           <!-- Zone C -->
-          ${renderZoneItems('C', zTypeC, 20, 'C', [2, 8, 9, 15, 16], pC, qC, 'badge-accent', '🥉', zTypeC === 'table' ? 'โต๊ะชั้นบน/ริม' : 'ที่นั่งชั้นบน')}
+          ${renderZoneItems('C', zTypeC, 20, 'C', [], pC, qC, 'badge-accent', '🥉', zTypeC === 'table' ? 'โต๊ะชั้นบน/ริม' : 'ที่นั่งชั้นบน')}
         </div>
       </div>
     `;
@@ -4120,6 +4428,7 @@
     $('evVenueInput').value = '';
     $('evDateInput').value = '';
     $('evPriceRangeInput').value = '1,800 - 6,500 THB';
+    if ($('evCategory')) $('evCategory').value = 'world';
     if ($('evImageInput')) $('evImageInput').value = '';
     if ($('evImageFileInput')) $('evImageFileInput').value = '';
     if ($('evImagePreviewWrap')) $('evImagePreviewWrap').style.display = 'none';
@@ -4316,6 +4625,7 @@
     const zoneTypeB = $('evZoneTypeB') ? $('evZoneTypeB').value : 'table';
     const zoneTypeC = $('evZoneTypeC') ? $('evZoneTypeC').value : 'table';
     const image = $('evImageInput') ? $('evImageInput').value.trim() : '';
+    const category = $('evCategory') ? $('evCategory').value : undefined;
 
     if (!title || !venue || !date) {
       window.UI.toast('กรุณากรอกชื่อคอนเสิร์ต สถานที่ และวันที่แสดงให้ครบถ้วน', 'error');
@@ -4332,7 +4642,7 @@
           quotaVip, quotaA, quotaB, quotaC,
           priceVip, priceA, priceB, priceC,
           stageLayout, seatingType, zoneTypeVip, zoneTypeA, zoneTypeB, zoneTypeC, seatsPerTable,
-          image
+          image, category
         })
       });
       if (!res.ok) {
@@ -4673,13 +4983,11 @@
     });
     if ($('fillAdminPinBtn')) {
       $('fillAdminPinBtn').addEventListener('click', () => {
-        $('adminPinInput').value = '123456';
         $('adminPinInput').focus();
       });
     }
     if ($('fillStaffPinBtn')) {
       $('fillStaffPinBtn').addEventListener('click', () => {
-        $('adminPinInput').value = '888888';
         $('adminPinInput').focus();
       });
     }
@@ -4738,7 +5046,7 @@
       $('btnToggleGateVoice').addEventListener('click', toggleGateVoice);
     }
     if ($('btnDownloadOfflineRoster')) {
-      $('btnDownloadOfflineRoster').addEventListener('click', downloadOfflineRoster);
+      $('btnDownloadOfflineRoster').addEventListener('click', () => downloadOfflineRoster(false));
     }
     if ($('btnSyncOfflineQueue')) {
       $('btnSyncOfflineQueue').addEventListener('click', syncOfflineQueue);
@@ -4765,10 +5073,14 @@
       const chip = e.target.closest('[data-scan-ref]');
       if (!chip) return;
       $('scanCodeInput').value = chip.dataset.scanPayload || `THAITICKET|${chip.dataset.scanRef}`;
-      submitCheckIn();
+      submitCheckIn('chip');
     });
     if ($('testTamperedQrBtn')) {
-      $('testTamperedQrBtn').addEventListener('click', testTamperedQrScan);
+      $('testTamperedQrBtn').addEventListener('click', async () => {
+        const typed = $('scanCodeInput').value.trim();
+        await testTamperedQrScan();
+        clearScanCode(typed);
+      });
     }
 
     if ($('openEventManagerBtn')) {
@@ -4837,6 +5149,20 @@
     if ($('evSeatsPerTable')) {
       $('evSeatsPerTable').addEventListener('input', updateSeatingLabelsAndBadge);
     }
+    document.querySelectorAll('#eventManagerModal .evs-chips[data-target]').forEach((group) => {
+      group.addEventListener('click', (e) => {
+        const chip = e.target.closest('.evs-chip');
+        const sel = $(group.dataset.target);
+        if (!chip || !sel || sel.value === chip.dataset.value) return;
+        sel.value = chip.dataset.value;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+    ['evPriceVip', 'evPriceA', 'evPriceB', 'evPriceC', 'evQuotaVip', 'evQuotaA', 'evQuotaB', 'evQuotaC'].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('input', updateZoneSummary);
+    });
+    updateSeatingLabelsAndBadge();
     if ($('adminEventsList')) {
       $('adminEventsList').addEventListener('click', (e) => {
         const delBtn = e.target.closest('[data-delete-event-id]');
@@ -4854,6 +5180,11 @@
         $('evVenueInput').value = ev.venue;
         $('evDateInput').value = ev.date;
         $('evPriceRangeInput').value = ev.priceRange;
+        if ($('evCategory')) {
+          const known = [...$('evCategory').options].some((o) => o.value === ev.category);
+          if (!known && ev.category) $('evCategory').add(new Option(ev.category, ev.category));
+          $('evCategory').value = ev.category || 'world';
+        }
         $('evQuotaVip').value = String(ev.quotaVip);
         $('evQuotaA').value = String(ev.quotaA);
         $('evQuotaB').value = String(ev.quotaB);

@@ -349,12 +349,12 @@
       <div class="ticket-header-strip">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="color:#B40000; font-weight:800; font-size:12px;">STAGE PASS E-TICKET</span>
-          <span class="status-badge is-ready" id="ticketStatusBadge">🟢 พร้อมสแกนเข้างาน</span>
+          <span class="status-badge" id="ticketStatusBadge">กำลังตรวจสอบบัตร...</span>
         </div>
-        <h1 class="event-title" id="ticketEventTitle">ECHOES OF ASIA WORLD TOUR 2026</h1>
+        <h1 class="event-title" id="ticketEventTitle">กำลังโหลดบัตร...</h1>
         <div class="event-meta">
-          <span id="ticketEventDate">📅 14 - 15 พฤศจิกายน 2026</span>
-          <span id="ticketEventVenue">📍 อิมแพ็ค อารีน่า เมืองทองธานี</span>
+          <span id="ticketEventDate"></span>
+          <span id="ticketEventVenue"></span>
         </div>
       </div>
 
@@ -363,7 +363,7 @@
           <div id="ticketQrElement"></div>
         </div>
         <div class="booking-ref-title">รหัสการจองบัตร (BOOKING REF)</div>
-        <div class="booking-ref-value" id="ticketRefValue">TT1001-A1</div>
+        <div class="booking-ref-value" id="ticketRefValue">-</div>
         <div class="qr-instruction" id="ticketQrInstruction">📷 ยื่นหน้าจอนี้ให้เจ้าหน้าที่สแกน ณ ประตูทางเข้า</div>
       </div>
 
@@ -394,7 +394,7 @@
         </div>
         <div class="detail-item" style="grid-column: 1 / -1;">
           <small>ลายเซ็นดิจิทัล (HMAC-SHA256)</small>
-          <strong id="ticketSignature" style="font-family:monospace; font-size:11px; color:#A0AEC0;">SIG:VERIFIED</strong>
+          <strong id="ticketSignature" style="font-family:monospace; font-size:11px; color:#A0AEC0;">-</strong>
         </div>
       </div>
     </div>
@@ -418,13 +418,13 @@
     </div>
   </main>
 
-  <script src="js/vendor/qrcode.js"></script>
-  <script src="js/ticket-store.js?v=20261122_ticketfind"></script>
+  <script src="js/vendor/qrcode.js?v=20261125_utf8"></script>
+  <script src="js/ticket-store.js?v=20261123_secfix"></script>
   <script src="js/ticket-renderer.js"></script>
   <script>
     (function () {
       const urlParams = new URLSearchParams(window.location.search);
-      const ref = (urlParams.get('ref') || 'TT1001-DEMO').trim();
+      const ref = (urlParams.get('ref') || '').trim();
 
       // Dynamic Token Ticker
       function computeLiveToken(refStr, slot) {
@@ -458,33 +458,45 @@
       }
       startTicker();
 
+      function hidePass() {
+        document.getElementById('qrFrame').style.display = 'none';
+        document.getElementById('ticketGate').textContent = '-';
+        document.getElementById('btnSaveTicket').style.display = 'none';
+        const live = document.querySelector('.live-pass-header');
+        if (live && live.parentElement) live.parentElement.style.display = 'none';
+      }
+
+      function showNotFound() {
+        document.getElementById('ticketEventTitle').textContent = 'ไม่พบบัตรนี้';
+        document.getElementById('ticketEventDate').textContent = 'กรุณาตรวจสอบรหัสการจอง หรือเปิดบัตรจากข้อความใน LINE อีกครั้ง';
+        document.getElementById('ticketEventVenue').textContent = '';
+        document.getElementById('ticketStatusBadge').textContent = '⚪ ไม่พบบัตร';
+        document.getElementById('ticketRefValue').textContent = ref || '-';
+        document.getElementById('ticketQrInstruction').textContent = 'ไม่มี QR สำหรับรหัสนี้';
+        document.getElementById('qrFrame').style.display = 'none';
+        document.getElementById('ticketGate').textContent = '-';
+        document.getElementById('btnSaveTicket').style.display = 'none';
+        const live = document.querySelector('.live-pass-header');
+        if (live && live.parentElement) live.parentElement.style.display = 'none';
+      }
+
       async function loadTicket() {
         let ticket = null;
         try {
+          if (!ref) throw new Error('no ref');
           const res = await fetch(`/api/orders/${encodeURIComponent(ref)}`);
           const data = await res.json();
           if (data && data.order) ticket = data.order;
         } catch {}
 
-        if (!ticket) {
+        if (!ticket && ref) {
           ticket = window.TicketStore ? window.TicketStore.get(ref) : null;
         }
 
+        // No such booking: say so. Never draw a made-up ticket.
         if (!ticket) {
-          ticket = {
-            ref: ref,
-            title: 'ECHOES OF ASIA WORLD TOUR 2026',
-            date: '14 - 15 พฤศจิกายน 2026',
-            venue: 'อิมแพ็ค อารีน่า เมืองทองธานี',
-            zone: 'VIP Standing',
-            qty: 1,
-            seats: ['A1'],
-            holderName: 'คุณผู้ถือบัตร',
-            holderPhone: '081-xxx-xxxx',
-            holderIdCard: '1-1004-xxxxx-xx-3',
-            qrSignature: 'OFFICIAL_PASS',
-            status: 'approved'
-          };
+          showNotFound();
+          return;
         }
 
         renderTicket(ticket);
@@ -511,6 +523,18 @@
         document.getElementById('ticketSignature').textContent = `SIG:${t.qrSignature || 'VERIFIED'}`;
 
         const badge = document.getElementById('ticketStatusBadge');
+        // Only an approved order is a ticket: anything else gets its status, no QR and no save button.
+        if (t.status !== 'approved') {
+          const rejected = t.status === 'rejected';
+          badge.className = 'status-badge';
+          badge.textContent = rejected ? '🔴 ถูกปฏิเสธ / รอคืนเงิน' : '🟠 รอตรวจสลิป';
+          document.getElementById('ticketQrInstruction').textContent = rejected
+            ? 'รายการนี้ใช้เข้างานไม่ได้ กรุณาติดต่อทีมงานพร้อมรหัสการจอง'
+            : 'QR จะแสดงที่นี่เมื่อทีมงานตรวจสลิปผ่านแล้ว';
+          document.getElementById('ticketSignature').textContent = '-';
+          hidePass();
+          return;
+        }
         if (t.checkedInAt) {
           badge.className = 'status-badge is-checked';
           badge.textContent = `🔵 เข้างานแล้ว (${new Date(t.checkedInAt).toLocaleTimeString('th-TH')} น.)`;

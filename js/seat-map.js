@@ -32,7 +32,7 @@
         zone: 'VIP Standing',
         zoneCode: 'VIP',
         price: 6500,
-        occupied: ['VIP-03', 'VIP-04', 'VIP-09'].includes(id),
+        occupied: false,
         heldByOther: false
       };
     }),
@@ -46,7 +46,7 @@
         zone: 'Zone A (บัตรนั่ง)',
         zoneCode: 'A',
         price: 4500,
-        occupied: ['A-01', 'A-02', 'A-07', 'A-08'].includes(id),
+        occupied: false,
         heldByOther: false
       };
     }),
@@ -60,7 +60,7 @@
         zone: 'Zone B (บัตรนั่ง)',
         zoneCode: 'B',
         price: 3200,
-        occupied: ['B-04', 'B-05', 'B-11'].includes(id),
+        occupied: false,
         heldByOther: false
       };
     }),
@@ -74,7 +74,7 @@
         zone: 'Zone C (ชั้นบน)',
         zoneCode: 'C',
         price: 1800,
-        occupied: ['C-02', 'C-08', 'C-09', 'C-15', 'C-16'].includes(id),
+        occupied: false,
         heldByOther: false
       };
     })

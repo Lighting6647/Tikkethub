@@ -16,6 +16,10 @@
   let activeBankName = '';
   let cachedQrCardDataUrl = '';
   let cachedQrCardBlob = null;
+  // Slip pre-check: idle | checking | passed | warn | blocked | unchecked (the server always decides again)
+  let slipCheck = { state: 'idle', message: '' };
+  let slipCheckToken = 0;
+  let jsQrLoader = null;
 
   function setStep(step) {
     document.querySelectorAll('#paymentModal [data-step]').forEach((el) => {
@@ -223,6 +227,8 @@
 
   function clearSlip() {
     slipFile = null;
+    slipCheckToken++;
+    slipCheck = { state: 'idle', message: '' };
     if (slipUrl) URL.revokeObjectURL(slipUrl);
     slipUrl = null;
     const input = $('slipFileInput') || $('slipInput');
@@ -297,11 +303,122 @@
     }
 
     updateConfirmState();
-    if (window.UI && window.UI.toast) window.UI.toast('แนบสลิปเรียบร้อยแล้ว');
+    void runSlipCheck(file);
+  }
+
+  function loadJsQr() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    if (!jsQrLoader) {
+      jsQrLoader = new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = 'js/vendor/jsQR.js';
+        s.onload = () => resolve(window.jsQR || null);
+        s.onerror = () => {
+          jsQrLoader = null;
+          resolve(null);
+        };
+        document.head.appendChild(s);
+      });
+    }
+    return jsQrLoader;
+  }
+
+  // true = QR found, false = none found, null = could not look (no jsQR / unreadable image)
+  async function slipHasQr(dataUrl) {
+    const jsQR = await loadJsQr();
+    if (!jsQR) return null;
+    const img = await new Promise((resolve) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => resolve(null);
+      i.src = dataUrl;
+    });
+    if (!img || !img.naturalWidth) return null;
+    // Slip QR codes are small: try a few sizes before saying there is none.
+    for (const target of [1280, 800, 1800]) {
+      const scale = Math.min(target / Math.max(img.naturalWidth, img.naturalHeight), 2);
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return null;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      if (jsQR(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height)) return true;
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    return false;
+  }
+
+  function setSlipCheck(state, message) {
+    slipCheck = { state, message };
+    const badge = $('slipStatusBadge');
+    if (badge) {
+      badge.textContent = {
+        checking: '⏳ กำลังตรวจสลิป',
+        passed: '🟢 ตรวจสลิปผ่าน',
+        warn: '🟠 มีจุดที่ต้องตรวจ',
+        blocked: '🔴 ใช้รูปนี้ไม่ได้',
+        unchecked: '⚪ ยังไม่ได้ตรวจ'
+      }[state] || '';
+    }
+    const errEl = $('slipError');
+    if (errEl) errEl.textContent = state === 'blocked' || state === 'warn' ? message : '';
+    updateConfirmState();
+  }
+
+  async function runSlipCheck(file) {
+    const token = ++slipCheckToken;
+    const stale = () => token !== slipCheckToken;
+    setSlipCheck('checking', 'กำลังตรวจสลิป...');
+    let hasQr = null;
+    try {
+      const slipData = await compressImage(file);
+      if (stale()) return;
+      if (!slipData || !slipData.startsWith('data:image/')) {
+        setSlipCheck('blocked', 'อ่านไฟล์สลิปไม่ได้ กรุณาแคปหน้าจอสลิปเป็นไฟล์ JPG/PNG แล้วแนบใหม่');
+        return;
+      }
+      hasQr = await slipHasQr(slipData);
+      if (stale()) return;
+      const errEl = $('slipError');
+      if (hasQr === false && errEl) errEl.textContent = 'ไม่พบ QR ในรูปนี้ อาจไม่ใช่สลิปโอนเงิน กำลังตรวจกับระบบตรวจสลิป...';
+
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = ctl ? setTimeout(() => ctl.abort(), 15000) : null;
+      let data;
+      try {
+        const res = await fetch('/api/slips/precheck', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slipData, amount: order ? order.total : 0 }),
+          signal: ctl ? ctl.signal : undefined
+        });
+        data = await res.json();
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+      if (stale()) return;
+      if (data && data.status === 'passed') {
+        setSlipCheck('passed', data.message);
+        return;
+      }
+      if (data && data.status === 'failed') {
+        const block = data.code === 'NOT_A_SLIP' || data.code === 'DUPLICATE';
+        setSlipCheck(block ? 'blocked' : 'warn', block ? data.message : `${data.message} ถ้ามั่นใจว่าโอนถูกต้อง ส่งให้แอดมินตรวจได้`);
+        return;
+      }
+    } catch (e) {
+      /* pre-check unavailable: never blocks the customer, the server checks again */
+    }
+    if (stale()) return;
+    if (hasQr === false) setSlipCheck('warn', 'ไม่พบ QR ในรูปนี้ อาจไม่ใช่สลิปโอนเงิน กรุณาตรวจสอบก่อนส่ง แอดมินจะตรวจอีกครั้ง');
+    else setSlipCheck('unchecked', 'ยังไม่ได้ตรวจสลิป ส่งให้แอดมินตรวจได้');
   }
 
   function updateConfirmState() {
-    const ready = !!slipFile && !isExpired();
+    const ready = !!slipFile && !isExpired() && slipCheck.state !== 'checking' && slipCheck.state !== 'blocked';
     const btn = $('payConfirmBtn');
     if (btn) btn.disabled = !ready;
     const hint = $('payConfirmHint');
@@ -309,7 +426,7 @@
       hint.textContent = isExpired()
         ? 'QR หมดอายุ กรุณาสร้าง QR ใหม่'
         : slipFile
-          ? 'พร้อมส่งสลิปให้แอดมินตรวจสอบ'
+          ? slipCheck.message || 'พร้อมส่งสลิปให้แอดมินตรวจสอบ'
           : 'แนบสลิปเพื่อยืนยันการชำระเงิน';
     }
   }
@@ -363,7 +480,7 @@
   }
 
   async function confirmPayment() {
-    if (!slipFile || isExpired()) return;
+    if (!slipFile || isExpired() || slipCheck.state === 'checking' || slipCheck.state === 'blocked') return;
     clearInterval(timerId);
     setStep('verifying');
 
@@ -422,7 +539,7 @@
         })
       });
 
-      updateUploadStage(3, 85, 'ระบบ AI กำลังตรวจสอบความถูกต้องและยอดเงิน...');
+      updateUploadStage(3, 85, 'กำลังตรวจสอบสลิปและยอดเงิน...');
       let data = null;
       try {
         data = await res.json();
